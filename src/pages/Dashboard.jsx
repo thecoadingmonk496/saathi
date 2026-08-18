@@ -142,9 +142,8 @@ export default function Dashboard({ onVoiceStart, voiceAssistantResponse }) {
   };
 
   return (
-    <div className="relative min-h-screen pb-14 text-slate-900">
-      <div className="pointer-events-none 
-      fixed inset-0 z-0 bg-[rgba(5,30,22,0.20)]" />
+    <div className="relative min-h-screen bg-transparent pb-14 text-slate-900">
+      <div className="pointer-events-none fixed inset-0 z-0 bg-transparent" />
       <section className="relative flex min-h-[560px] items-center px-4 pb-28 pt-40 sm:px-6 sm:pt-32 lg:min-h-[610px] lg:px-8 lg:pb-36 lg:pt-28">
         {/* Seamless bottom fade — eliminates any visible seam between hero and content */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/60 to-transparent" />
@@ -247,25 +246,25 @@ export default function Dashboard({ onVoiceStart, voiceAssistantResponse }) {
 
 function ServiceCard({ accent, icon: Icon, title, body, action, onOpen }) {
   const accents = {
-    green: 'bg-emerald-50 text-emerald-800 border-emerald-100',
-    amber: 'bg-amber-50 text-amber-800 border-amber-100',
-    blue: 'bg-sky-50 text-sky-800 border-sky-100',
+    green: 'bg-slate-100 text-slate-800 border-slate-200',
+    amber: 'bg-slate-100 text-slate-800 border-slate-200',
+    blue: 'bg-slate-100 text-slate-800 border-slate-200',
     slate: 'bg-slate-100 text-slate-800 border-slate-200',
   };
 
   return (
-<article className="group flex min-h-[210px] flex-col rounded-lg border border-white/80 bg-[rgba(255,253,246,0.70)] p-5 shadow-xl shadow-black/10 backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-[#c9b88f] hover:bg-[rgba(255,253,246,0.82)] hover:shadow-2xl">
+    <article className="group flex min-h-[210px] flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
       <span className={`flex h-11 w-11 items-center justify-center rounded-md border ${accents[accent] || accents.green}`}>
         <Icon className="h-6 w-6" />
       </span>
-      <h3 className="mt-5 text-xl font-semibold leading-7 text-[#173f2e]">
+      <h3 className="mt-5 text-xl font-semibold leading-7 text-slate-900">
         {title}
       </h3>
       <p className="mt-3 flex-1 text-sm leading-6 text-slate-600">
         {body}
       </p>
       <button
-        className="mt-5 inline-flex min-h-10 items-center justify-between gap-3 rounded-md border border-[#cdbf9e] bg-[#fffdf6] px-3 text-sm font-semibold text-[#173f2e] transition hover:border-[#174532] hover:bg-[#eef5ef] focus:outline-none focus:ring-4 focus:ring-emerald-100"
+        className="mt-5 inline-flex min-h-10 items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-slate-200"
         type="button"
         onClick={onOpen}
       >
@@ -278,21 +277,21 @@ function ServiceCard({ accent, icon: Icon, title, body, action, onOpen }) {
 
 function TodayMarket({ lastUpdated, preferredLanguage, rows, regionText, onOpen, t }) {
   return (
-    <section className="rounded-lg border border-white/80 bg-[rgba(255,253,246,0.90)] p-5 shadow-xl shadow-black/10 backdrop-blur-sm sm:p-6">
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             {t('dashboard.priceSource')}
           </p>
-          <h3 className="mt-1 text-2xl font-semibold text-[#173f2e]">
+          <h3 className="mt-1 text-2xl font-semibold text-slate-900">
             {t('dashboard.todayMarket')}
           </h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             {t('dashboard.region')}: {regionText}
           </p>
         </div>
-        <p className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2 text-xs font-semibold text-slate-600">
-          <ArrowPathIcon className="h-4 w-4 text-[#174532]" />
+        <p className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
+          <ArrowPathIcon className="h-4 w-4 text-slate-700" />
           {t('dashboard.lastUpdated')}: {formatTimestamp(lastUpdated, preferredLanguage)}
         </p>
       </div>
@@ -326,7 +325,7 @@ function TodayMarket({ lastUpdated, preferredLanguage, rows, regionText, onOpen,
       </div>
 
       <button
-        className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-md bg-[#07583f] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#064b36] focus:outline-none focus:ring-4 focus:ring-emerald-100"
+        className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-md bg-slate-800 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 focus:outline-none focus:ring-4 focus:ring-slate-200"
         type="button"
         onClick={onOpen}
       >
@@ -361,7 +360,7 @@ function LocationPanel({
       : t('dashboard.locationStatus.unavailable');
 
   return (
-    <aside className="rounded-lg border border-white/75 bg-[rgba(255,253,246,0.92)] p-5 text-slate-900 shadow-2xl shadow-black/15 backdrop-blur-sm">
+    <aside className="rounded-lg border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#f3ead7] text-[#835b12]">
           <MapPinIcon className="h-5 w-5" />
