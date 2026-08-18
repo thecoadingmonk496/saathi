@@ -70,7 +70,7 @@ export default function Layout({ children }) {
           enhancedChildren
         ) : (
           <div className="mx-auto max-w-6xl px-4 pt-28 sm:px-6 lg:pt-32">
-            <div className="rounded-3xl border border-white/80 bg-[#f4f5f0]/95 backdrop-blur-md p-6 sm:p-8 shadow-2xl text-slate-900">
+            <div className="rounded-3xl  bg-[#f4f5f0]/95 backdrop-blur-md p-6 sm:p-8 shadow-2xl text-slate-900">
               {enhancedChildren}
             </div>
           </div>
