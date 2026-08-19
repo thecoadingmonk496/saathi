@@ -144,26 +144,47 @@ export default function Dashboard({ onVoiceStart, voiceAssistantResponse }) {
   return (
     <div className="relative min-h-screen bg-transparent pb-14 text-slate-900">
       <div className="pointer-events-none fixed inset-0 z-0 bg-transparent" />
-      <main className="relative px-4 pb-16 pt-24 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-6">
-            <LocationPanel
-              addressText={addressText}
-              hasLocation={hasLocation}
-              isDeviceLocation={isDeviceLocation}
-              isManualOpen={isManualOpen}
-              loading={loading}
-              manualLocation={manualLocation}
-              onLocationRefresh={handleLocationRefresh}
-              onManualChange={setManualLocationText}
-              onManualSubmit={handleManualSubmit}
-              onToggleManual={() => setIsManualOpen((current) => !current)}
-              permissionStatus={permissionStatus}
-              source={source}
-              t={t}
-            />
+      <section className="relative flex min-h-[560px] items-center px-4 pb-28 pt-40 sm:px-6 sm:pt-32 lg:min-h-[610px] lg:px-8 lg:pb-36 lg:pt-28">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/60 to-transparent" />
+
+        <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.72fr] lg:items-end">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/20 bg-[#063f2a]/80 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-50 shadow-lg shadow-black/15 backdrop-blur-sm">
+              <CheckCircleIcon className="h-4 w-4" />
+              {t('dashboard.heroBadge')}
+            </div>
+
+            <h1 className="mt-6 max-w-3xl text-4xl font-semibold leading-tight tracking-normal text-white drop-shadow-[0_3px_12px_rgba(0,0,0,0.45)] sm:text-5xl lg:text-6xl">
+              {t('hero.headingLine1')} {t('hero.headingLine2')}
+            </h1>
+            <p className="mt-5 text-base font-semibold leading-7 text-[#fff5b8] drop-shadow-[0_2px_8px_rgba(0,0,0,0.40)] sm:text-xl">
+              {t('hero.tagline')}
+            </p>
+            <p className="mt-4 max-w-2xl text-base font-medium leading-8 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)] sm:text-lg">
+              {t('dashboard.sectionBody')}
+            </p>
           </div>
 
+          <LocationPanel
+            addressText={addressText}
+            hasLocation={hasLocation}
+            isDeviceLocation={isDeviceLocation}
+            isManualOpen={isManualOpen}
+            loading={loading}
+            manualLocation={manualLocation}
+            onLocationRefresh={handleLocationRefresh}
+            onManualChange={setManualLocationText}
+            onManualSubmit={handleManualSubmit}
+            onToggleManual={() => setIsManualOpen((current) => !current)}
+            permissionStatus={permissionStatus}
+            source={source}
+            t={t}
+          />
+        </div>
+      </section>
+
+      <main className="relative -mt-24 px-4 pb-16 sm:-mt-28 sm:px-6 lg:-mt-32 lg:px-8">
+        <div className="mx-auto max-w-7xl">
           <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4" aria-label="Core agricultural services">
             <ServiceCard
               accent="green"
