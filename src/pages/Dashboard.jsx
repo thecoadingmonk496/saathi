@@ -144,23 +144,23 @@ export default function Dashboard({ onVoiceStart, voiceAssistantResponse }) {
   return (
     <div className="relative min-h-screen bg-transparent pb-14 text-slate-900">
       <div className="pointer-events-none fixed inset-0 z-0 bg-transparent" />
-      <section className="relative flex min-h-[560px] items-center px-4 pb-28 pt-40 sm:px-6 sm:pt-32 lg:min-h-[610px] lg:px-8 lg:pb-36 lg:pt-28">
+      <section className="relative flex min-h-[560px] items-center px-4 pb-28 pt-36 sm:px-6 sm:pt-32 lg:min-h-[610px] lg:px-8 lg:pb-36 lg:pt-28">
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/60 to-transparent" />
 
         <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-8 lg:grid-cols-[1.1fr_0.72fr] lg:items-end">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/20 bg-[#063f2a]/80 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-50 shadow-lg shadow-black/15 backdrop-blur-sm">
+            <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-200/20 bg-[#063f2a]/80 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-emerald-50 shadow-lg shadow-black/15 backdrop-blur-sm sm:px-4 sm:text-xs">
               <CheckCircleIcon className="h-4 w-4" />
               {t('dashboard.heroBadge')}
             </div>
 
-            <h1 className="mt-6 max-w-3xl text-4xl font-semibold leading-tight tracking-normal text-white drop-shadow-[0_3px_12px_rgba(0,0,0,0.45)] sm:text-5xl lg:text-6xl">
+            <h1 className="mt-5 max-w-3xl text-[clamp(2rem,8vw,3rem)] font-semibold leading-[1.08] tracking-normal text-white drop-shadow-[0_3px_12px_rgba(0,0,0,0.45)] sm:mt-6 sm:text-5xl lg:text-6xl">
               {t('hero.headingLine1')} {t('hero.headingLine2')}
             </h1>
-            <p className="mt-5 text-base font-semibold leading-7 text-[#fff5b8] drop-shadow-[0_2px_8px_rgba(0,0,0,0.40)] sm:text-xl">
+            <p className="mt-4 text-base font-semibold leading-7 text-[#fff5b8] drop-shadow-[0_2px_8px_rgba(0,0,0,0.40)] sm:mt-5 sm:text-xl">
               {t('hero.tagline')}
             </p>
-            <p className="mt-4 max-w-2xl text-base font-medium leading-8 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)] sm:text-lg">
+            <p className="mt-3 max-w-2xl text-base font-medium leading-7 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)] sm:mt-4 sm:text-lg sm:leading-8">
               {t('dashboard.sectionBody')}
             </p>
           </div>
@@ -359,14 +359,14 @@ function LocationPanel({
       : t('dashboard.locationStatus.unavailable');
 
   return (
-    <aside className="rounded-lg border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
+    <aside className="rounded-lg border border-slate-200 bg-white p-4 text-slate-900 shadow-sm sm:p-5">
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#f3ead7] text-[#835b12]">
           <MapPinIcon className="h-5 w-5" />
         </span>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-[#174532]">{t('location.deviceSource')}</p>
-          <p className="mt-2 text-lg font-semibold leading-7 text-slate-900">
+          <p className="mt-2 break-words text-lg font-semibold leading-7 text-slate-900">
             {loading
               ? t('dashboard.locationStatus.loading')
               : hasLocation
@@ -385,9 +385,9 @@ function LocationPanel({
         </p>
       )}
 
-      <div className="mt-5 flex flex-wrap items-center gap-3 text-sm font-semibold">
+      <div className="mt-5 flex flex-col items-stretch gap-2 text-sm font-semibold sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
         <button
-          className="inline-flex items-center gap-2 rounded-md border border-[#b9c9bf] bg-white px-3 py-2 text-[#174532] transition hover:border-[#174532] hover:bg-[#eef5ef] focus:outline-none focus:ring-4 focus:ring-emerald-100"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-[#b9c9bf] bg-white px-3 py-2 text-[#174532] transition hover:border-[#174532] hover:bg-[#eef5ef] focus:outline-none focus:ring-4 focus:ring-emerald-100 sm:justify-start"
           type="button"
           onClick={onLocationRefresh}
         >
@@ -395,7 +395,7 @@ function LocationPanel({
           {t('location.refresh')}
         </button>
         <button
-          className="inline-flex items-center gap-2 rounded-md px-2 py-2 text-[#174532] transition hover:bg-[#eef5ef] focus:outline-none focus:ring-4 focus:ring-emerald-100"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-2 py-2 text-[#174532] transition hover:bg-[#eef5ef] focus:outline-none focus:ring-4 focus:ring-emerald-100 sm:justify-start"
           type="button"
           onClick={onToggleManual}
         >

@@ -46,7 +46,7 @@ export default function PlatformTopNav({ preferredLanguage, user, onLanguageChan
         </div>
 
         {}
-        <nav className="w-full grid grid-cols-4 gap-1.5 sm:gap-2 lg:w-auto lg:flex lg:shrink-0 lg:items-center lg:justify-center lg:gap-2" aria-label="Main platform tabs">
+        <nav className="w-full grid grid-cols-4 gap-1 sm:gap-2 lg:w-auto lg:flex lg:shrink-0 lg:items-center lg:justify-center lg:gap-2" aria-label="Main platform tabs">
           {navItems.map((item) => (
             <TopNavItem key={item.path} item={item} />
           ))}
@@ -134,8 +134,7 @@ function TopNavItem({ item }) {
       }
     >
       <Icon className="h-4 w-4 shrink-0" />
-      <span className="whitespace-nowrap md:hidden">{item.mobileLabel}</span>
-      <span className="hidden whitespace-nowrap md:inline">{item.label}</span>
+      <span className="hidden whitespace-nowrap lg:inline">{item.label}</span>
     </NavLink>
   );
 }
