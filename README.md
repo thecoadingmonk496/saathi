@@ -70,38 +70,78 @@ The current application uses local mock data for market and buyer experiences. T
 
 The market service derives price ranges and trend values from the mock price history, while location-aware buyer and mandi results use the shared location context and distance calculations.
 
-## Getting Started
+## Setup & Run Instructions
 
-### Requirements
+### 1. Requirements
 
 - Node.js 18 or newer
-- pnpm, npm, or another Node package manager
+- pnpm or npm
+- Git, if you are cloning the repository
 
-### Install dependencies
+### 2. Clone the repository
+
+```bash
+git clone <repository-url>
+cd Saathi
+```
+
+### 3. Install dependencies
+
+Using pnpm:
 
 ```bash
 pnpm install
 ```
 
-### Start the development server
+Or using npm:
+
+```bash
+npm install
+```
+
+### 4. Run the project locally
+
+Using pnpm:
 
 ```bash
 pnpm dev
 ```
 
-The Vite server prints the local URL, usually `http://localhost:5173`.
+Or using npm:
 
-### Create a production build
+```bash
+npm run dev
+```
+
+Open the local URL printed by Vite, usually `http://localhost:5173`.
+
+### 5. Build and preview locally
+
+Create a production build:
 
 ```bash
 pnpm build
 ```
 
-### Preview the production build
+Or:
+
+```bash
+npm run build
+```
+
+Preview the production build locally:
 
 ```bash
 pnpm preview
 ```
+
+Or:
+
+```bash
+npm run preview
+```
+
+The demo login flow accepts a valid ten-digit Indian mobile number and OTP `123456`.
 
 ## Deployment
 
