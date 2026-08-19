@@ -2,6 +2,8 @@
 
 **Aapki Aawaz, Aapka Bazaar**
 
+**Live Website:** [https://saathi-umber.vercel.app/](https://saathi-umber.vercel.app/)
+
 SAATHI is a farmer-focused marketplace and information platform. It brings market prices, buyer discovery, crop journey information, government support, location services, and voice assistance together in one responsive web application.
 
 ## Project Overview
@@ -81,7 +83,7 @@ The market service derives price ranges and trend values from the mock price his
 ### 2. Clone the repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/thecoadingmonk496/saathi.git
 cd Saathi
 ```
 
