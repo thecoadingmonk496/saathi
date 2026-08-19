@@ -50,9 +50,9 @@ export default function Layout({ children }) {
         style={{ backgroundImage: "url('/saathi-hero-field.jpg')", backgroundPosition: 'center 60%' }}
       >
         {}
-        <div className="absolute inset-0 bg-black/65" />
-        <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/20 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/50 to-transparent" />
+        <div className="absolute inset-0 bg-black/25" />
+        <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/10 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/20 to-transparent" />
       </div>
 
       {}
