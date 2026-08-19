@@ -214,7 +214,7 @@ export default function BuyerDiscovery() {
       <header className="mb-6">
         <p className="text-xs font-extrabold uppercase tracking-widest text-[#2E7D32]">{t('buyer.tagline')}</p>
         <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">{t('buyer.title')}</h1>
-        <p className="mt-1 text-sm text-slate-500 font-medium">{t('buyer.pageSubtitle')}</p>
+        <p className="mt-1 text-sm font-semibold text-slate-700">{t('buyer.pageSubtitle')}</p>
 
         {}
         <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-green-50 border border-green-100 px-4 py-3">
@@ -235,7 +235,7 @@ export default function BuyerDiscovery() {
         </div>
 
         {}
-        <p className="mt-2 text-center text-xs font-medium text-slate-400">
+        <p className="mt-2 rounded-lg bg-white/65 py-1 text-center text-xs font-semibold text-slate-700 backdrop-blur-sm">
           📋 {t('buyer.demoNote')}
         </p>
       </header>
@@ -257,7 +257,7 @@ export default function BuyerDiscovery() {
 
         {}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1">{t('buyer.popularCrops')}</span>
+          <span className="mr-1 shrink-0 text-xs font-bold uppercase tracking-wider text-slate-700">{t('buyer.popularCrops')}</span>
           {popularCrops.map((crop) => (
             <button
               key={crop}
@@ -266,7 +266,7 @@ export default function BuyerDiscovery() {
               className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition border ${
                 selectedCrop === crop
                   ? 'bg-amber-100 text-amber-800 border-amber-300'
-                  : 'border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:text-amber-700'
+                  : 'border-slate-200 bg-white text-slate-800 hover:border-amber-200 hover:text-amber-700'
               }`}
             >
               {crop}
@@ -284,7 +284,7 @@ export default function BuyerDiscovery() {
               className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition border ${
                 selectedType === type
                   ? 'bg-[#2E7D32] text-white border-transparent'
-                  : 'border-slate-200 bg-white text-slate-600 hover:border-[#2E7D32] hover:text-[#2E7D32]'
+                  : 'border-slate-200 bg-white text-slate-800 hover:border-[#2E7D32] hover:text-[#2E7D32]'
               }`}
             >
               {type === 'All' ? t('buyer.allTypes') : type}
@@ -298,7 +298,7 @@ export default function BuyerDiscovery() {
             {t('buyer.buyerCount', { count: processedBuyers.length })} — {radius} km
           </p>
           <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
               <span className="hidden sm:inline">{t('buyer.radiusLabel')}:</span>
               <select
                 value={radius}
@@ -308,7 +308,7 @@ export default function BuyerDiscovery() {
                 {radiusOptions.map(r => <option key={r} value={r}>{r} km</option>)}
               </select>
             </label>
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
               <span className="hidden sm:inline">{t('buyer.sort')}:</span>
               <select
                 value={sortOrder}

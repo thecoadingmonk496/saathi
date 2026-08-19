@@ -345,7 +345,7 @@ export default function MarketExplorer({ onVoiceStart }) {
         <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
           {t('explorer.heading')}
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+        <p className="mt-2 max-w-2xl rounded-lg bg-white/65 px-3 py-2 text-sm font-medium leading-6 text-slate-800 backdrop-blur-sm">
           {t('explorer.subtitle')}
         </p>
       </header>
@@ -414,7 +414,7 @@ export default function MarketExplorer({ onVoiceStart }) {
       {!selectedProduct && !searchError && (
         <div className="mt-8 rounded-3xl border border-dashed border-green-200 bg-green-50/80 p-8 text-center">
           <p className="text-base font-bold text-slate-800">{t('explorer.emptyTitle')}</p>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-1 text-sm font-semibold text-slate-600">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-1 rounded-xl bg-white/65 px-3 py-2 text-sm font-semibold text-slate-800 backdrop-blur-sm">
             {t('explorer.emptyFlow').split('→').map((stage, i, arr) => (
               <span key={i} className="flex items-center gap-1">
                 <span className="rounded-lg bg-white border border-green-200 px-2 py-1 text-xs font-bold text-[#2E7D32]">

@@ -131,11 +131,11 @@ export default function MarketPrices() {
         </div>
 
         {}
-        <div className="mt-3 flex items-center gap-2 px-1">
+        <div className="mt-3 flex items-center gap-2 rounded-xl bg-white/75 px-3 py-2 shadow-sm backdrop-blur-sm">
           <span className="flex h-2.5 w-2.5 rounded-full bg-green-500"></span>
           <p className="text-sm font-semibold text-slate-700">{t('prices.marketUpdatedToday')}</p>
-          <span className="mx-2 text-slate-300">•</span>
-          <p className="text-xs text-slate-500">{t('prices.dataSource')}</p>
+          <span className="mx-2 text-slate-500">•</span>
+          <p className="text-xs font-medium text-slate-700">{t('prices.dataSource')}</p>
         </div>
       </header>
 
@@ -155,7 +155,7 @@ export default function MarketPrices() {
       </div>
 
       {}
-      <div className="-mx-4 flex overflow-x-auto border-b border-slate-200 px-4 sm:mx-0 sm:px-0 mb-6" role="tablist">
+      <div className="-mx-4 mb-6 flex overflow-x-auto rounded-xl border-b border-slate-300 bg-white/70 px-4 shadow-sm backdrop-blur-sm sm:mx-0 sm:px-0" role="tablist">
         {getPriceTabs(t).map((tab) => (
           <button
             key={tab}
@@ -166,7 +166,7 @@ export default function MarketPrices() {
             className={`shrink-0 border-b-2 px-5 py-3 text-base font-bold transition ${
               activeTab === tab
                 ? 'border-[#2E7D32] text-[#2E7D32]'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                : 'border-transparent text-slate-800 hover:border-slate-400 hover:text-slate-950'
             }`}
           >
             {tabLabels[tab] || tab}
