@@ -11,6 +11,10 @@ export default function Layout({ children }) {
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(location.pathname === '/ai');
   const [voiceAssistantResponse, setVoiceAssistantResponse] = useState('');
   const isDashboardPage = location.pathname === '/' || location.pathname === '/ai' || location.pathname === '/dashboard';
+  const isTransparentPage = isDashboardPage
+    || location.pathname === '/explorer'
+    || location.pathname === '/buyers'
+    || location.pathname === '/prices';
 
   useEffect(() => {
     setIsVoiceModalOpen(location.pathname === '/ai');
@@ -66,7 +70,7 @@ export default function Layout({ children }) {
 
       {}
       <main className="relative z-10 min-h-screen w-full pb-16">
-        {isDashboardPage ? (
+        {isTransparentPage ? (
           enhancedChildren
         ) : (
           <div className="mx-auto max-w-6xl px-4 pt-28 sm:px-6 lg:pt-32">
