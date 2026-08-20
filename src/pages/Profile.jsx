@@ -5,7 +5,7 @@ import { useLocationContext } from '../context/LocationContext';
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user, preferredLanguage, supportedLanguages, setLanguage, logout, t } = useUser();
+  const { user, preferredLanguage, supportedLanguages, setLanguage, updateUser, logout, t } = useUser();
   const { address, permissionStatus, requestLocation } = useLocationContext();
 
   const [profile, setProfile] = useState({
@@ -17,6 +17,7 @@ export default function Profile() {
     state: address?.state || 'Uttar Pradesh',
   });
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
 
   const updateProfileField = (event) => {
     const { name, value } = event.target;
@@ -26,6 +27,42 @@ export default function Profile() {
   const selectLanguage = (languageCode) => {
     setLanguage(languageCode);
     setIsLanguageModalOpen(false);
+  };
+
+  const handleSave = () => {
+    const name = profile.name.trim();
+    const mobile = profile.mobile.trim();
+
+    if (!name || !mobile) {
+      setSaveMessage('Name and mobile number are required.');
+      return;
+    }
+
+    const savedProfile = {
+      ...profile,
+      name,
+      mobile,
+      village: profile.village.trim(),
+      block: profile.block.trim(),
+      district: profile.district.trim(),
+      state: profile.state.trim(),
+    };
+
+    updateUser(savedProfile);
+    setProfile(savedProfile);
+    setSaveMessage('Changes saved successfully.');
+  };
+
+  const handleReset = () => {
+    setProfile({
+      name: user.name || 'Ramesh Kumar',
+      mobile: user.mobile || '6666666666',
+      village: user.village || address?.locality || 'Chakia',
+      block: user.block || address?.locality || 'Chakia',
+      district: user.district || address?.district || 'Chandauli',
+      state: user.state || address?.state || 'Uttar Pradesh',
+    });
+    setSaveMessage('Changes reset.');
   };
 
   const handleLogout = () => {
@@ -163,10 +200,11 @@ export default function Profile() {
 
       {}
       <div className="mt-12 flex flex-col sm:flex-row items-center gap-4 pt-8 border-t-2 border-slate-100/60">
-        <button className="w-full sm:w-auto bg-[#14532D] hover:bg-[#0f4021] text-white px-10 py-3.5 rounded-2xl font-extrabold text-base transition shadow-lg shadow-green-900/20">{t('profile.save')}</button>
-        <button className="w-full sm:w-auto bg-[#F7F3E8] hover:bg-[#e8e2d2] border-2 border-[#14532D] text-[#14532D] px-8 py-3.5 rounded-2xl font-extrabold text-base transition">
+        <button type="button" onClick={handleSave} className="w-full sm:w-auto bg-[#14532D] hover:bg-[#0f4021] text-white px-10 py-3.5 rounded-2xl font-extrabold text-base transition shadow-lg shadow-green-900/20">{t('profile.save')}</button>
+        <button type="button" onClick={handleReset} className="w-full sm:w-auto bg-[#F7F3E8] hover:bg-[#e8e2d2] border-2 border-[#14532D] text-[#14532D] px-8 py-3.5 rounded-2xl font-extrabold text-base transition">
           Reset
         </button>
+        {saveMessage && <p className="w-full text-center text-sm font-semibold text-[#14532D] sm:w-auto sm:text-left">{saveMessage}</p>}
         <div className="flex-1"></div>
         <button onClick={handleLogout} className="w-full sm:w-auto mt-4 sm:mt-0 text-red-600 hover:text-red-700 font-extrabold px-6 py-3.5 rounded-2xl hover:bg-red-50 transition border border-transparent hover:border-red-100">
           Sign Out

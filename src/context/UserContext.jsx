@@ -60,6 +60,14 @@ export function UserProvider({ children }) {
     localStorage.setItem('user', JSON.stringify(newUser));
   };
 
+  const updateUser = (userData) => {
+    setUser((currentUser) => {
+      const updatedUser = { ...currentUser, ...userData };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      return updatedUser;
+    });
+  };
+
   const logout = () => {
     localStorage.clear();
     setUser(defaultUser);
@@ -98,6 +106,7 @@ export function UserProvider({ children }) {
       supportedLanguages,
       t,
       login,
+      updateUser,
       logout,
       updateLocation,
       setLanguage,
