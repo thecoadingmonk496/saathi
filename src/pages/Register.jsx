@@ -1,237 +1,128 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import heroBg from '../assets/hero-bg.jpg';
 
+const initialForm = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  password: '',
+};
+
+const authApiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api/auth';
+
 export default function Register() {
   const navigate = useNavigate();
-  const { t, preferredLanguage, supportedLanguages, setLanguage } = useUser();
-  const [selectedTags, setSelectedTags] = useState([]);
+  const { login, preferredLanguage, supportedLanguages, setLanguage } = useUser();
+  const [form, setForm] = useState(initialForm);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Use the translation system to get the correct language code for the select dropdown
   const selectedLanguageCode = supportedLanguages?.find(
-    (option) => option.code === preferredLanguage || option.name === preferredLanguage
+    (option) => option.code === preferredLanguage || option.name === preferredLanguage,
   )?.code || 'hi';
 
-  const cropTags = [
-    { id: 'wheat', label: t('crop.wheat') || 'Wheat', icon: '🌾' },
-    { id: 'paddy', label: t('crop.paddy') || 'Paddy', icon: '🍚' },
-    { id: 'maize', label: t('crop.maize') || 'Maize', icon: '🌽' },
-    { id: 'potato', label: t('crop.potato') || 'Potato', icon: '🥔' },
-    { id: 'cotton', label: t('crop.cotton') || 'Cotton', icon: '🌿' },
-  ];
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setForm((current) => ({ ...current, [name]: value }));
+    setError('');
+  };
 
-  const toggleTag = (id) => {
-    if (selectedTags.includes(id)) {
-      setSelectedTags(selectedTags.filter((tId) => tId !== id));
-    } else {
-      setSelectedTags([...selectedTags, id]);
+  const handleRegister = async (event) => {
+    event.preventDefault();
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const response = await axios.post(`${authApiUrl}/register`, form);
+      const { token, user } = response.data;
+
+      localStorage.setItem('token', token);
+      login({
+        ...user,
+        name: `${user.firstName} ${user.lastName}`,
+        mobile: user.phone,
+      });
+      navigate('/');
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleRegister = (e) => {
-    e.preventDefault();
-    navigate('/login');
-  };
-
   return (
-    <div className="min-h-screen flex flex-col relative pb-12 overflow-x-hidden">
-      {/* FULL-SCREEN HERO BACKGROUND */}
-      <img
-        src={heroBg}
-        alt="Indian agricultural field with farmer"
-        className="fixed inset-0 w-full h-full object-cover object-center z-0"
-      />
+    <div className="relative flex min-h-screen flex-col overflow-x-hidden pb-8">
+      <img src={heroBg} alt="Indian agricultural field with farmer" className="fixed inset-0 z-0 h-full w-full object-cover" />
+      <div className="fixed inset-0 z-0 bg-black/30 backdrop-blur-sm" />
 
-      {/* SUBTLE DARK/GREEN OVERLAY */}
-      <div className="fixed inset-0 bg-[#042F24]/40 z-0 backdrop-blur-[1px]" />
-
-      {/* NAVBAR */}
-      <header className="relative z-10 bg-[#064E3B]/95 backdrop-blur-md text-white px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-lg border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="SAATHI Logo" className="w-10 h-10 rounded-full border-2 border-white/80 shadow-sm object-cover" />
-          <span className="text-xl font-extrabold tracking-wide">SAATHI</span>
-          <span className="hidden md:inline text-sm text-green-200 border-l border-green-700 pl-3 ml-2 italic font-medium">
-            "{t('hero.subtitle') || 'Aapki Aawaz, Aapka Bazaar, Aapka SAATHI.'}"
-          </span>
+      <header className="relative z-10 flex items-center justify-between border-b border-white/10 bg-[#064E3B]/95 px-4 py-3.5 text-white shadow-lg sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <img src="/logo.png" alt="SAATHI Logo" className="h-10 w-10 shrink-0 rounded-full border-2 border-white/80 object-cover shadow-sm" />
+          <div className="min-w-0">
+            <span className="block text-xl font-extrabold tracking-wide">SAATHI</span>
+            <span className="hidden truncate text-xs font-medium text-green-200 sm:block">Get the right price for your crop, from the right buyer</span>
+          </div>
         </div>
-
-        <div className="flex items-center">
-          <select
-            className="max-w-[9rem] bg-[#0b281f]/80 border border-green-500/40 text-emerald-100 text-xs sm:text-sm px-3 py-2 rounded-lg hover:bg-green-700 transition cursor-pointer outline-none focus:ring-2 focus:ring-green-400 font-semibold shadow-sm"
-            value={selectedLanguageCode}
-            onChange={(e) => setLanguage(e.target.value)}
-          >
-            {supportedLanguages?.map((lang) => (
-              <option key={lang.code} value={lang.code} className="bg-slate-900 text-white font-bold">
-                🌐 {lang.name === 'English' ? 'English' : lang.nativeName}
-              </option>
-            ))}
-          </select>
-        </div>
+        <label className="sr-only" htmlFor="registration-language">Language</label>
+        <select id="registration-language" className="max-w-[9rem] rounded-lg border border-green-500/40 bg-[#0b281f]/80 px-3 py-2 text-xs font-semibold text-emerald-100 outline-none transition hover:bg-green-700 focus:ring-2 focus:ring-green-400 sm:text-sm" value={selectedLanguageCode} onChange={(event) => setLanguage(event.target.value)}>
+          {supportedLanguages?.map((language) => (
+            <option key={language.code} value={language.code} className="bg-slate-900 text-white">🌐 {language.name === 'English' ? 'English' : language.nativeName}</option>
+          ))}
+        </select>
       </header>
 
-      {/* MAIN REGISTRATION CONTENT */}
-      <main className="relative z-10 flex-1 flex items-center justify-center p-3 sm:p-6 lg:p-10">
-        <div className="w-full max-w-[1100px] flex flex-col lg:flex-row rounded-2xl overflow-hidden shadow-2xl bg-[#faf8f0]/95 backdrop-blur-md border border-white/40">
-
-          {/* LEFT INFORMATION PANEL */}
-          <div className="lg:w-5/12 p-7 lg:p-10 text-white bg-[#0f4b37]/90 flex flex-col justify-center border-r border-white/10 backdrop-blur-sm relative overflow-hidden">
-            <h2 className="text-3xl lg:text-4xl font-extrabold mb-3 drop-shadow-md text-white">{t('register.joinTitle')}</h2>
-            <p className="max-w-sm text-sm leading-6 text-green-50/90">{t('register.joinText')}</p>
-
-            <div className="mt-7 space-y-4 relative z-10">
-              <Benefit icon="📊" text={t('register.benefitPrices')} />
-              <Benefit icon="🤝" text={t('register.benefitBuyers')} />
-              <Benefit icon="🚜" text={t('register.benefitSupport')} />
+      <main className="relative z-10 flex flex-1 items-center justify-center p-3 sm:p-6 lg:p-10">
+        <div className="grid w-full max-w-5xl grid-cols-1 overflow-hidden rounded-2xl bg-white shadow-2xl md:grid-cols-12">
+          <aside className="hidden flex-col justify-center bg-[#1b4332] p-8 text-white md:col-span-5 md:flex lg:p-10">
+            <h2 className="text-3xl font-bold">Join SAATHI</h2>
+            <p className="mt-3 text-sm leading-6 text-emerald-50">Register once to access market intelligence and connect with buyers.</p>
+            <div className="mt-8 space-y-5 text-sm font-semibold text-emerald-50">
+              <Benefit icon="📊" text="Get better crop price information" />
+              <Benefit icon="🤝" text="Find nearby buyers" />
+              <Benefit icon="🚜" text="Access market and government information" />
             </div>
-          </div>
+          </aside>
 
-          {/* RIGHT REGISTRATION FORM */}
-          <div className="lg:w-7/12 p-6 sm:p-8 lg:p-10 bg-white/80 flex flex-col justify-center">
-            <div className="mb-6 text-center md:text-left">
-              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{t('register.title')}</h1>
-              <p className="text-slate-600 font-semibold mt-2 leading-6">{t('register.subtitle')}</p>
-            </div>
+          <section className="p-6 sm:p-8 md:col-span-7 md:p-10">
+            <h1 className="text-2xl font-bold text-gray-900">Create Your Farmer Account</h1>
+            <p className="mt-2 text-sm font-medium leading-6 text-gray-600">Register to access market intelligence and buyers.</p>
 
-            <form onSubmit={handleRegister} className="space-y-5">
+            {error && <p role="alert" className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p>}
 
-              {/* Row 1 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                    <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('register.nameLabel')}</label>
-                  <input 
-                    type="text" 
-                    placeholder={t('register.namePlaceholder') || 'Enter your full name'}
-                    className="w-full bg-white border border-slate-200 text-slate-900 py-3.5 px-4 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#2F7D32]/20 focus:border-[#2F7D32] font-semibold transition shadow-sm placeholder:text-slate-400"
-                    required
-                  />
-                </div>
-                <div>
-                    <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('register.mobileLabel')}</label>
-                    <div className="flex min-w-0 shadow-sm rounded-xl">
-                      <span className="inline-flex shrink-0 items-center px-3 sm:px-4 rounded-l-xl border border-r-0 border-slate-200 bg-slate-50 text-slate-700 font-bold">
-                      +91
-                    </span>
-                    <input 
-                      type="tel" 
-                      placeholder={t('register.mobilePlaceholder') || '10-digit number'}
-                      className="min-w-0 flex-1 bg-white border border-slate-200 text-slate-900 py-3.5 px-3 sm:px-4 rounded-r-xl focus:outline-none focus:ring-4 focus:ring-[#2F7D32]/20 focus:border-[#2F7D32] font-semibold transition placeholder:text-slate-400"
-                      maxLength="10"
-                      required
-                    />
-                  </div>
-                </div>
+            <form onSubmit={handleRegister} className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField label="First Name" name="firstName" placeholder="Enter your first name" value={form.firstName} onChange={handleChange} />
+              <FormField label="Last Name" name="lastName" placeholder="Enter your last name" value={form.lastName} onChange={handleChange} />
+              <FormField label="Email" name="email" type="email" placeholder="Enter your email" value={form.email} onChange={handleChange} />
+              <FormField label="Phone" name="phone" type="tel" placeholder="Enter your phone number" value={form.phone} onChange={handleChange} />
+              <div className="sm:col-span-2">
+                <FormField label="Password" name="password" type="password" placeholder="Create a password" value={form.password} onChange={handleChange} />
               </div>
-
-              {/* Row 2 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('register.stateLabel')}</label>
-                  <div className="relative">
-                    <select className="w-full bg-white border border-slate-200 text-slate-900 py-3.5 px-4 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#2F7D32]/20 focus:border-[#2F7D32] font-semibold cursor-pointer transition appearance-none shadow-sm" required>
-                      <option value="">{t('register.selectState')}</option>
-                      <option value="UP">Uttar Pradesh</option>
-                      <option value="MP">Madhya Pradesh</option>
-                      <option value="MH">Maharashtra</option>
-                      <option value="PB">Punjab</option>
-                      <option value="HR">Haryana</option>
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('register.districtLabel')}</label>
-                  <input 
-                    type="text" 
-                    placeholder={t('register.districtPlaceholder')}
-                    className="w-full bg-white border border-slate-200 text-slate-900 py-3.5 px-4 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#2F7D32]/20 focus:border-[#2F7D32] font-semibold transition shadow-sm placeholder:text-slate-400"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Row 3 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('register.landSize')}</label>
-                  <input 
-                    type="number" 
-                    placeholder={t('register.landSizePlaceholder')}
-                    step="0.1"
-                    className="w-full bg-white border border-slate-200 text-slate-900 py-3.5 px-4 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#2F7D32]/20 focus:border-[#2F7D32] font-semibold transition shadow-sm placeholder:text-slate-400"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('register.primaryCrop')}</label>
-                  <div className="relative">
-                    <select className="w-full bg-white border border-slate-200 text-slate-900 py-3.5 px-4 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#2F7D32]/20 focus:border-[#2F7D32] font-semibold cursor-pointer transition appearance-none shadow-sm" required>
-                      <option value="">{t('register.selectPrimaryCrop')}</option>
-                      <option value="wheat">{t('crop.wheat') || 'Wheat'}</option>
-                      <option value="paddy">{t('crop.paddy') || 'Paddy'}</option>
-                      <option value="pulses">{t('crop.pulses') || 'Pulses'}</option>
-                      <option value="vegetables">{t('crop.vegetables') || 'Vegetables'}</option>
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 4 */}
-              <div className="pt-1">
-                <label className="block text-sm font-extrabold text-slate-700 mb-2.5">{t('register.otherCrops')}</label>
-                <div className="flex flex-wrap gap-2.5">
-                  {cropTags.map(tag => (
-                    <button
-                      key={tag.id}
-                      type="button"
-                      onClick={() => toggleTag(tag.id)}
-                      className={`px-4 py-2 rounded-full border text-sm font-bold transition-all flex items-center gap-1.5 ${
-                        selectedTags.includes(tag.id)
-                          ? 'bg-green-50 border-[#2F7D32] text-[#14532D] shadow-sm'
-                            : 'bg-white border-slate-200 text-slate-600 hover:border-[#2F7D32] hover:text-[#2F7D32]'
-                      }`}
-                    >
-                      <span className="text-base">{tag.icon}</span> {tag.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-5">
-                <button 
-                  type="submit"
-                  className="w-full bg-[#14532D] text-white py-4 rounded-xl font-extrabold text-lg hover:bg-[#0f4021] transition shadow-lg shadow-green-900/20 flex items-center justify-center gap-2"
-                >
-                  {t('register.createAccount')} <span className="text-xl">→</span>
-                </button>
-              </div>
+              <button type="submit" disabled={isLoading} className="flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-900 py-3 font-medium text-white shadow transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2">
+                {isLoading ? 'Creating account...' : 'Create Farmer Account →'}
+              </button>
             </form>
 
-            {/* Login Link */}
-            <div className="mt-8 text-center text-slate-600 font-bold text-sm">
-              <button onClick={() => navigate('/login')} className="hover:text-[#14532D] transition underline underline-offset-4 decoration-slate-300 hover:decoration-[#14532D]">
-                {t('register.alreadyHaveAccount') || 'Already have an account? Login with OTP'}
-              </button>
-            </div>
-          </div>
+            <button type="button" onClick={() => navigate('/login')} className="mt-6 w-full text-center text-sm font-semibold text-gray-600 underline decoration-gray-300 underline-offset-4 transition hover:text-emerald-900">Already have an account? Login with OTP</button>
+          </section>
         </div>
       </main>
-
     </div>
   );
 }
 
 function Benefit({ icon, text }) {
+  return <div className="flex items-center gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10">{icon}</span><span>{text}</span></div>;
+}
+
+function FormField({ label, name, type = 'text', placeholder, value, onChange }) {
   return (
-    <div className="flex items-center gap-3 text-sm font-semibold text-green-50">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-base">{icon}</span>
-      <span>{text}</span>
-    </div>
+    <label className="block min-w-0">
+      <span className="mb-1.5 block text-sm font-semibold text-gray-700">{label}</span>
+      <input name={name} type={type} placeholder={placeholder} value={value} onChange={onChange} required minLength={type === 'password' ? 6 : undefined} className="h-11 w-full min-w-0 rounded-lg border border-gray-300 px-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-transparent focus:ring-2 focus:ring-emerald-600" />
+    </label>
   );
 }
