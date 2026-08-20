@@ -302,6 +302,7 @@ export const translations = {
     'common.noResults': 'No results found',
     'common.error': 'Something went wrong',
     'common.help': 'Help',
+    'common.close': 'Close',
     'common.viewAll': 'View all',
 
     'location.notSet': 'Location not set',
@@ -700,6 +701,7 @@ export const translations = {
     'common.noResults': 'कोई परिणाम नहीं मिला',
     'common.error': 'कुछ गलत हो गया',
     'common.help': 'सहायता',
+    'common.close': 'बंद करें',
     'common.viewAll': 'सभी देखें',
 
     'location.notSet': 'स्थान निर्धारित नहीं',

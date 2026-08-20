@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useUser } from '../context/UserContext';
 import { mockGovernmentUpdates } from '../utils/mockData';
 
 export default function Government() {
   const { t } = useUser();
+  const [selectedNotice, setSelectedNotice] = useState(null);
 
   return (
     <section className="mx-auto w-full max-w-3xl">
@@ -29,6 +31,7 @@ export default function Government() {
             <p className="mt-5 text-base leading-7 text-slate-600 sm:text-lg">{update.description}</p>
             <button
               type="button"
+              onClick={() => setSelectedNotice(update)}
               className="mt-5 rounded-xl border border-[#2E7D32] px-4 py-2.5 text-base font-semibold text-[#2E7D32] transition hover:bg-green-50 focus:outline-none focus:ring-4 focus:ring-green-100"
             >
               {t('govt.readMore')}
@@ -36,6 +39,52 @@ export default function Government() {
           </article>
         ))}
       </div>
+
+      {selectedNotice && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
+          role="presentation"
+          onClick={() => setSelectedNotice(null)}
+        >
+          <section
+            className="w-full max-w-lg rounded-3xl bg-white p-6 text-slate-900 shadow-2xl sm:p-8"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="government-notice-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-green-50 text-2xl">
+                  {selectedNotice.icon}
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-[#2E7D32]">{selectedNotice.category}</p>
+                  <h2 id="government-notice-title" className="mt-1 text-xl font-bold text-slate-900">
+                    {selectedNotice.title}
+                  </h2>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedNotice(null)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
+                aria-label="Close notice"
+              >
+                ×
+              </button>
+            </div>
+            <p className="mt-6 text-base leading-7 text-slate-700">{selectedNotice.description}</p>
+            <button
+              type="button"
+              onClick={() => setSelectedNotice(null)}
+              className="mt-6 w-full rounded-xl bg-[#14532D] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#0f4021] focus:outline-none focus:ring-4 focus:ring-green-100"
+            >
+              {t('common.close') || 'Close'}
+            </button>
+          </section>
+        </div>
+      )}
     </section>
   );
 }
