@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { useLocationContext } from '../context/LocationContext';
@@ -6,7 +6,7 @@ import { useLocationContext } from '../context/LocationContext';
 export default function Profile() {
   const navigate = useNavigate();
   const { user, preferredLanguage, supportedLanguages, setLanguage, updateUser, logout, t } = useUser();
-  const { address, permissionStatus, requestLocation } = useLocationContext();
+  const { address, permissionStatus, source, requestLocation } = useLocationContext();
 
   const [profile, setProfile] = useState({
     name: user.name || 'Ramesh Kumar',
@@ -20,6 +20,20 @@ export default function Profile() {
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [profileImage, setProfileImage] = useState(user.profileImage || '');
+
+  useEffect(() => {
+    if (permissionStatus !== 'granted' || source !== 'device' || !address) return;
+
+    const fetchedProfile = {
+      village: address.locality || address.city || '',
+      block: address.city || address.locality || '',
+      district: address.district || '',
+      state: address.state || '',
+    };
+
+    setProfile((currentProfile) => ({ ...currentProfile, ...fetchedProfile }));
+    updateUser(fetchedProfile);
+  }, [address, permissionStatus, source, updateUser]);
 
   const updateProfileField = (event) => {
     const { name, value } = event.target;

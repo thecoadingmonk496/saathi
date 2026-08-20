@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { supportedLanguages, translations } from '../utils/translations';
 
 const languageCodeToName = supportedLanguages.reduce((acc, item) => {
@@ -60,13 +60,13 @@ export function UserProvider({ children }) {
     localStorage.setItem('user', JSON.stringify(newUser));
   };
 
-  const updateUser = (userData) => {
+  const updateUser = useCallback((userData) => {
     setUser((currentUser) => {
       const updatedUser = { ...currentUser, ...userData };
       localStorage.setItem('user', JSON.stringify(updatedUser));
       return updatedUser;
     });
-  };
+  }, []);
 
   const logout = () => {
     localStorage.clear();
