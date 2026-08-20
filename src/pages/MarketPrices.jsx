@@ -3,7 +3,7 @@ import { useUser } from '../context/UserContext';
 import { useLocationContext } from '../context/LocationContext';
 import { marketService } from '../api/marketService';
 
-const getPriceTabs = (t) => [t('explorer.wholesale'), t('explorer.retail'), t('explorer.stageMandi'), t('prices.tabMSP')];
+const getPriceTabs = () => ['Wholesale', 'Retail', 'Mandi', 'MSP'];
 const formatRupees = (price) => `₹${price.toLocaleString('en-IN')}`;
 
 function TrendChart({ data }) {
@@ -45,9 +45,9 @@ function TrendChart({ data }) {
 
 export default function MarketPrices() {
   const { t, language } = useUser();
-  const { coordinates, address, permissionStatus } = useLocationContext();
+  const { coordinates, address, permissionStatus, requestLocation } = useLocationContext();
 
-  const [activeTab, setActiveTab] = useState(t('explorer.wholesale'));
+  const [activeTab, setActiveTab] = useState('Wholesale');
   const [searchTerm, setSearchTerm] = useState('');
   const [crops, setCrops] = useState([]);
   const [selectedCropId, setSelectedCropId] = useState(1);
@@ -113,19 +113,23 @@ export default function MarketPrices() {
         <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">{t('prices.title')}</h1>
 
         {}
-        <div className="mt-5 flex items-center justify-between rounded-2xl bg-white p-4 border border-slate-200 shadow-sm">
+          <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-white p-4 border border-slate-200 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <span className="text-2xl mt-0.5">📍</span>
             <div>
               <p className="text-sm font-bold text-slate-800">
                 {currentDistrict} {nearestMandi ? `| ${nearestMandi}` : ''}
               </p>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs font-medium text-slate-700 mt-0.5">
                 {permissionStatus === 'granted' ? t('prices.autoDetected') : t('location.notSet')}
               </p>
             </div>
           </div>
-          <button className="text-sm font-bold text-[#2E7D32] hover:underline whitespace-nowrap">
+          <button
+            type="button"
+            onClick={requestLocation}
+            className="rounded-lg px-3 py-2 text-sm font-bold text-[#2E7D32] transition hover:bg-green-50 hover:underline whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-green-200"
+          >
             {t('prices.changeLoc')}
           </button>
         </div>
@@ -134,7 +138,7 @@ export default function MarketPrices() {
         <div className="mt-3 flex items-center gap-2 rounded-xl bg-white/75 px-3 py-2 shadow-sm backdrop-blur-sm">
           <span className="flex h-2.5 w-2.5 rounded-full bg-green-500"></span>
           <p className="text-sm font-semibold text-slate-700">{t('prices.marketUpdatedToday')}</p>
-          <span className="mx-2 text-slate-500">•</span>
+          <span className="mx-2 text-slate-700">•</span>
           <p className="text-xs font-medium text-slate-700">{t('prices.dataSource')}</p>
         </div>
       </header>
@@ -149,14 +153,14 @@ export default function MarketPrices() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder={t('prices.searchPlaceholder')}
-            className="w-full rounded-2xl border border-slate-200 bg-white py-4 pl-12 pr-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#2E7D32] focus:ring-4 focus:ring-green-100"
+            className="w-full rounded-2xl border border-slate-200 bg-white py-4 pl-12 pr-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-500 focus:border-[#2E7D32] focus:ring-4 focus:ring-green-100"
           />
         </label>
       </div>
 
       {}
       <div className="-mx-4 mb-6 flex overflow-x-auto rounded-xl border-b border-slate-300 bg-white/70 px-4 shadow-sm backdrop-blur-sm sm:mx-0 sm:px-0" role="tablist">
-        {getPriceTabs(t).map((tab) => (
+        {getPriceTabs().map((tab) => (
           <button
             key={tab}
             type="button"
@@ -183,19 +187,19 @@ export default function MarketPrices() {
                 <h2 className="text-3xl font-extrabold text-slate-900 uppercase tracking-tight">{getCropName(selectedCrop)}</h2>
                 <div className="mt-2 flex items-baseline gap-2">
                   <span className="text-4xl font-extrabold text-[#2E7D32]">{formatRupees(selectedCrop.currentPrice)}</span>
-                  <span className="text-lg font-bold text-slate-500">/qtl</span>
+                  <span className="text-lg font-bold text-slate-700">/qtl</span>
                 </div>
-                <p className="mt-1 text-sm font-semibold text-slate-500 uppercase tracking-wider">{t('prices.modalPriceCol')}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-700 uppercase tracking-wider">{t('prices.modalPriceCol')}</p>
 
                 <div className="mt-5 flex gap-6">
                   <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase">{t('prices.rangeCol')}</p>
+                    <p className="text-xs font-bold text-slate-600 uppercase">{t('prices.rangeCol')}</p>
                     <p className="mt-1 text-base font-bold text-slate-800">
                       {selectedCrop.minPrice ? `${formatRupees(selectedCrop.minPrice)} – ${formatRupees(selectedCrop.maxPrice)}` : t('prices.notAvailable')}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase">{t('prices.trendCol')}</p>
+                    <p className="text-xs font-bold text-slate-600 uppercase">{t('prices.trendCol')}</p>
                     <p className={`mt-1 text-base font-bold flex items-center gap-1 ${selectedCrop.trend === 'up' ? 'text-[#2E7D32]' : 'text-red-600'}`}>
                       {selectedCrop.trend === 'up' ? '↑' : '↓'} {Math.abs(selectedCrop.trendPercent)}%
                     </p>
@@ -205,17 +209,17 @@ export default function MarketPrices() {
 
               {}
               <div className="w-full sm:w-64 flex flex-col items-end pt-2">
-                <p className="text-xs font-bold uppercase text-slate-400 mb-2 w-full text-right">{t('prices.trendTitle')} ({t('prices.days7')})</p>
+                <p className="text-xs font-bold uppercase text-slate-600 mb-2 w-full text-right">{t('prices.trendTitle')} ({t('prices.days7')})</p>
                 <TrendChart data={trendData} />
               </div>
             </div>
           </div>
-          <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-between items-center">
-             <p className="text-xs font-medium text-slate-500">{t('prices.lastUpdated')}</p>
+           <div className="bg-slate-100 px-6 py-4 border-t border-slate-200 flex justify-between items-center">
+             <p className="text-xs font-semibold text-slate-700">{t('prices.lastUpdated')}</p>
           </div>
         </div>
       ) : (
-        <p className="mb-6 text-center text-slate-500">{t('common.noResults')}</p>
+        <p className="mb-6 rounded-xl bg-white/80 px-4 py-3 text-center font-semibold text-slate-700">{t('common.noResults')}</p>
       )}
 
       {}
@@ -223,7 +227,7 @@ export default function MarketPrices() {
         <div className="mb-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left">
-              <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
+              <thead className="bg-slate-100 text-xs font-bold uppercase tracking-wider text-slate-700">
                 <tr>
                   <th className="px-6 py-4">{t('prices.cropCol')}</th>
                   <th className="px-6 py-4">{t('prices.modalPriceCol')}</th>
@@ -242,7 +246,7 @@ export default function MarketPrices() {
                     <td className="px-6 py-5 text-lg font-extrabold text-[#2E7D32]">
                       {crop.currentPrice ? formatRupees(crop.currentPrice) : '-'}
                     </td>
-                    <td className="px-6 py-5 text-sm font-semibold text-slate-600">
+                    <td className="px-6 py-5 text-sm font-semibold text-slate-700">
                       {crop.minPrice ? `${formatRupees(crop.minPrice)} – ${formatRupees(crop.maxPrice)}` : '-'}
                     </td>
                     <td className={`px-6 py-5 text-lg font-bold ${crop.trend === 'up' ? 'text-[#2E7D32]' : 'text-red-600'}`}>
@@ -265,7 +269,7 @@ export default function MarketPrices() {
               <div key={mandi.id} className="rounded-2xl border border-slate-200 bg-white p-5 flex justify-between items-center">
                 <div>
                   <p className="font-bold text-slate-900 text-lg">{mandi.name}</p>
-                  <p className="text-sm font-medium text-slate-500 mt-0.5">{t('prices.kmAway', { dist: Math.round(mandi.distance) })}</p>
+                  <p className="text-sm font-semibold text-slate-700 mt-0.5">{t('prices.kmAway', { dist: Math.round(mandi.distance) })}</p>
                 </div>
                 <div className="text-right">
                   <p className={`text-xl font-extrabold ${idx === 0 ? 'text-[#2E7D32]' : 'text-slate-800'}`}>
@@ -301,7 +305,7 @@ export default function MarketPrices() {
           <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
             <span>🔔</span> {t('prices.alertTitle')}
           </h3>
-          <p className="text-sm text-slate-600 mb-3">
+          <p className="text-sm font-medium text-slate-700 mb-3">
             {t('prices.alertTarget')} <span className="font-bold">{selectedCrop ? getCropName(selectedCrop) : t('prices.cropCol')}</span> reaches:
           </p>
           <div className="flex gap-2">
@@ -318,12 +322,12 @@ export default function MarketPrices() {
       </div>
 
       {}
-      <footer className="border-t border-slate-200 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left text-xs font-semibold text-slate-500">
+      <footer className="border-t border-slate-300 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left text-xs font-semibold text-slate-700">
         <div>
           <p>{t('prices.dataSource')}</p>
           <p className="mt-1">{t('prices.dataNote')}</p>
         </div>
-        <div className="text-slate-400">
+        <div className="text-slate-600">
           SAATHI Market Engine
         </div>
       </footer>
