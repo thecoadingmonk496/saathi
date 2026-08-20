@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { requestGeolocation, reverseGeocode } from '../utils/locationService';
+import { isValidLocation } from '../utils/locationOptions';
 
 const SESSION_KEY = 'saathi_location';
 
@@ -123,16 +124,19 @@ export function LocationProvider({ children }) {
     doFetch();
   }, [doFetch]);
 
-  const setManualLocation = useCallback((text) => {
+  const setManualLocation = useCallback(({ village, district, state }) => {
+    if (!isValidLocation({ village, district, state })) return false;
+
+    const formatted = `${village}, ${district}, ${state}`;
     const manualState = {
       coordinates: null,
       address: {
-        locality: text,
-        city: text,
-        district: '',
-        state: '',
+        locality: village,
+        city: district,
+        district,
+        state,
         country: 'India',
-        formatted: text,
+        formatted,
       },
       accuracy: null,
       source: 'manual',
@@ -143,6 +147,7 @@ export function LocationProvider({ children }) {
     };
     setState(manualState);
     saveCachedLocation(manualState);
+    return true;
   }, []);
 
   const clearLocation = useCallback(() => {

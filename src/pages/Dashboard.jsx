@@ -16,6 +16,7 @@ import {
 import { useLocationContext } from '../context/LocationContext';
 import { useUser } from '../context/UserContext';
 import { mockBuyers, mockCrops, mockPriceHistory, mockSupplyChain } from '../utils/mockData';
+import { getDistricts, getVillages, locationStates } from '../utils/locationOptions';
 
 const languageLocales = {
   English: 'en-IN',
@@ -106,9 +107,9 @@ export default function Dashboard({ onVoiceStart, voiceAssistantResponse }) {
     lastUpdated,
     requestLocation,
     refreshLocation,
-    setManualLocation,
+    setManualLocation: saveManualLocation,
   } = useLocationContext();
-  const [manualLocation, setManualLocationText] = useState('');
+  const [manualLocation, setManualLocation] = useState({ state: '', district: '', village: '' });
   const [isManualOpen, setIsManualOpen] = useState(false);
 
   const addressText = getAddressText(address);
@@ -134,10 +135,10 @@ export default function Dashboard({ onVoiceStart, voiceAssistantResponse }) {
 
   const handleManualSubmit = (event) => {
     event.preventDefault();
-    const value = manualLocation.trim();
-    if (!value) return;
-    setManualLocation(value);
-    setManualLocationText('');
+    if (!manualLocation.state || !manualLocation.district || !manualLocation.village) return;
+    const saved = saveManualLocation(manualLocation);
+    if (!saved) return;
+    setManualLocation({ state: '', district: '', village: '' });
     setIsManualOpen(false);
   };
 
@@ -173,7 +174,7 @@ export default function Dashboard({ onVoiceStart, voiceAssistantResponse }) {
             loading={loading}
             manualLocation={manualLocation}
             onLocationRefresh={handleLocationRefresh}
-            onManualChange={setManualLocationText}
+              onManualChange={setManualLocation}
             onManualSubmit={handleManualSubmit}
             onToggleManual={() => setIsManualOpen((current) => !current)}
             permissionStatus={permissionStatus}
@@ -405,21 +406,46 @@ function LocationPanel({
       </div>
 
       {isManualOpen && (
-        <form className="mt-4 flex flex-col gap-2 sm:flex-row" onSubmit={onManualSubmit}>
-          <label className="sr-only" htmlFor="dashboard-manual-location">
-            {t('location.manualLabel')}
-          </label>
-          <input
-            id="dashboard-manual-location"
-            className="min-h-11 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#174532] focus:ring-4 focus:ring-emerald-100"
-            placeholder={t('location.manualLabel')}
-            type="text"
-            value={manualLocation}
-            onChange={(event) => onManualChange(event.target.value)}
-          />
+        <form className="mt-4 space-y-3" onSubmit={onManualSubmit}>
+          <p className="text-xs font-medium text-slate-500">Select a valid state, district, and village/tehsil from the provided options.</p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <select
+              aria-label="State"
+              className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-[#174532] focus:ring-4 focus:ring-emerald-100"
+              value={manualLocation.state}
+              onChange={(event) => onManualChange({ state: event.target.value, district: '', village: '' })}
+              required
+            >
+              <option value="">Select state</option>
+              {locationStates.map((state) => <option key={state} value={state}>{state}</option>)}
+            </select>
+            <select
+              aria-label="District"
+              className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none disabled:bg-slate-100 focus:border-[#174532] focus:ring-4 focus:ring-emerald-100"
+              value={manualLocation.district}
+              onChange={(event) => onManualChange({ ...manualLocation, district: event.target.value, village: '' })}
+              disabled={!manualLocation.state}
+              required
+            >
+              <option value="">Select district</option>
+              {getDistricts(manualLocation.state).map((district) => <option key={district} value={district}>{district}</option>)}
+            </select>
+            <select
+              aria-label="Village or tehsil"
+              className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none disabled:bg-slate-100 focus:border-[#174532] focus:ring-4 focus:ring-emerald-100"
+              value={manualLocation.village}
+              onChange={(event) => onManualChange({ ...manualLocation, village: event.target.value })}
+              disabled={!manualLocation.district}
+              required
+            >
+              <option value="">Select village / tehsil</option>
+              {getVillages(manualLocation.state, manualLocation.district).map((village) => <option key={village} value={village}>{village}</option>)}
+            </select>
+          </div>
           <button
-            className="min-h-11 rounded-md bg-[#174532] px-4 text-sm font-semibold text-white transition hover:bg-[#0f3325] focus:outline-none focus:ring-4 focus:ring-emerald-100"
+            className="min-h-11 w-full rounded-md bg-[#174532] px-4 text-sm font-semibold text-white transition hover:bg-[#0f3325] disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-4 focus:ring-emerald-100 sm:w-auto"
             type="submit"
+            disabled={!manualLocation.state || !manualLocation.district || !manualLocation.village}
           >
             {t('location.useThis')}
           </button>
