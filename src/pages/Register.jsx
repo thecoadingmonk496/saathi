@@ -47,7 +47,7 @@ export default function Register() {
       <div className="fixed inset-0 bg-[#042F24]/40 z-0 backdrop-blur-[1px]" />
 
       {/* NAVBAR */}
-      <header className="relative z-10 bg-[#064E3B]/95 backdrop-blur-md text-white px-4 sm:px-6 py-4 flex flex-col md:flex-row justify-between items-center shadow-lg border-b border-white/10">
+      <header className="relative z-10 bg-[#064E3B]/95 backdrop-blur-md text-white px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-lg border-b border-white/10">
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="SAATHI Logo" className="w-10 h-10 rounded-full border-2 border-white/80 shadow-sm object-cover" />
           <span className="text-xl font-extrabold tracking-wide">SAATHI</span>
@@ -56,13 +56,9 @@ export default function Register() {
           </span>
         </div>
 
-        <nav className="flex gap-4 sm:gap-6 text-sm font-bold mt-4 md:mt-0 items-center">
-          <a href="#" className="hidden sm:block hover:text-green-300 transition text-green-50">{t('nav.features') || 'Features'}</a>
-          <a href="#" className="hidden sm:block hover:text-green-300 transition text-green-50">{t('nav.marketPrices') || 'Mandi Prices'}</a>
-          <a href="#" className="hidden sm:block hover:text-green-300 transition text-green-50">{t('nav.support') || 'Support'}</a>
-          
+        <div className="flex items-center">
           <select
-            className="bg-[#0b281f]/80 border border-green-500/40 text-emerald-100 text-xs sm:text-sm px-3 py-2 rounded-lg hover:bg-green-700 transition cursor-pointer outline-none focus:ring-2 focus:ring-green-400 font-semibold shadow-sm"
+            className="max-w-[9rem] bg-[#0b281f]/80 border border-green-500/40 text-emerald-100 text-xs sm:text-sm px-3 py-2 rounded-lg hover:bg-green-700 transition cursor-pointer outline-none focus:ring-2 focus:ring-green-400 font-semibold shadow-sm"
             value={selectedLanguageCode}
             onChange={(e) => setLanguage(e.target.value)}
           >
@@ -72,76 +68,38 @@ export default function Register() {
               </option>
             ))}
           </select>
-        </nav>
+        </div>
       </header>
 
       {/* MAIN REGISTRATION CONTENT */}
-      <main className="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-12 mt-4 sm:mt-8">
-        <div className="w-full max-w-[1050px] flex flex-col lg:flex-row rounded-[24px] overflow-hidden shadow-2xl bg-[#faf8f0]/95 backdrop-blur-md border border-white/40">
+      <main className="relative z-10 flex-1 flex items-center justify-center p-3 sm:p-6 lg:p-10">
+        <div className="w-full max-w-[1100px] flex flex-col lg:flex-row rounded-2xl overflow-hidden shadow-2xl bg-[#faf8f0]/95 backdrop-blur-md border border-white/40">
 
           {/* LEFT INFORMATION PANEL */}
-          <div className="lg:w-5/12 p-8 lg:p-10 text-white bg-[#0f4b37]/85 flex flex-col justify-center border-r border-white/10 backdrop-blur-sm relative overflow-hidden">
-            <h2 className="text-3xl lg:text-4xl font-extrabold mb-8 drop-shadow-md text-white">{t('register.joinFarmers') || 'Join 500,000+ Farmers'}</h2>
+          <div className="lg:w-5/12 p-7 lg:p-10 text-white bg-[#0f4b37]/90 flex flex-col justify-center border-r border-white/10 backdrop-blur-sm relative overflow-hidden">
+            <h2 className="text-3xl lg:text-4xl font-extrabold mb-3 drop-shadow-md text-white">{t('register.joinTitle')}</h2>
+            <p className="max-w-sm text-sm leading-6 text-green-50/90">{t('register.joinText')}</p>
 
-            <div className="space-y-4 relative z-10">
-              <div className="flex items-start gap-4 bg-white/5 hover:bg-white/10 transition p-4 rounded-2xl border border-white/10">
-                <span className="text-2xl drop-shadow">🔍</span>
-                <div>
-                  <h3 className="text-lg font-bold text-white">{t('nav.buyerDiscovery') || 'Find Direct Buyers'}</h3>
-                  <p className="text-green-50 text-sm mt-0.5 font-medium">{t('register.buyerDesc') || 'Connect directly with verified buyers'}</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-4 bg-white/5 hover:bg-white/10 transition p-4 rounded-2xl border border-white/10">
-                <span className="text-2xl drop-shadow">📈</span>
-                <div>
-                  <h3 className="text-lg font-bold text-white">{t('nav.marketPrices') || 'Live Mandi Prices'}</h3>
-                  <p className="text-green-50 text-sm mt-0.5 font-medium">{t('register.pricesDesc') || 'Real-time crop prices across mandis'}</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-4 bg-white/5 hover:bg-white/10 transition p-4 rounded-2xl border border-white/10">
-                <span className="text-2xl drop-shadow">🚚</span>
-                <div>
-                  <h3 className="text-lg font-bold text-white">{t('register.logistics') || 'Farm-to-Market Logistics'}</h3>
-                  <p className="text-green-50 text-sm mt-0.5 font-medium">{t('register.logisticsDesc') || 'Find transport for your produce'}</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-4 bg-white/5 hover:bg-white/10 transition p-4 rounded-2xl border border-white/10">
-                <span className="text-2xl drop-shadow">🏛️</span>
-                <div>
-                  <h3 className="text-lg font-bold text-white">{t('nav.government') || 'Govt. Schemes & Support'}</h3>
-                  <p className="text-green-50 text-sm mt-0.5 font-medium">{t('register.govtDesc') || 'Stay updated on subsidies'}</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-4 bg-white/5 hover:bg-white/10 transition p-4 rounded-2xl border border-white/10">
-                <span className="text-2xl drop-shadow">🎙️</span>
-                <div>
-                  <h3 className="text-lg font-bold text-white">{t('nav.askSaathi') || 'SAATHI AI Assistant'}</h3>
-                  <p className="text-green-50 text-sm mt-0.5 font-medium">{t('register.aiDesc') || 'Voice-enabled agricultural help'}</p>
-                </div>
-              </div>
+            <div className="mt-7 space-y-4 relative z-10">
+              <Benefit icon="📊" text={t('register.benefitPrices')} />
+              <Benefit icon="🤝" text={t('register.benefitBuyers')} />
+              <Benefit icon="🚜" text={t('register.benefitSupport')} />
             </div>
           </div>
 
           {/* RIGHT REGISTRATION FORM */}
-          <div className="lg:w-7/12 p-8 lg:p-12 bg-transparent flex flex-col justify-center">
-            <div className="mb-8 flex flex-col items-center md:items-start text-center md:text-left">
-              <div className="mb-4">
-                <img src="/logo.png" alt="SAATHI Mascot" className="w-16 h-16 rounded-full shadow-md border-4 border-white object-cover bg-white" />
-              </div>
-              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{t('register.title') || 'New Farmer Registration'}</h1>
-              <p className="text-slate-600 font-semibold mt-2">{t('register.subtitle') || 'Enter your details to create your personal farming profile.'}</p>
+          <div className="lg:w-7/12 p-6 sm:p-8 lg:p-10 bg-white/80 flex flex-col justify-center">
+            <div className="mb-6 text-center md:text-left">
+              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{t('register.title')}</h1>
+              <p className="text-slate-600 font-semibold mt-2 leading-6">{t('register.subtitle')}</p>
             </div>
 
-            <form onSubmit={handleRegister} className="space-y-6">
+            <form onSubmit={handleRegister} className="space-y-5">
 
               {/* Row 1 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('profile.name') || 'Full Name'}</label>
+                    <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('register.nameLabel')}</label>
                   <input 
                     type="text" 
                     placeholder={t('register.namePlaceholder') || 'Enter your full name'}
@@ -150,15 +108,15 @@ export default function Register() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('profile.mobile') || 'Mobile Number'}</label>
-                  <div className="flex shadow-sm rounded-xl">
-                    <span className="inline-flex items-center px-4 rounded-l-xl border border-r-0 border-slate-200 bg-slate-50 text-slate-700 font-bold">
+                    <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('register.mobileLabel')}</label>
+                    <div className="flex min-w-0 shadow-sm rounded-xl">
+                      <span className="inline-flex shrink-0 items-center px-3 sm:px-4 rounded-l-xl border border-r-0 border-slate-200 bg-slate-50 text-slate-700 font-bold">
                       +91
                     </span>
                     <input 
                       type="tel" 
                       placeholder={t('register.mobilePlaceholder') || '10-digit number'}
-                      className="flex-1 bg-white border border-slate-200 text-slate-900 py-3.5 px-4 rounded-r-xl focus:outline-none focus:ring-4 focus:ring-[#2F7D32]/20 focus:border-[#2F7D32] font-semibold transition placeholder:text-slate-400"
+                      className="min-w-0 flex-1 bg-white border border-slate-200 text-slate-900 py-3.5 px-3 sm:px-4 rounded-r-xl focus:outline-none focus:ring-4 focus:ring-[#2F7D32]/20 focus:border-[#2F7D32] font-semibold transition placeholder:text-slate-400"
                       maxLength="10"
                       required
                     />
@@ -169,10 +127,10 @@ export default function Register() {
               {/* Row 2 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('register.state') || t('profile.state')}</label>
+                  <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('register.stateLabel')}</label>
                   <div className="relative">
                     <select className="w-full bg-white border border-slate-200 text-slate-900 py-3.5 px-4 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#2F7D32]/20 focus:border-[#2F7D32] font-semibold cursor-pointer transition appearance-none shadow-sm" required>
-                      <option value="">{t('register.selectState') || 'Select State'}</option>
+                      <option value="">{t('register.selectState')}</option>
                       <option value="UP">Uttar Pradesh</option>
                       <option value="MP">Madhya Pradesh</option>
                       <option value="MH">Maharashtra</option>
@@ -185,10 +143,10 @@ export default function Register() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('profile.district') || 'District / Village'}</label>
+                  <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('register.districtLabel')}</label>
                   <input 
                     type="text" 
-                    placeholder={t('register.districtPlaceholder') || 'Enter district or village name'}
+                    placeholder={t('register.districtPlaceholder')}
                     className="w-full bg-white border border-slate-200 text-slate-900 py-3.5 px-4 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#2F7D32]/20 focus:border-[#2F7D32] font-semibold transition shadow-sm placeholder:text-slate-400"
                     required
                   />
@@ -198,20 +156,20 @@ export default function Register() {
               {/* Row 3 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('register.landSize') || 'Farm Land Size (Acres)'}</label>
+                  <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('register.landSize')}</label>
                   <input 
                     type="number" 
-                    placeholder="e.g. 5"
+                    placeholder={t('register.landSizePlaceholder')}
                     step="0.1"
                     className="w-full bg-white border border-slate-200 text-slate-900 py-3.5 px-4 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#2F7D32]/20 focus:border-[#2F7D32] font-semibold transition shadow-sm placeholder:text-slate-400"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('register.primaryCrop') || 'Primary Crop'}</label>
+                  <label className="block text-sm font-extrabold text-slate-700 mb-1.5">{t('register.primaryCrop')}</label>
                   <div className="relative">
                     <select className="w-full bg-white border border-slate-200 text-slate-900 py-3.5 px-4 rounded-xl focus:outline-none focus:ring-4 focus:ring-[#2F7D32]/20 focus:border-[#2F7D32] font-semibold cursor-pointer transition appearance-none shadow-sm" required>
-                      <option value="">{t('register.selectPrimaryCrop') || 'Select Primary Crop'}</option>
+                      <option value="">{t('register.selectPrimaryCrop')}</option>
                       <option value="wheat">{t('crop.wheat') || 'Wheat'}</option>
                       <option value="paddy">{t('crop.paddy') || 'Paddy'}</option>
                       <option value="pulses">{t('crop.pulses') || 'Pulses'}</option>
@@ -226,7 +184,7 @@ export default function Register() {
 
               {/* Row 4 */}
               <div className="pt-1">
-                <label className="block text-sm font-extrabold text-slate-700 mb-2.5">{t('register.otherCrops') || 'Other Crops Grown (Select multiple)'}</label>
+                <label className="block text-sm font-extrabold text-slate-700 mb-2.5">{t('register.otherCrops')}</label>
                 <div className="flex flex-wrap gap-2.5">
                   {cropTags.map(tag => (
                     <button
@@ -236,7 +194,7 @@ export default function Register() {
                       className={`px-4 py-2 rounded-full border text-sm font-bold transition-all flex items-center gap-1.5 ${
                         selectedTags.includes(tag.id)
                           ? 'bg-green-50 border-[#2F7D32] text-[#14532D] shadow-sm'
-                          : 'bg-white border-slate-200 text-slate-600 hover:border-[#2F7D32] hover:text-[#2F7D32]'
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-[#2F7D32] hover:text-[#2F7D32]'
                       }`}
                     >
                       <span className="text-base">{tag.icon}</span> {tag.label}
@@ -250,7 +208,7 @@ export default function Register() {
                   type="submit"
                   className="w-full bg-[#14532D] text-white py-4 rounded-xl font-extrabold text-lg hover:bg-[#0f4021] transition shadow-lg shadow-green-900/20 flex items-center justify-center gap-2"
                 >
-                  {t('register.complete') || 'Complete Registration'} <span className="text-xl">→</span>
+                  {t('register.createAccount')} <span className="text-xl">→</span>
                 </button>
               </div>
             </form>
@@ -265,6 +223,15 @@ export default function Register() {
         </div>
       </main>
 
+    </div>
+  );
+}
+
+function Benefit({ icon, text }) {
+  return (
+    <div className="flex items-center gap-3 text-sm font-semibold text-green-50">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-base">{icon}</span>
+      <span>{text}</span>
     </div>
   );
 }

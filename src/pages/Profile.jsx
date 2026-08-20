@@ -18,8 +18,15 @@ export default function Profile() {
     state: user.state || address?.state || 'Uttar Pradesh',
   });
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
+  const [isFarmDetailsModalOpen, setIsFarmDetailsModalOpen] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [profileImage, setProfileImage] = useState(user.profileImage || '');
+  const [farmDetails, setFarmDetails] = useState({
+    landHolding: user.landHolding || '3.5 Acres',
+    primaryCrops: user.primaryCrops || 'Wheat, Rice',
+    irrigation: user.irrigation || 'Tube Well',
+    farmingType: user.farmingType || 'Mixed Farming',
+  });
 
   useEffect(() => {
     if (permissionStatus !== 'granted' || source !== 'device' || !address) return;
@@ -174,26 +181,26 @@ export default function Profile() {
           Farm Details
         </h2>
         <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col items-center text-center transition hover:border-[#2F7D32]">
+          <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col items-center text-center transition hover:border-[#2F7D32] hover:shadow-md focus:outline-none focus:ring-4 focus:ring-green-100">
             <span className="text-3xl mb-3">📏</span>
             <span className="text-xs font-extrabold text-[#795548] uppercase tracking-wider">Land Holding</span>
-            <span className="mt-1 text-base font-bold text-slate-900">3.5 Acres</span>
-          </div>
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col items-center text-center transition hover:border-[#2F7D32]">
+            <span className="mt-1 text-base font-bold text-slate-900">{farmDetails.landHolding}</span>
+          </button>
+          <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col items-center text-center transition hover:border-[#2F7D32] hover:shadow-md focus:outline-none focus:ring-4 focus:ring-green-100">
             <span className="text-3xl mb-3">🌾</span>
             <span className="text-xs font-extrabold text-[#795548] uppercase tracking-wider">Primary Crops</span>
-            <span className="mt-1 text-base font-bold text-slate-900">Wheat, Rice</span>
-          </div>
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col items-center text-center transition hover:border-[#2F7D32]">
+            <span className="mt-1 text-base font-bold text-slate-900">{farmDetails.primaryCrops}</span>
+          </button>
+          <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col items-center text-center transition hover:border-[#2F7D32] hover:shadow-md focus:outline-none focus:ring-4 focus:ring-green-100">
             <span className="text-3xl mb-3">💧</span>
             <span className="text-xs font-extrabold text-[#795548] uppercase tracking-wider">Irrigation</span>
-            <span className="mt-1 text-base font-bold text-slate-900">Tube Well</span>
-          </div>
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col items-center text-center transition hover:border-[#2F7D32]">
+            <span className="mt-1 text-base font-bold text-slate-900">{farmDetails.irrigation}</span>
+          </button>
+          <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col items-center text-center transition hover:border-[#2F7D32] hover:shadow-md focus:outline-none focus:ring-4 focus:ring-green-100">
             <span className="text-3xl mb-3">🚜</span>
             <span className="text-xs font-extrabold text-[#795548] uppercase tracking-wider">Farming Type</span>
-            <span className="mt-1 text-base font-bold text-slate-900">Mixed Farming</span>
-          </div>
+            <span className="mt-1 text-base font-bold text-slate-900">{farmDetails.farmingType}</span>
+          </button>
         </div>
       </section>
 
@@ -317,6 +324,24 @@ export default function Profile() {
           </section>
         </div>
       )}
+
+      {isFarmDetailsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" role="presentation" onClick={() => setIsFarmDetailsModalOpen(false)}>
+          <section className="w-full max-w-lg rounded-[28px] bg-white p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="farm-details-dialog-title" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-4">
+              <h2 id="farm-details-dialog-title" className="text-2xl font-extrabold text-slate-900">Edit Farm Details</h2>
+              <button type="button" onClick={() => setIsFarmDetailsModalOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-500 hover:bg-slate-200" aria-label="Close farm details">✕</button>
+            </div>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <FarmDetailField label="Land Holding" name="landHolding" value={farmDetails.landHolding} onChange={setFarmDetails} />
+              <FarmDetailField label="Primary Crops" name="primaryCrops" value={farmDetails.primaryCrops} onChange={setFarmDetails} />
+              <FarmDetailField label="Irrigation" name="irrigation" value={farmDetails.irrigation} onChange={setFarmDetails} />
+              <FarmDetailField label="Farming Type" name="farmingType" value={farmDetails.farmingType} onChange={setFarmDetails} />
+            </div>
+            <button type="button" onClick={() => { updateUser(farmDetails); setIsFarmDetailsModalOpen(false); setSaveMessage('Farm details saved successfully.'); }} className="mt-6 w-full rounded-xl bg-[#14532D] px-4 py-3.5 text-sm font-extrabold text-white transition hover:bg-[#0f4021]">Save Farm Details</button>
+          </section>
+        </div>
+      )}
     </section>
   );
 }
@@ -332,6 +357,20 @@ function TextField({ label, name, value, onChange, type = 'text', disabled = fal
         onChange={onChange}
         disabled={disabled}
         className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3.5 text-base font-semibold text-slate-900 bg-white outline-none transition focus:border-[#2F7D32] focus:bg-[#2F7D32]/5 disabled:bg-slate-50 disabled:text-slate-500 disabled:border-slate-100"
+      />
+    </label>
+  );
+}
+
+function FarmDetailField({ label, name, value, onChange }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-extrabold text-slate-700">{label}</span>
+      <input
+        type="text"
+        value={value}
+        onChange={(event) => onChange((currentDetails) => ({ ...currentDetails, [name]: event.target.value }))}
+        className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-base font-semibold text-slate-900 outline-none transition focus:border-[#2F7D32] focus:ring-4 focus:ring-green-100"
       />
     </label>
   );
