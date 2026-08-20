@@ -11,13 +11,15 @@ export default function Profile() {
   const [profile, setProfile] = useState({
     name: user.name || 'Ramesh Kumar',
     mobile: user.mobile || '6666666666',
-    village: address?.locality || 'Chakia',
-    block: address?.locality || 'Chakia',
-    district: address?.district || 'Chandauli',
-    state: address?.state || 'Uttar Pradesh',
+    farmerId: user.farmerId || 'FARM-3124',
+    village: user.village || address?.locality || 'Chakia',
+    block: user.block || address?.locality || 'Chakia',
+    district: user.district || address?.district || 'Chandauli',
+    state: user.state || address?.state || 'Uttar Pradesh',
   });
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [profileImage, setProfileImage] = useState(user.profileImage || '');
 
   const updateProfileField = (event) => {
     const { name, value } = event.target;
@@ -27,6 +29,30 @@ export default function Profile() {
   const selectLanguage = (languageCode) => {
     setLanguage(languageCode);
     setIsLanguageModalOpen(false);
+  };
+
+  const handleProfileImageChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setSaveMessage('Please select an image file.');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setSaveMessage('Please choose an image smaller than 2 MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const imageData = reader.result;
+      setProfileImage(imageData);
+      updateUser({ profileImage: imageData });
+      setSaveMessage('Profile photo updated.');
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSave = () => {
@@ -46,6 +72,7 @@ export default function Profile() {
       block: profile.block.trim(),
       district: profile.district.trim(),
       state: profile.state.trim(),
+      profileImage,
     };
 
     updateUser(savedProfile);
@@ -57,11 +84,13 @@ export default function Profile() {
     setProfile({
       name: user.name || 'Ramesh Kumar',
       mobile: user.mobile || '6666666666',
+      farmerId: user.farmerId || 'FARM-3124',
       village: user.village || address?.locality || 'Chakia',
       block: user.block || address?.locality || 'Chakia',
       district: user.district || address?.district || 'Chandauli',
       state: user.state || address?.state || 'Uttar Pradesh',
     });
+    setProfileImage(user.profileImage || '');
     setSaveMessage('Changes reset.');
   };
 
@@ -80,9 +109,17 @@ export default function Profile() {
         </div>
 
         {}
-        <div className="h-24 w-24 sm:h-28 sm:w-28 bg-[#2F7D32] rounded-full flex items-center justify-center text-4xl shrink-0 border-4 border-[#F7F3E8]/20 shadow-inner z-10">
-          👨🏽‍🌾
-        </div>
+        <label className="group relative h-24 w-24 shrink-0 cursor-pointer rounded-full border-4 border-[#F7F3E8]/20 bg-[#2F7D32] shadow-inner z-10 sm:h-28 sm:w-28" title="Upload profile photo">
+          {profileImage ? (
+            <img src={profileImage} alt="Profile" className="h-full w-full rounded-full object-cover" />
+          ) : (
+            <span className="flex h-full w-full items-center justify-center text-4xl">👨🏽‍🌾</span>
+          )}
+          <span className="absolute inset-x-1 bottom-1 rounded-full bg-black/65 px-2 py-1 text-center text-[10px] font-bold text-white opacity-0 transition group-hover:opacity-100 sm:text-xs">
+            Upload photo
+          </span>
+          <input type="file" accept="image/*" className="sr-only" onChange={handleProfileImageChange} />
+        </label>
 
         {}
         <div className="flex-1 text-center sm:text-left z-10">
@@ -91,7 +128,7 @@ export default function Profile() {
 
           <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-start gap-3">
             <span className="text-sm font-bold bg-white/10 px-4 py-1.5 rounded-full border border-white/20">
-              Farmer ID: {user.farmerId || 'FARM-3124'}
+              Farmer ID: {profile.farmerId}
             </span>
             <span className="text-sm font-extrabold bg-[#D99A2B]/20 text-[#D99A2B] px-4 py-1.5 rounded-full border border-[#D99A2B]/40 flex items-center gap-1.5">
               ✓ Verified Farmer
@@ -109,6 +146,7 @@ export default function Profile() {
         <div className="grid gap-5 sm:grid-cols-2">
           <TextField label="Full Name" name="name" value={profile.name} onChange={updateProfileField} />
           <TextField label="Mobile Number" name="mobile" type="tel" value={profile.mobile} onChange={updateProfileField} />
+          <TextField label={t('profile.farmerId')} name="farmerId" value={profile.farmerId} onChange={updateProfileField} />
           <TextField label={t('')} name="village" value={profile.village} onChange={updateProfileField} />
           <TextField label={t('')} name="block" value={profile.block} onChange={updateProfileField} />
           <TextField label={t('')} name="district" value={profile.district} onChange={updateProfileField} />
