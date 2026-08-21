@@ -1,9 +1,18 @@
 const express = require('express');
-const { getAllUsers, deleteUser } = require('../controllers/adminController');
+const {
+  adminLogin,
+  getAllUsers,
+  deleteUser,
+  verifyAdminToken,
+} = require('../controllers/adminController');
 
 const router = express.Router();
 
-router.get('/users', getAllUsers);
-router.delete('/users/:id', deleteUser);
+// Public route to authenticate admin
+router.post('/login', adminLogin);
+
+// Protected routes (Requires valid Admin JWT token)
+router.get('/users', verifyAdminToken, getAllUsers);
+router.delete('/users/:id', verifyAdminToken, deleteUser);
 
 module.exports = router;

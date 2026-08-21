@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useUser } from '../context/UserContext';
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
@@ -10,136 +9,303 @@ const apiUrl = (path) => `${API_BASE_URL}${path}`;
 
 export default function Admin() {
   const [users, setUsers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState('');
-  const { isLoggedIn } = useUser();
+  const [successMsg, setSuccessMsg] = useState('');
   const navigate = useNavigate();
 
-  // Basic check: if not logged in at all, maybe they shouldn't be here (though we could rely on ProtectedPage wrapper)
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  const adminEmail = localStorage.getItem('adminEmail') || 'ts7529614@gmail.com';
 
-  const fetchUsers = async () => {
+  useEffect(() => {
+    const token = localStorage.getItem('adminToken');
+    if (!token) {
+      navigate('/admin/login', { replace: true });
+      return;
+    }
+    fetchUsers(token);
+  }, [navigate]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminEmail');
+    navigate('/admin/login', { replace: true });
+  };
+
+  const fetchUsers = async (token) => {
+    const activeToken = token || localStorage.getItem('adminToken');
+    if (!activeToken) {
+      navigate('/admin/login', { replace: true });
+      return;
+    }
+
     setLoading(true);
+    setError('');
+
     try {
-      const response = await fetch(apiUrl('/api/admin/users'));
+      const response = await fetch(apiUrl('/api/admin/users'), {
+        headers: {
+          'Authorization': `Bearer ${activeToken}`,
+        },
+      });
+
       const data = await response.json();
 
       if (response.ok && data.success) {
-        setUsers(data.data);
+        setUsers(data.data || []);
       } else {
-        setError(data.message || 'Failed to fetch users');
+        if (response.status === 401 || response.status === 403) {
+          handleLogout();
+          return;
+        }
+        setError(data.message || 'Failed to fetch registered users.');
       }
     } catch (err) {
-      setError('Network error while fetching users');
+      setError('Unable to communicate with the backend. Please ensure the server is active.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteUser = async (userId) => {
-    if (!window.confirm('Are you sure you want to delete this user? This cannot be undone.')) {
+  const handleDeleteUser = async (user) => {
+    const token = localStorage.getItem('adminToken');
+    if (!token) {
+      handleLogout();
       return;
     }
 
+    const confirmDelete = window.confirm(
+      `Are you sure you want to permanently delete user "${user.firstName} ${user.lastName}" (${user.phone}) from MongoDB?`
+    );
+
+    if (!confirmDelete) return;
+
+    setDeletingId(user._id);
+    setError('');
+    setSuccessMsg('');
+
     try {
-      const response = await fetch(apiUrl(`/api/admin/users/${userId}`), {
+      const response = await fetch(apiUrl(`/api/admin/users/${user._id}`), {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       });
+
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Remove user from the state so UI updates immediately
-        setUsers(users.filter(user => user._id !== userId));
+        setUsers((prev) => prev.filter((u) => u._id !== user._id));
+        setSuccessMsg(`User ${user.firstName} ${user.lastName} successfully deleted from MongoDB.`);
+        setTimeout(() => setSuccessMsg(''), 4000);
       } else {
-        alert(data.message || 'Failed to delete user');
+        if (response.status === 401 || response.status === 403) {
+          handleLogout();
+          return;
+        }
+        setError(data.message || 'Failed to delete user.');
       }
     } catch (err) {
-      alert('Network error while deleting user');
+      setError('Network error while deleting user from database.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2E7D32]"></div>
-      </div>
-    );
-  }
+  const filteredUsers = users.filter((user) => {
+    const query = searchQuery.toLowerCase();
+    const fullName = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase();
+    const phone = (user.phone || '').toLowerCase();
+    const email = (user.email || '').toLowerCase();
+    const id = (user._id || '').toLowerCase();
+
+    return fullName.includes(query) || phone.includes(query) || email.includes(query) || id.includes(query);
+  });
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-extrabold text-slate-900">Admin Panel</h1>
-            <p className="text-slate-500 mt-1">Manage all registered users</p>
+    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-white pb-12">
+      {/* Top Navigation Bar */}
+      <header className="bg-slate-900/80 border-b border-slate-800 backdrop-blur-md sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold shadow-md">
+              🛡️
+            </div>
+            <div>
+              <span className="font-extrabold tracking-tight text-white text-base">SAATHI</span>
+              <span className="ml-2 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider border border-emerald-500/30">
+                Admin Panel
+              </span>
+            </div>
           </div>
-          <button 
-            onClick={() => navigate('/')}
-            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold transition"
-          >
-            Back to Dashboard
-          </button>
-        </div>
 
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{adminEmail}</span>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="px-3.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+            >
+              <span>Logout</span>
+              <span>→</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        {/* Status Messages */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl mb-6">
-            {error}
+          <div className="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm font-semibold flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <span>⚠️</span>
+              <span>{error}</span>
+            </span>
+            <button onClick={() => setError('')} className="text-red-400 hover:text-white text-xs">✕</button>
           </div>
         )}
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Joined</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {users.length === 0 ? (
-                  <tr>
-                    <td colSpan="4" className="px-6 py-12 text-center text-slate-500 font-medium">
-                      No users found in the database.
-                    </td>
-                  </tr>
-                ) : (
-                  users.map(user => (
-                    <tr key={user._id} className="hover:bg-slate-50/50 transition">
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-slate-900">{user.firstName} {user.lastName}</div>
-                        <div className="text-xs text-slate-500 mt-0.5">ID: {user._id}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-slate-800">{user.phone}</div>
-                        <div className="text-sm text-slate-500">{user.email}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-slate-600">
-                          {new Date(user.createdAt).toLocaleDateString()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => handleDeleteUser(user._id)}
-                          className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 rounded-lg text-sm font-bold transition"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+        {successMsg && (
+          <div className="mb-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm font-semibold flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <span>✓</span>
+              <span>{successMsg}</span>
+            </span>
+            <button onClick={() => setSuccessMsg('')} className="text-emerald-400 hover:text-white text-xs">✕</button>
+          </div>
+        )}
+
+        {/* Dashboard Header / Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <div className="bg-slate-900/70 border border-slate-800/80 p-5 rounded-2xl">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Users</div>
+            <div className="text-3xl font-black text-white">{users.length}</div>
+            <div className="text-xs text-slate-500 mt-1">Stored directly in MongoDB</div>
+          </div>
+
+          <div className="bg-slate-900/70 border border-slate-800/80 p-5 rounded-2xl">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Active Database</div>
+            <div className="text-sm font-bold text-emerald-400 flex items-center gap-1.5 mt-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block animate-ping" />
+              <span>MongoDB Connected</span>
+            </div>
+            <div className="text-xs text-slate-500 mt-1">Direct read & delete access</div>
+          </div>
+
+          <div className="bg-slate-900/70 border border-slate-800/80 p-5 rounded-2xl">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Security Mode</div>
+            <div className="text-sm font-bold text-amber-400 mt-2">JWT Admin Protected</div>
+            <div className="text-xs text-slate-500 mt-1">Strict restricted access</div>
           </div>
         </div>
-      </div>
+
+        {/* Controls / Search Bar */}
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-6">
+          <div className="relative flex-1 max-w-md">
+            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
+              🔍
+            </span>
+            <input
+              type="text"
+              placeholder="Search by name, phone, email, or ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-11 pl-10 pr-4 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm font-medium placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 transition"
+            />
+          </div>
+
+          <button
+            onClick={() => fetchUsers()}
+            disabled={loading}
+            className="h-11 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-bold rounded-xl border border-slate-700 transition flex items-center justify-center gap-2"
+          >
+            <span>🔄 Refresh Data</span>
+          </button>
+        </div>
+
+        {/* Table Container */}
+        <div className="bg-slate-900/80 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+          {loading ? (
+            <div className="py-20 flex flex-col items-center justify-center gap-3">
+              <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fetching from database...</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-950/60 border-b border-slate-800">
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">User Details</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Phone / Mobile</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Email Address</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Registered On</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Delete Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {filteredUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-16 text-center text-slate-500">
+                        <div className="text-4xl mb-2">🧑‍🌾</div>
+                        <div className="text-sm font-bold text-slate-400">
+                          {searchQuery ? 'No users matching your search' : 'No registered users found in MongoDB'}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <tr key={user._id} className="hover:bg-slate-800/40 transition">
+                        <td className="px-6 py-4">
+                          <div className="font-bold text-white text-sm">
+                            {user.firstName} {user.lastName}
+                          </div>
+                          <div className="text-[11px] font-mono text-slate-500 mt-0.5 select-all">
+                            ID: {user._id}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-mono font-bold">
+                            📞 {user.phone}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-slate-300 font-medium">{user.email}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-xs text-slate-400 font-medium">
+                            {user.createdAt ? new Date(user.createdAt).toLocaleString('en-IN') : 'N/A'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => handleDeleteUser(user)}
+                            disabled={deletingId === user._id}
+                            className="px-3.5 py-1.5 bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 hover:border-transparent rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50 flex items-center gap-1.5 ml-auto"
+                          >
+                            {deletingId === user._id ? (
+                              <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <>
+                                <span>🗑️</span>
+                                <span>Delete User</span>
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
