@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { useLocationContext } from '../context/LocationContext';
 import { mockBuyers, mockCrops, mockSupplyChain } from '../utils/mockData';
+import { SupplyChainVerification } from '../components/BlockchainVerification';
 
 const fmt = (v) => `₹${Number(v).toLocaleString('en-IN')}`;
 const diff = (a, b) => (b > a ? `+${fmt(b - a)}` : fmt(b - a));
@@ -481,6 +482,12 @@ export default function MarketExplorer({ onVoiceStart }) {
                 </div>
               </div>
             </div>
+
+            <SupplyChainVerification
+              recordId={`SC-CROP-${crop.id}`}
+              product={crop.name}
+              stage="Farm to consumer"
+            />
 
             {}
             <div className="mt-6">

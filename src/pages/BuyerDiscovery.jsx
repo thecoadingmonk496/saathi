@@ -3,6 +3,7 @@ import { useUser } from '../context/UserContext';
 import { useLocationContext } from '../context/LocationContext';
 import { calculateDistance, formatDistance } from '../utils/distanceUtils';
 import { mockBuyers, mockCrops, mockPriceHistory } from '../utils/mockData';
+import { BuyerVerification } from '../components/BlockchainVerification';
 
 const getBuyerTypes = (t) => ['All', t('explorer.stageWholesaler'), t('explorer.stageRetailer'), t('explorer.stageDistributor'), t('buyer.mandiBuyer'), 'Govt Agency'];
 const popularCrops = ['Wheat', 'Paddy', 'Mustard', 'Maize', 'Chickpea'];
@@ -386,6 +387,7 @@ export default function BuyerDiscovery() {
                       <span className="text-xs font-medium text-slate-500 flex items-center gap-1">⚡ {buyer.responseTime}</span>
                     )}
                   </div>
+                  <BuyerVerification buyerId={`B-${buyer.id}`} buyerType={buyer.type} />
                 </div>
 
                 {}

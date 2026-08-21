@@ -17,6 +17,7 @@ import { useLocationContext } from '../context/LocationContext';
 import { useUser } from '../context/UserContext';
 import { mockBuyers, mockCrops, mockPriceHistory, mockSupplyChain } from '../utils/mockData';
 import { getDistricts, getVillages, locationStates } from '../utils/locationOptions';
+import { BlockchainTransparency } from '../components/BlockchainVerification';
 
 const languageLocales = {
   English: 'en-IN',
@@ -236,6 +237,10 @@ export default function Dashboard({ onVoiceStart, voiceAssistantResponse }) {
               t={t}
             />
           </section>
+
+          <div className="mt-5">
+            <BlockchainTransparency />
+          </div>
 
           <HowSaathiHelps t={t} />
         </div>
