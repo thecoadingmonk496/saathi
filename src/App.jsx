@@ -15,6 +15,7 @@ import Notifications from './pages/Notifications';
 import Register from './pages/Register';
 import Onboarding from './pages/Onboarding';
 import Profile from './pages/Profile';
+import Admin from './pages/Admin';
 
 function ProtectedPage({ children }) {
   const { isLoggedIn } = useUser();
@@ -61,6 +62,7 @@ export default function App() {
             <Route path="/government" element={<ProtectedPage><Government /></ProtectedPage>} />
             <Route path="/profile" element={<ProtectedPage><Profile /></ProtectedPage>} />
             <Route path="/ai" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
+            <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
 
             <Route path="/notifications" element={<ProtectedPage><Notifications /></ProtectedPage>} />
             <Route path="*" element={<CatchAllRedirect />} />
