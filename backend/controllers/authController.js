@@ -14,23 +14,31 @@ async function registerUser(req, res) {
     const { firstName, lastName, email, phone, password } = req.body || {};
 
     if (!firstName || !lastName || !email || !phone || !password) {
-      return res.status(400).json({ message: 'First name, last name, email, phone, and password are required' });
+      return res.status(400).json({ message: 'All fields (First name, Last name, Email, Phone, and Password) are required' });
     }
 
-    if (password.length < 6 || !process.env.JWT_SECRET) {
-      if (!process.env.JWT_SECRET) {
-        return res.status(500).json({ message: 'JWT_SECRET is not configured' });
-      }
-      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ message: 'JWT_SECRET is not configured on server' });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
-    const normalizedPhone = phone.trim();
+    const normalizedPhone = phone.trim().replace(/\s+/g, '');
+
     const existingUser = await User.findOne({
       $or: [{ email: normalizedEmail }, { phone: normalizedPhone }],
     });
 
     if (existingUser) {
+      if (existingUser.email === normalizedEmail) {
+        return res.status(400).json({ message: 'An account with this email address already exists.' });
+      }
+      if (existingUser.phone === normalizedPhone) {
+        return res.status(400).json({ message: 'An account with this mobile number already exists.' });
+      }
       return res.status(400).json({ message: 'A user with this email or phone already exists' });
     }
 
@@ -55,8 +63,12 @@ async function registerUser(req, res) {
       },
     });
   } catch (error) {
-    console.error('Register error:', error.message);
-    return res.status(500).json({ message: 'Unable to register user' });
+    console.error('Register error:', error);
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0] || 'Email or phone';
+      return res.status(400).json({ message: `An account with this ${field} already exists.` });
+    }
+    return res.status(500).json({ message: error.message || 'Unable to register user' });
   }
 }
 

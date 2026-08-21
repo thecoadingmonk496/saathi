@@ -12,7 +12,11 @@ const initialForm = {
   password: '',
 };
 
-const authApiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api/auth';
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
+).replace(/\/$/, '');
+
+const apiUrl = (path) => `${API_BASE_URL}${path}`;
 
 export default function Register() {
   const navigate = useNavigate();
@@ -37,18 +41,30 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(`${authApiUrl}/register`, form);
-      const { token, user } = response.data;
-
-      localStorage.setItem('token', token);
-      login({
-        ...user,
-        name: `${user.firstName} ${user.lastName}`,
-        mobile: user.phone,
+      const response = await fetch(apiUrl('/api/auth/register'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
       });
-      navigate('/');
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const { token, user } = data;
+        if (token) localStorage.setItem('token', token);
+        if (user) {
+          login({
+            ...user,
+            name: `${user.firstName} ${user.lastName}`,
+            mobile: user.phone,
+          });
+        }
+        navigate('/');
+      } else {
+        setError(data.message || 'Registration failed. Please try again.');
+      }
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Registration failed. Please try again.');
+      setError('Unable to connect to the backend server. Please check your network and make sure the server is running.');
     } finally {
       setIsLoading(false);
     }
