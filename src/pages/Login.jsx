@@ -49,29 +49,23 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch(apiUrl('/api/send-otp'), {
+      const response = await fetch(apiUrl('/api/auth/send-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobileNumber: targetNum }),
       });
       const data = await response.json();
 
-      if (data.success) {
+      if (response.ok && data.success) {
         setOtpSent(true);
         setTimer(45);
         setOtp(['', '', '', '', '', '']);
         setSuccessMessage('OTP sent successfully. Demo OTP: 123456');
       } else {
-        setOtpSent(true);
-        setTimer(45);
-        setOtp(['', '', '', '', '', '']);
-        setSuccessMessage('OTP sent successfully. Demo OTP: 123456');
+        setError(data.message || 'Failed to send OTP.');
       }
     } catch (err) {
-      setOtpSent(true);
-      setTimer(45);
-      setOtp(['', '', '', '', '', '']);
-      setSuccessMessage('OTP sent successfully. Demo OTP: 123456');
+      setError('Failed to send OTP. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -102,42 +96,22 @@ export default function Login() {
     setSuccessMessage('');
 
     try {
-      const response = await fetch(apiUrl('/api/verify-otp'), {
+      const response = await fetch(apiUrl('/api/auth/verify-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobileNumber: mobile, otp: enteredOtp }),
       });
       const data = await response.json();
 
-      if (data.success) {
+      if (response.ok && data.success) {
         localStorage.setItem('token', data.token);
         login(data.user);
         navigate('/');
-      } else if (enteredOtp === '123456') {
-        const demoUser = {
-          name: 'Ramesh Kumar',
-          farmerId: 'FARM-9842',
-          mobile: mobile || '9876543210',
-        };
-        localStorage.setItem('token', 'mock-jwt-token-789');
-        login(demoUser);
-        navigate('/');
       } else {
-        setError(data.message || 'Invalid OTP. Use Demo OTP: 123456');
+        setError(data.message || 'Invalid OTP. Please try again.');
       }
     } catch (err) {
-      if (enteredOtp === '123456') {
-        const demoUser = {
-          name: 'Ramesh Kumar',
-          farmerId: 'FARM-9842',
-          mobile: mobile || '9876543210',
-        };
-        localStorage.setItem('token', 'mock-jwt-token-789');
-        login(demoUser);
-        navigate('/');
-      } else {
-        setError('Unable to verify OTP. Use Demo OTP: 123456');
-      }
+      setError('Unable to verify OTP. Please try again.');
     } finally {
       setLoading(false);
     }
