@@ -25,7 +25,7 @@ export default function PlatformTopNav({ preferredLanguage, user, onLanguageChan
   ];
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-emerald-500/20 bg-[#0b281f]/85 text-white backdrop-blur-xl shadow-lg">
+    <header className="fixed inset-x-0 top-0 z-50 bg-[#0b281f]/88 text-white backdrop-blur-xl shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
       <div className="mx-auto flex max-w-[1500px] flex-col gap-2 px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
 
         {}
