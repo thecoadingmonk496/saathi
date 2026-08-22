@@ -61,7 +61,7 @@ export default function PlatformTopNav({ preferredLanguage, user, onLanguageChan
           >
             {supportedLanguages?.map((lang) => (
               <option key={lang.code} value={lang.code} className="bg-slate-900 text-white font-medium">
-                ?? {lang.name === 'English' ? 'English' : lang.nativeName}
+                {lang.name === 'English' ? 'English' : lang.nativeName}
               </option>
             ))}
           </select>
