@@ -35,15 +35,15 @@ export function SupplyChainVerification({ recordId, product, stage }) {
   }, [recordId]);
 
   return (
-    <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+    <div className="mt-4 rounded-2xl border border-white/20 bg-black/70 backdrop-blur-md p-4 shadow-lg">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <BlockchainStatus verification={verification} />
-        <button type="button" onClick={() => setIsOpen((current) => !current)} className="text-xs font-bold text-[#2E7D32] underline underline-offset-2 hover:text-[#174532]">
+        <button type="button" onClick={() => setIsOpen((current) => !current)} className="text-xs font-bold text-emerald-400 underline underline-offset-2 hover:text-emerald-300">
           {isOpen ? 'Hide verification' : 'View Blockchain Verification'}
         </button>
       </div>
       {isOpen && (
-        <dl className="mt-3 grid gap-2 border-t border-emerald-100 pt-3 text-xs sm:grid-cols-2">
+        <dl className="mt-3 grid gap-3 border-t border-white/20 pt-3 text-xs sm:grid-cols-2">
           <VerificationItem label="Network" value={verification?.network || 'Polygon Amoy'} />
           <VerificationItem label="Status" value={verification?.verified ? 'Verified' : 'Pending'} />
           <VerificationItem label="Record" value={`${product || 'Crop'} · ${stage || 'Supply chain'}`} />
@@ -74,13 +74,13 @@ export function BuyerVerification({ buyerId, buyerType }) {
         {isOpen ? 'Hide details' : 'View Verification'}
       </button>
       {isOpen && (
-        <div className="basis-full rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 text-xs text-slate-700">
-          <p><strong>Buyer ID:</strong> {buyerId}</p>
-          <p><strong>Type:</strong> {buyerType}</p>
-          <p><strong>Status:</strong> {verification?.verified ? 'Verified' : 'Pending'}</p>
-          <p><strong>Network:</strong> {verification?.network || 'Polygon Amoy'}</p>
-          <p><strong>Transaction:</strong> {shortenHash(verification?.transactionHash) || 'Not recorded yet'}</p>
-          <p><strong>Data hash:</strong> {shortenHash(verification?.dataHash) || 'Not available'}</p>
+        <div className="basis-full rounded-xl border border-white/20 bg-black/70 backdrop-blur-md p-3 text-xs">
+          <p><strong className="text-emerald-400">Buyer ID:</strong> <span className="text-white">{buyerId}</span></p>
+          <p className="mt-1"><strong className="text-emerald-400">Type:</strong> <span className="text-white">{buyerType}</span></p>
+          <p className="mt-1"><strong className="text-emerald-400">Status:</strong> <span className="text-white">{verification?.verified ? 'Verified' : 'Pending'}</span></p>
+          <p className="mt-1"><strong className="text-emerald-400">Network:</strong> <span className="text-white">{verification?.network || 'Polygon Amoy'}</span></p>
+          <p className="mt-1"><strong className="text-emerald-400">Transaction:</strong> <span className="text-white">{shortenHash(verification?.transactionHash) || 'Not recorded yet'}</span></p>
+          <p className="mt-1"><strong className="text-emerald-400">Data hash:</strong> <span className="text-white">{shortenHash(verification?.dataHash) || 'Not available'}</span></p>
         </div>
       )}
     </div>
@@ -120,5 +120,10 @@ export function BlockchainTransparency() {
 }
 
 function VerificationItem({ label, value }) {
-  return <div><dt className="font-bold uppercase tracking-wide text-slate-500">{label}</dt><dd className="mt-0.5 font-semibold text-slate-800">{value}</dd></div>;
+  return (
+    <div>
+      <dt className="font-bold uppercase tracking-wide text-emerald-400">{label}</dt>
+      <dd className="mt-0.5 font-semibold text-white">{value}</dd>
+    </div>
+  );
 }
