@@ -263,7 +263,7 @@ export default function MarketPrices() {
       {}
       {selectedCrop && nearbyMandis.length > 0 && (
         <div className="mb-8">
-          <h3 className="mb-4 text-xl font-bold text-slate-900">{t('prices.nearbyTitle')}</h3>
+          <h3 className="mb-4 text-xl font-extrabold text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)] [text-shadow:0_2px_8px_rgba(0,0,0,0.8)]">{t('prices.nearbyTitle')}</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             {nearbyMandis.map((mandi, idx) => (
               <div key={mandi.id} className="rounded-2xl border border-slate-200 bg-white p-5 flex justify-between items-center">
@@ -322,13 +322,13 @@ export default function MarketPrices() {
       </div>
 
       {}
-      <footer className="border-t border-slate-300 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left text-xs font-semibold text-slate-700">
-        <div>
-          <p>{t('prices.dataSource')}</p>
-          <p className="mt-1">{t('prices.dataNote')}</p>
+      <footer className="border-t-2 border-white/40 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left">
+        <div className="rounded-xl bg-black/50 backdrop-blur-sm px-4 py-2">
+          <p className="text-xs font-semibold text-white">{t('prices.dataSource')}</p>
+          <p className="mt-1 text-xs font-medium text-white/80">{t('prices.dataNote')}</p>
         </div>
-        <div className="text-slate-600">
-          SAATHI Market Engine
+        <div className="rounded-xl bg-black/50 backdrop-blur-sm px-4 py-2">
+          <p className="text-xs font-bold text-emerald-300">SAATHI Market Engine</p>
         </div>
       </footer>
     </section>

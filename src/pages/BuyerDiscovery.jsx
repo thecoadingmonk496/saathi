@@ -213,9 +213,9 @@ export default function BuyerDiscovery() {
     <section className="mx-auto w-full max-w-4xl">
       {}
       <header className="mb-6">
-        <p className="text-xs font-extrabold uppercase tracking-widest text-[#2E7D32]">{t('buyer.tagline')}</p>
-        <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">{t('buyer.title')}</h1>
-        <p className="mt-1 text-sm font-semibold text-slate-700">{t('buyer.pageSubtitle')}</p>
+        <p className="text-xs font-extrabold uppercase tracking-widest text-emerald-400 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">{t('buyer.tagline')}</p>
+        <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] sm:text-4xl">{t('buyer.title')}</h1>
+        <p className="mt-1 text-sm font-semibold text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">{t('buyer.pageSubtitle')}</p>
 
         {}
         <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-green-50 border border-green-100 px-4 py-3">
@@ -236,7 +236,7 @@ export default function BuyerDiscovery() {
         </div>
 
         {}
-        <p className="mt-2 rounded-lg bg-white/65 py-1 text-center text-xs font-semibold text-slate-700 backdrop-blur-sm">
+        <p className="mt-2 rounded-lg bg-black/50 backdrop-blur-sm py-1.5 px-3 text-center text-xs font-semibold text-white">
           📋 {t('buyer.demoNote')}
         </p>
       </header>
@@ -258,7 +258,7 @@ export default function BuyerDiscovery() {
 
         {}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="mr-1 shrink-0 text-xs font-bold uppercase tracking-wider text-slate-700">{t('buyer.popularCrops')}</span>
+          <span className="mr-1 shrink-0 text-xs font-bold uppercase tracking-wider text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">{t('buyer.popularCrops')}</span>
           {popularCrops.map((crop) => (
             <button
               key={crop}
@@ -294,12 +294,12 @@ export default function BuyerDiscovery() {
         </div>
 
         {}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-          <p className="text-sm font-semibold text-slate-700 px-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/20 bg-black/50 backdrop-blur-sm p-3 shadow-sm">
+          <p className="text-sm font-semibold text-white px-2">
             {t('buyer.buyerCount', { count: processedBuyers.length })} — {radius} km
           </p>
           <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <label className="flex items-center gap-2 text-sm font-semibold text-white">
               <span className="hidden sm:inline">{t('buyer.radiusLabel')}:</span>
               <select
                 value={radius}
@@ -309,7 +309,7 @@ export default function BuyerDiscovery() {
                 {radiusOptions.map(r => <option key={r} value={r}>{r} km</option>)}
               </select>
             </label>
-            <label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <label className="flex items-center gap-2 text-sm font-semibold text-white">
               <span className="hidden sm:inline">{t('buyer.sort')}:</span>
               <select
                 value={sortOrder}

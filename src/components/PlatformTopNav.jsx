@@ -25,10 +25,9 @@ export default function PlatformTopNav({ preferredLanguage, user, onLanguageChan
   ];
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 bg-[#0b281f]/88 text-white backdrop-blur-xl shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
+    <header className="fixed inset-x-0 top-0 z-50 bg-[#071f17]/95 text-white backdrop-blur-xl shadow-[0_10px_28px_rgba(0,0,0,0.35)] border-b border-emerald-900/60">
       <div className="mx-auto flex max-w-[1500px] flex-col gap-2 px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
 
-        {}
         <div className="flex items-center justify-between gap-2 sm:gap-4 lg:justify-start">
           <Link className="flex min-h-10 shrink-0 items-center gap-2" to="/" aria-label="SAATHI dashboard">
             <img
@@ -45,14 +44,12 @@ export default function PlatformTopNav({ preferredLanguage, user, onLanguageChan
           </Link>
         </div>
 
-        {}
         <nav className="w-full grid grid-cols-4 gap-1 sm:gap-2 lg:w-auto lg:flex lg:shrink-0 lg:items-center lg:justify-center lg:gap-2" aria-label="Main platform tabs">
           {navItems.map((item) => (
             <TopNavItem key={item.path} item={item} />
           ))}
         </nav>
 
-        {}
         <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2">
           <label className="sr-only" htmlFor="platform-language-select">Language</label>
           <select
@@ -64,12 +61,11 @@ export default function PlatformTopNav({ preferredLanguage, user, onLanguageChan
           >
             {supportedLanguages?.map((lang) => (
               <option key={lang.code} value={lang.code} className="bg-slate-900 text-white font-medium">
-                🌐 {lang.name === 'English' ? 'English' : lang.nativeName}
+                ?? {lang.name === 'English' ? 'English' : lang.nativeName}
               </option>
             ))}
           </select>
 
-          {}
           <button
             type="button"
             onClick={onVoiceStart}
@@ -100,7 +96,7 @@ export default function PlatformTopNav({ preferredLanguage, user, onLanguageChan
               {user?.name ? user.name[0] : 'R'}
             </div>
             <span className="hidden text-xs font-semibold sm:inline">{user?.name || 'Ramesh Kumar'}</span>
-            <span className="text-[10px] text-emerald-300">▾</span>
+            <span className="text-[10px] text-emerald-300">?</span>
           </Link>
 
           <button
@@ -128,8 +124,8 @@ function TopNavItem({ item }) {
       className={({ isActive }) =>
         `flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition whitespace-nowrap ${
           isActive
-            ? 'bg-[#184234] text-white border border-emerald-500/40 font-bold shadow-inner'
-            : 'text-emerald-100/80 hover:bg-white/10 hover:text-white font-medium border border-transparent'
+            ? 'bg-emerald-600 text-white border border-emerald-400 font-bold shadow-md'
+            : 'text-white font-semibold border border-white/25 bg-white/10 hover:bg-white/20 hover:border-white/50 hover:text-white'
         }`
       }
     >
