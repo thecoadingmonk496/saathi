@@ -561,11 +561,11 @@ export default function MarketExplorer({ onVoiceStart }) {
             </div>
 
             {}
-            <div className="mt-6 rounded-3xl border border-green-100 bg-green-50/60 p-5 sm:p-6">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-[#2E7D32] mb-1">
+            <div className="mt-6 rounded-3xl border border-white/20 bg-black/60 backdrop-blur-md p-5 shadow-lg sm:p-6">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400 mb-1">
                 {t('explorer.priceProgressionTitle')}
               </h3>
-              <p className="text-xs text-slate-500 mb-5">{t('explorer.priceProgressionSubtitle')}</p>
+              <p className="text-xs text-white/70 mb-5">{t('explorer.priceProgressionSubtitle')}</p>
 
               {}
               <div className="flex flex-col items-center sm:hidden gap-0">
@@ -584,23 +584,23 @@ export default function MarketExplorer({ onVoiceStart }) {
               <div className="hidden sm:flex items-stretch gap-2 overflow-x-auto">
                 {priceLadder.map((step, i) => (
                   <div key={step.key} className="flex items-center gap-2">
-                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-center shadow-sm min-w-[100px]">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{step.label}</p>
-                      <p className="mt-1 text-xl font-extrabold text-[#2E7D32]">{fmt(step.price)}</p>
-                      <p className="text-xs text-slate-400">/qtl</p>
+                    <div className="rounded-2xl border border-white/20 bg-white/10 px-4 py-4 text-center shadow-sm min-w-[100px]">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-300">{step.label}</p>
+                      <p className="mt-1 text-xl font-extrabold text-white">{fmt(step.price)}</p>
+                      <p className="text-xs text-white/60">/qtl</p>
                     </div>
                     {i < priceLadder.length - 1 && (
                       <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                        <span className="text-xs font-bold text-amber-300 bg-amber-900/60 border border-amber-500/40 rounded-full px-2 py-0.5">
                           {diff(step.price, priceLadder[i + 1].price)}
                         </span>
-                        <span className="text-amber-500 font-bold">→</span>
+                        <span className="text-amber-400 font-bold">→</span>
                       </div>
                     )}
                   </div>
                 ))}
               </div>
-              <p className="mt-4 text-xs text-slate-400 text-center">{t('explorer.notProfit')}</p>
+              <p className="mt-4 text-xs text-white/60 text-center">{t('explorer.notProfit')}</p>
             </div>
 
             {}
@@ -664,23 +664,23 @@ export default function MarketExplorer({ onVoiceStart }) {
             )}
 
             {}
-            <div className="mt-6 rounded-3xl border border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 p-5 sm:p-6">
+            <div className="mt-6 rounded-3xl border border-white/20 bg-black/60 backdrop-blur-md p-5 shadow-lg sm:p-6">
               <div className="flex items-start gap-4">
                 <div className="shrink-0 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2E7D32]">
                   <img src="/saathi-mic-logo.png" alt="SAATHI AI" className="h-8 w-8 object-contain" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-bold text-slate-800">{t('explorer.askSaathiCTA')}</p>
+                  <p className="text-sm font-bold text-white">{t('explorer.askSaathiCTA')}</p>
                   <div className="mt-2 space-y-1">
-                    <p className="text-xs text-slate-500">{t('explorer.aiQuestion1')}</p>
-                    <p className="text-xs text-slate-500">{t('explorer.aiQuestion2')}</p>
-                    <p className="text-xs text-slate-500">{t('explorer.aiQuestion3')}</p>
+                    <p className="text-xs text-white/70">{t('explorer.aiQuestion1')}</p>
+                    <p className="text-xs text-white/70">{t('explorer.aiQuestion2')}</p>
+                    <p className="text-xs text-white/70">{t('explorer.aiQuestion3')}</p>
                   </div>
                 </div>
               </div>
               <button
                 onClick={onVoiceStart}
-                className="mt-4 w-full rounded-2xl bg-[#2E7D32] py-3 text-sm font-bold text-white hover:bg-[#256428] transition"
+                className="mt-4 w-full rounded-2xl bg-[#2E7D32] py-3 text-sm font-bold text-white hover:bg-[#256428] transition shadow-md"
               >
                 {t('explorer.askSaathi')}
               </button>
@@ -690,19 +690,19 @@ export default function MarketExplorer({ onVoiceStart }) {
             <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
               <button
                 onClick={() => navigate('/buyers')}
-                className="rounded-2xl border-2 border-[#2E7D32] py-3 text-sm font-bold text-[#2E7D32] hover:bg-green-50 transition"
+                className="rounded-2xl border-2 border-emerald-400 bg-black/50 backdrop-blur-sm py-3 text-sm font-bold text-white hover:bg-emerald-700 transition shadow-md"
               >
                 {t('explorer.findBuyers')}
               </button>
               <button
                 onClick={() => navigate('/prices')}
-                className="rounded-2xl border-2 border-amber-500 py-3 text-sm font-bold text-amber-700 hover:bg-amber-50 transition"
+                className="rounded-2xl border-2 border-amber-400 bg-black/50 backdrop-blur-sm py-3 text-sm font-bold text-amber-300 hover:bg-amber-700 transition shadow-md"
               >
                 {t('explorer.viewMarketPrices')}
               </button>
               <button
                 onClick={onVoiceStart}
-                className="col-span-2 sm:col-span-1 rounded-2xl bg-[#2E7D32] py-3 text-sm font-bold text-white hover:bg-[#256428] transition"
+                className="col-span-2 sm:col-span-1 rounded-2xl bg-[#2E7D32] py-3 text-sm font-bold text-white hover:bg-[#256428] transition shadow-md"
               >
                 {t('explorer.askSaathi')}
               </button>
