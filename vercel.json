@@ -17,7 +17,7 @@
   "crons": [
     {
       "path": "/api/cron/refresh-mandi-cache",
-      "schedule": "0 21 * * *"
+      "schedule": "0 3 * * *"
     }
   ]
 }

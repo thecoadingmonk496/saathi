@@ -1,5 +1,6 @@
 const axios = require('axios');
 const MandiPriceCache = require('../models/MandiPriceCache');
+const MandiRefreshProgress = require('../models/MandiRefreshProgress');
 
 // In-memory cache map
 const cache = new Map();
@@ -190,76 +191,118 @@ async function refreshNationalMandiCache() {
     return { success: false, message: 'Mock API key in use' };
   }
 
+  const todayStr = getTodayDateString();
   console.log('[MandiService] Starting nightly national mandi cache refresh...');
   const limit = 1000;
-  let offset = 0;
+  
+  let progressRecord = await MandiRefreshProgress.findOne({ date: todayStr });
+  if (!progressRecord) {
+    progressRecord = new MandiRefreshProgress({ date: todayStr, lastOffset: 0, status: 'IN_PROGRESS' });
+    await progressRecord.save();
+  } else if (progressRecord.status === 'COMPLETED') {
+    // If today was previously marked completed but triggered again, restart
+    progressRecord.lastOffset = 0;
+    progressRecord.status = 'IN_PROGRESS';
+    await progressRecord.save();
+  }
+
+  let offset = progressRecord.lastOffset;
   let totalRecordsFetched = 0;
   let totalUpserted = 0;
   let failedPages = 0;
-  let totalAvailable = null;
+  let totalAvailable = progressRecord.totalRecords || null;
 
   try {
     while (true) {
-      try {
-        const response = await axios.get(`https://api.data.gov.in/resource/${CURRENT_DAILY_RESOURCE_ID}`, {
-          params: { 'api-key': apiKey, format: 'json', limit, offset },
-          timeout: 20000
-        });
-
-        if (!response.data || !Array.isArray(response.data.records)) {
-          throw new Error('Invalid response format');
-        }
-
-        if (totalAvailable === null) {
-          totalAvailable = Number(response.data.total) || 0;
-          console.log(`[MandiService] Total records available for today: ${totalAvailable}`);
-        }
-
-        const records = normalizeMandiRecords(response.data.records);
-        if (records.length === 0) break;
-
-        const bulkOps = records.map(record => ({
-          updateOne: {
-            filter: {
-              state: record.state,
-              district: record.district,
-              market: record.market,
-              commodity: record.commodity,
-              variety: record.variety,
-              arrival_date: record.arrival_date
-            },
-            update: { $set: { ...record, fetched_at: new Date() } },
-            upsert: true
+      let pageSuccess = false;
+      let response = null;
+      
+      // Retry logic for this specific page
+      for (let retry = 0; retry < 3; retry++) {
+        try {
+          response = await axios.get(`https://api.data.gov.in/resource/${CURRENT_DAILY_RESOURCE_ID}`, {
+            params: { 'api-key': apiKey, format: 'json', limit, offset },
+            timeout: 35000 // Increased timeout for flaky government API
+          });
+          
+          if (!response.data || !Array.isArray(response.data.records)) {
+            throw new Error('Invalid response format');
           }
-        }));
-
-        if (bulkOps.length > 0) {
-          const result = await MandiPriceCache.bulkWrite(bulkOps);
-          totalUpserted += result.upsertedCount + result.modifiedCount;
+          pageSuccess = true;
+          break; // success, break retry loop
+        } catch (err) {
+          console.warn(`[MandiService] Page fetch failed at offset ${offset} (attempt ${retry + 1}): ${err.message}`);
+          await new Promise(r => setTimeout(r, 2000));
         }
+      }
 
-        totalRecordsFetched += records.length;
-        offset += limit;
-
-        if (totalAvailable > 0 && offset >= totalAvailable) break;
-        if (records.length < limit) break; // Reached the end
-
-        // Small delay to avoid hammering the API
-        await new Promise(r => setTimeout(r, 500));
-
-      } catch (pageErr) {
-        console.error(`[MandiService] Error fetching page at offset ${offset}:`, pageErr.message);
+      if (!pageSuccess) {
         failedPages++;
         offset += limit;
         if (failedPages > 5) {
-          console.error('[MandiService] Too many failed pages, aborting refresh.');
+          console.error('[MandiService] Too many consecutive failures across different pages, aborting refresh.');
           break;
         }
+        continue; // Skip this page but don't abort yet
       }
-    }
+      
+      // Reset failedPages counter on success to avoid aborting for sparse failures
+      failedPages = 0;
 
-    console.log(`[MandiService] Refresh complete. Fetched: ${totalRecordsFetched}, Upserted/Updated: ${totalUpserted}, Failed Pages: ${failedPages}`);
-    return { success: true, fetched: totalRecordsFetched, upserted: totalUpserted, failedPages };
+      if (totalAvailable === null) {
+        totalAvailable = Number(response.data.total) || 0;
+        progressRecord.totalRecords = totalAvailable;
+        await progressRecord.save();
+        console.log(`[MandiService] Total records available for today: ${totalAvailable}`);
+      }
+
+      const records = normalizeMandiRecords(response.data.records);
+      if (records.length === 0) break;
+
+      const bulkOps = records.map(record => ({
+        updateOne: {
+          filter: {
+            state: record.state,
+            district: record.district,
+            market: record.market,
+            commodity: record.commodity,
+            variety: record.variety,
+            arrival_date: record.arrival_date
+          },
+          update: { $set: { ...record, fetched_at: new Date() } },
+          upsert: true
+        }
+      }));
+
+      if (bulkOps.length > 0) {
+        const result = await MandiPriceCache.bulkWrite(bulkOps);
+        totalUpserted += result.upsertedCount + result.modifiedCount;
+      }
+
+      totalRecordsFetched += records.length;
+      offset += limit;
+      
+      // Update progress
+      progressRecord.lastOffset = offset;
+      await progressRecord.save();
+
+      if (totalAvailable > 0 && offset >= totalAvailable) break;
+      if (records.length < limit) break; // Reached the end
+
+      // Small delay to avoid hammering the API
+      await new Promise(r => setTimeout(r, 500));
+    }
+    
+    // Status update
+    if (totalAvailable > 0 && offset >= totalAvailable) {
+      progressRecord.status = 'COMPLETED';
+    } else {
+      progressRecord.status = failedPages > 5 ? 'FAILED' : 'IN_PROGRESS';
+    }
+    await progressRecord.save();
+
+    console.log(`[MandiService] Refresh run ended. Attempted from start offset. Succeeded pages: ${totalRecordsFetched/limit}. Total fetched in this run: ${totalRecordsFetched}.`);
+    return { success: progressRecord.status === 'COMPLETED', fetched: totalRecordsFetched, upserted: totalUpserted, failedPages };
   } catch (error) {
     console.error('[MandiService] National refresh failed:', error.message);
     return { success: false, error: error.message };
@@ -314,37 +357,45 @@ async function getMandiPrices({ commodity, state, district, market, limit = 50, 
   if (cleanCommodity) query.commodity = new RegExp(cleanCommodity, 'i');
 
   try {
-    // Find distinct dates for these filters
-    const distinctDates = await MandiPriceCache.distinct('arrival_date', query);
-    if (distinctDates.length > 0) {
-      let latestStr = null;
-      let latestKey = -Infinity;
-      for (const d of distinctDates) {
-        const key = parseArrivalDateKey(d);
-        if (key !== null && key > latestKey) {
-          latestKey = key;
-          latestStr = d;
+    const todayStr = getTodayDateString();
+    query.arrival_date = todayStr;
+    
+    // First, try to get today's data
+    let dbRecords = await MandiPriceCache.find(query).skip(cleanOffset).limit(cleanLimit).lean();
+    let latestStr = todayStr;
+
+    // If zero records for today, fall back to the most recent date available in the cache
+    if (dbRecords.length === 0) {
+      delete query.arrival_date; // Remove date restriction
+      const distinctDates = await MandiPriceCache.distinct('arrival_date', query);
+      if (distinctDates.length > 0) {
+        let latestKey = -Infinity;
+        for (const d of distinctDates) {
+          const key = parseArrivalDateKey(d);
+          if (key !== null && key > latestKey) {
+            latestKey = key;
+            latestStr = d;
+          }
         }
-      }
-      
-      if (latestStr) {
-        query.arrival_date = latestStr;
-        const dbRecords = await MandiPriceCache.find(query).skip(cleanOffset).limit(cleanLimit).lean();
         
-        if (dbRecords.length > 0) {
-          console.log(`[MandiService] DB Cache hit for ${cleanState}/${cleanDistrict} - date: ${latestStr}`);
-          // Re-normalize just to be safe (remove mongo _id etc if needed, though they shouldn't hurt)
-          let normalized = dbRecords.map(r => {
-            const { _id, fetched_at, __v, ...rest } = r;
-            return rest;
-          });
-          normalized = markLatestAvailable(normalized);
-          const usedFallback = normalized.some(r => r.isLatestAvailable);
-          
-          cache.set(cacheKey, { records: normalized, timestamp: Date.now(), isFallback: usedFallback });
-          return normalized;
+        if (latestStr && latestStr !== todayStr) {
+          query.arrival_date = latestStr;
+          dbRecords = await MandiPriceCache.find(query).skip(cleanOffset).limit(cleanLimit).lean();
         }
       }
+    }
+
+    if (dbRecords.length > 0) {
+      console.log(`[MandiService] DB Cache hit for ${cleanState}/${cleanDistrict} - date: ${latestStr}`);
+      let normalized = dbRecords.map(r => {
+        const { _id, fetched_at, __v, ...rest } = r;
+        return rest;
+      });
+      normalized = markLatestAvailable(normalized);
+      const usedFallback = normalized.some(r => r.isLatestAvailable);
+      
+      cache.set(cacheKey, { records: normalized, timestamp: Date.now(), isFallback: usedFallback });
+      return normalized;
     }
   } catch (dbErr) {
     console.error('[MandiService] DB cache query failed, falling back to live API:', dbErr.message);
