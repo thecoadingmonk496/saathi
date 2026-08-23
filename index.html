@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saathi (कृषि मित्र) - AI Voice Assistant</title>
+    <meta name="description" content="Saathi AI - India's multilingual agricultural voice assistant for farmers. Get Mandi prices, crop advice, and weather info in Hindi, Tamil, Telugu, Bengali, and more.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        agri: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            900: '#14532d',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        .pulse-animation {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        /* Custom scrollbar for chat area */
+        .chat-scroll::-webkit-scrollbar { width: 6px; }
+        .chat-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
+        .chat-scroll::-webkit-scrollbar-thumb { background: #22c55e; border-radius: 10px; }
+        /* Language selector styling */
+        #language-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23fff' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            padding-right: 1.5rem;
+        }
+        /* Mic listening glow */
+        .listening-glow {
+            box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
+            animation: listening-pulse 1.2s infinite;
+        }
+        @keyframes listening-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
+            70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-agri-700 text-white p-4 shadow-md flex justify-between items-center z-10">
+        <div class="flex items-center space-x-3">
+            <div class="bg-white text-agri-700 p-2 rounded-full w-10 h-10 flex items-center justify-center text-xl">
+                🌾
+            </div>
+            <div>
+                <h1 class="text-xl font-bold">Saathi (कृषि मित्र)</h1>
+                <p class="text-xs text-agri-100">आपकी हर कृषि समस्या का समाधान</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <!-- Profile Button -->
+            <button type="button" onclick="openProfileModal()" 
+                class="bg-agri-600 hover:bg-agri-500 text-white text-sm rounded-lg border border-agri-500 px-3 py-1.5 flex items-center space-x-1.5 transition-colors cursor-pointer shadow-sm">
+                <i class="fas fa-user-gear text-agri-100"></i>
+                <span class="font-medium">प्रोफाइल</span>
+            </button>
+            <!-- Language Selector -->
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-language text-agri-100"></i>
+                <select id="language-select" 
+                    class="bg-agri-600 text-white text-sm rounded-lg border border-agri-500 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-agri-100 cursor-pointer"
+                    onchange="onLanguageChange(this.value)">
+                    <option value="hi-IN">हिन्दी</option>
+                    <option value="ta-IN">தமிழ்</option>
+                    <option value="te-IN">తెలుగు</option>
+                    <option value="bn-IN">বাংলা</option>
+                    <option value="mr-IN">मराठी</option>
+                    <option value="gu-IN">ગુજરાતી</option>
+                    <option value="kn-IN">ಕನ್ನಡ</option>
+                    <option value="ml-IN">മലയാളം</option>
+                    <option value="pa-IN">ਪੰਜਾਬੀ</option>
+                    <option value="en-IN">English</option>
+                </select>
+            </div>
+            <!-- Status -->
+            <div class="text-sm flex items-center">
+                <span id="status-indicator" class="inline-block w-3 h-3 bg-red-500 rounded-full mr-1"></span>
+                <span id="status-text">Offline</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Chat Area -->
+    <main id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4 chat-scroll bg-[#e8f5e9]">
+        <!-- Welcome Message -->
+        <div class="flex justify-start">
+            <div id="welcome-message-text" class="bg-white text-gray-800 p-3 rounded-2xl rounded-tl-none max-w-[80%] shadow-sm border border-gray-100">
+                नमस्ते! मैं 'साथी', आपका कृषि मित्र हूँ। आप मुझसे खेती, मंडी भाव, या मौसम के बारे में सवाल पूछ सकते हैं। बोलकर या टाइप करके अपना सवाल पूछें।
+            </div>
+        </div>
+    </main>
+
+    <!-- Controls Area -->
+    <footer class="bg-white p-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] border-t border-gray-200">
+        <div class="max-w-4xl mx-auto flex items-center space-x-2">
+            
+            <!-- Text Input -->
+            <input type="text" id="text-input" 
+                class="flex-1 bg-gray-100 border-transparent focus:bg-white focus:border-agri-500 focus:ring-2 focus:ring-agri-200 rounded-full py-3 px-4 text-gray-700 outline-none transition-all"
+                placeholder="अपना सवाल यहाँ लिखें (जैसे: गेहूं का भाव क्या है?)..." 
+                onkeypress="handleKeyPress(event)">
+            
+            <!-- Send Text Button -->
+            <button type="button" id="send-btn" onclick="sendTextQuery()" 
+                class="bg-agri-600 hover:bg-agri-700 text-white rounded-full w-12 h-12 flex items-center justify-center transition-colors shadow-sm disabled:opacity-50">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+
+            <!-- Record Voice Button (Speech Recognition) -->
+            <button type="button" id="record-btn" onclick="toggleSpeechRecognition()" 
+                class="bg-blue-500 hover:bg-blue-600 text-white rounded-full w-14 h-14 flex items-center justify-center transition-all shadow-md">
+                <i id="record-icon" class="fas fa-microphone text-xl"></i>
+            </button>
+        </div>
+        <div id="recording-status" class="text-center text-blue-600 text-sm font-medium h-5 mt-2 hidden">
+            🎙️ सुन रहा हूँ...
+        </div>
+    </footer>
+
+    <!-- Audio Player (Hidden) -->
+    <audio id="audio-player" class="hidden"></audio>
+
+    <!-- Farm Profile Modal -->
+    <div id="profile-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-gray-100 transform transition-all">
+            <div class="flex justify-between items-center border-b pb-3 border-gray-100">
+                <div class="flex items-center space-x-2 text-agri-700 font-bold text-lg">
+                    <span>🧑‍🌾</span>
+                    <span>किसान प्रोफाइल (Farm Profile)</span>
+                </div>
+                <button type="button" onclick="closeProfileModal()" class="text-gray-400 hover:text-gray-600 p-1">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">राज्य (State)</label>
+                    <input type="text" id="prof-state" placeholder="e.g. Punjab, Uttar Pradesh" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-agri-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">जिला (District)</label>
+                    <input type="text" id="prof-district" placeholder="e.g. Ludhiana, Varanasi" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-agri-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">मिट्टी का प्रकार (Soil Type)</label>
+                    <input type="text" id="prof-soil" placeholder="e.g. Alluvial, Black Soil, Loamy" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-agri-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">मुख्य फसल (Primary Crop)</label>
+                    <input type="text" id="prof-crop" placeholder="e.g. Wheat, Rice, Cotton" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-agri-500">
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-2 border-t border-gray-100">
+                <button type="button" onclick="closeProfileModal()" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">रद्द करें (Cancel)</button>
+                <button type="button" onclick="saveFarmerProfile()" class="px-4 py-2 text-sm font-medium bg-agri-600 hover:bg-agri-700 text-white rounded-lg transition-colors shadow-sm">सुरक्षित करें (Save)</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = "http://127.0.0.1:8000";
+        let isListening = false;
+        let isProcessing = false;  // Global lock: true while a fetch is in-flight
+        let recognition = null;
+        let selectedLanguage = "hi-IN";
+
+        const chatContainer = document.getElementById('chat-container');
+        const textInput = document.getElementById('text-input');
+        const sendBtn = document.getElementById('send-btn');
+        const recordBtn = document.getElementById('record-btn');
+        const recordIcon = document.getElementById('record-icon');
+        const recordingStatus = document.getElementById('recording-status');
+        const audioPlayer = document.getElementById('audio-player');
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+        const languageSelect = document.getElementById('language-select');
+
+        // Placeholder text per language
+        const placeholders = {
+            'hi-IN': 'अपना सवाल यहाँ लिखें (जैसे: गेहूं का भाव क्या है?)...',
+            'ta-IN': 'உங்கள் கேள்வியை இங்கே எழுதுங்கள்...',
+            'te-IN': 'మీ ప్రశ్నను ఇక్కడ రాయండి...',
+            'bn-IN': 'আপনার প্রশ্ন এখানে লিখুন...',
+            'mr-IN': 'तुमचा प्रश्न इथे लिहा...',
+            'gu-IN': 'તમારો પ્રશ્ન અહીં લખો...',
+            'kn-IN': 'ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು ಇಲ್ಲಿ ಬರೆಯಿರಿ...',
+            'ml-IN': 'നിങ്ങളുടെ ചോദ്യം ഇവിടെ എഴുതുക...',
+            'pa-IN': 'ਆਪਣਾ ਸਵਾਲ ਇੱਥੇ ਲਿਖੋ...',
+            'en-IN': 'Type your question here (e.g., What is the price of wheat?)...',
+        };
+
+        // Listening status text per language
+        const listeningText = {
+            'hi-IN': '🎙️ सुन रहा हूँ...',
+            'ta-IN': '🎙️ கேட்கிறேன்...',
+            'te-IN': '🎙️ వింటున్నాను...',
+            'bn-IN': '🎙️ শুনছি...',
+            'mr-IN': '🎙️ ऐकत आहे...',
+            'gu-IN': '🎙️ સાંભળી રહ્યો છું...',
+            'kn-IN': '🎙️ ಕೇಳುತ್ತಿದ್ದೇನೆ...',
+            'ml-IN': '🎙️ കേൾക്കുന്നു...',
+            'pa-IN': '🎙️ ਸੁਣ ਰਿਹਾ ਹਾਂ...',
+            'en-IN': '🎙️ Listening...',
+        };
+
+        const welcomeTexts = {
+            'hi-IN': "नमस्ते! मैं 'साथी', आपका कृषि मित्र हूँ। आप मुझसे खेती, मंडी भाव, या मौसम के बारे में सवाल पूछ सकते हैं। बोलकर या टाइप करके अपना सवाल पूछें।",
+            'en-IN': "Hello! I am 'Saathi', your agricultural friend. You can ask me questions about farming, Mandi prices, or weather. Speak or type your question.",
+            'ta-IN': "வணக்கம்! நான் 'சாத்தி', உங்கள் விவசாய நண்பன். விவசாயம், மண்டி விலைகள் அல்லது வானிலை பற்றி நீங்கள் என்னிடம் கேள்விகள் கேட்கலாம். உங்கள் கேள்வியைப் பேசவும் அல்லது தட்டச்சு செய்யவும்.",
+            'te-IN': "నమస్కారం! నేను 'సాథి', మీ వ్యవసాయ మిత్రుడిని. మీరు నన్ను వ్యవసాయం, మండి ధరలు లేదా వాతావరణం గురించి ప్రశ్నలు అడగవచ్చు. మీ ప్రశ్నను మాట్లాడండి లేదా టైప్ చేయండి.",
+            'bn-IN': "নমস্কার! আমি 'সাথী', আপনার কৃষি বন্ধু। আপনি আমাকে চাষাবাদ, মান্ডি দর বা আবহাওয়া সম্পর্কে প্রশ্ন করতে পারেন। আপনার প্রশ্ন বলুন বা টাইপ করুন।",
+            'mr-IN': "नमस्कार! मी 'साथी', तुमचा कृषी मित्र आहे. तुम्ही मला शेती, बाजारभाव किंवा हवामानाबद्दल प्रश्न विचारू शकता. तुमचा प्रश्न बोला किंवा टाइप करा.",
+            'gu-IN': "નમસ્તે! હું 'સાથી', તમારો કૃષિ મિત્ર છું. તમે મને ખેતી, મંડીના ભાવ અથવા હવામાન વિશે પ્રશ્નો પૂછી શકો છો. તમારો પ્રશ્ન બોલો અથવા ટાઇપ કરો.",
+            'kn-IN': "ನಮಸ್ಕಾರ! ನಾನು 'ಸಾಥಿ', ನಿಮ್ಮ ಕೃಷಿ ಸ್ನೇಹಿತ. ಕೃಷಿ, ಮಾರುಕಟ್ಟೆ ಬೆಲೆಗಳು ಅಥವಾ ಹವಾಮಾನದ ಬಗ್ಗೆ ನೀವು ನನ್ನನ್ನು ಪ್ರಶ್ನೆಗಳನ್ನು ಕೇಳಬಹುದು. ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು ಮಾತನಾಡಿ ಅಥವಾ ಟೈಪ್ ಮಾಡಿ.",
+            'ml-IN': "നമസ്കാരം! ഞാൻ 'സാഥി', നിങ്ങളുടെ കാർഷിക സുഹൃത്താണ്. കൃഷി, മണ്ടി വിലകൾ, അല്ലെങ്കിൽ കാലാവസ്ഥ എന്നിവയെക്കുറിച്ച് നിങ്ങൾക്ക് എന്നോട് ചോദ്യങ്ങൾ ചോദിക്കാം. നിങ്ങളുടെ ചോദ്യം സംസാരിക്കുകയോ ടൈപ്പുചെയ്യുകയോ ചെയ്യുക.",
+            'pa-IN': "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ 'ਸਾਥੀ', ਤੁਹਾਡਾ ਖੇਤੀਬਾੜੀ ਦੋਸਤ ਹਾਂ। ਤੁਸੀਂ ਮੈਨੂੰ ਖੇਤੀਬਾੜੀ, ਮੰਡੀ ਦੀਆਂ ਕੀਮਤਾਂ ਜਾਂ ਮੌਸਮ ਬਾਰੇ ਸਵਾਲ ਪੁੱਛ ਸਕਦੇ ਹੋ। ਆਪਣਾ ਸਵਾਲ ਬੋਲੋ ਜਾਂ ਟਾਈਪ ਕਰੋ।",
+            'or-IN': "ନମସ୍କାର! ମୁଁ 'ସାଥୀ', ଆପଣଙ୍କ କୃଷି ବନ୍ଧୁ। ଆପଣ ମୋତେ କୃଷି, ମଣ୍ଡି ଦର କିମ୍ବା ପାଗ ବିଷୟରେ ପ୍ରଶ୍ନ ପଚାରିପାରିବେ। ଆପଣଙ୍କ ପ୍ରଶ୍ନ କୁହନ୍ତୁ କିମ୍ବା ଟାଇପ୍ କରନ୍ତୁ।",
+            'ur-IN': "آداب! میں 'ساتھی'، آپ کا زرعی دوست ہوں۔ آپ مجھ سے کھیتی باڑی، منڈی کے نرخ، یا موسم کے بارے میں سوالات پوچھ سکتے ہیں۔ اپنا سوال بولیں یا ٹائپ کریں۔"
+        };
+
+        const networkErrorTexts = {
+            'hi-IN': 'नेटवर्क त्रुटि या सर्वर ने उत्तर देने में बहुत समय लिया। कृपया पुनः प्रयास करें।',
+            'ta-IN': 'நெட்வொர்க் பிழை அல்லது சேவையகம் பதிலளிக்க அதிக நேரம் எடுத்தது. மீண்டும் முயற்சிக்கவும்.',
+            'te-IN': 'నెట్‌వర్క్ లోపం లేదా సర్వర్ ప్రతిస్పందించడానికి చాలా సమయం తీసుకుంది. దయచేసి మళ్లీ ప్రయత్నించండి.',
+            'bn-IN': 'নেটওয়ার্ক ত্রুটি বা সার্ভার প্রতিক্রিয়া জানাতে খুব বেশি সময় নিয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।',
+            'mr-IN': 'नेटवर्क त्रुटी किंवा सर्व्हरने प्रतिसाद देण्यासाठी खूप वेळ घेतला. कृपया पुन्हा प्रयत्न करा.',
+            'gu-IN': 'નેટવર્ક ભૂલ અથવા સર્વર પ્રતિસાદ આપવામાં ખૂબ લાંબો સમય લીધો. કૃપા કરીને ફરી પ્રયાસ કરો.',
+            'kn-IN': 'ನೆಟ್‌ವರ್ಕ್ ದೋಷ ಅಥವಾ ಸರ್ವರ್ ಪ್ರತಿಕ್ರಿಯಿಸಲು ಹೆಚ್ಚು ಸಮಯ ತೆಗೆದುಕೊಂಡಿದೆ. ದಯವಿಟ್ಟು ಪುನಃ ಪ್ರಯತ್ನಿಸಿ.',
+            'ml-IN': 'നെറ്റ്‌വർക്ക് പിശക് അല്ലെങ്കിൽ സെർവർ പ്രതികരിക്കാൻ വളരെയധികം സമയമെടുത്തു. ദയവായി വീണ്ടും ശ്രമിക്കുക.',
+            'pa-IN': 'ਨੈੱਟਵਰਕ ਗਲਤੀ ਜਾਂ ਸਰਵਰ ਨੇ ਜਵਾਬ ਦੇਣ ਵਿੱਚ ਬਹੁਤ ਸਮਾਂ ਲਿਆ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।',
+            'or-IN': 'ନେଟୱର୍କ ତ୍ରୁଟି କିମ୍ବା ସର୍ଭର ପ୍ରତିକ୍ରିୟା ଦେବାକୁ ବହୁତ ସମୟ ନେଇଛି | ଦୟାକରି ପୁନର୍ବାର ଚେଷ୍ଟା କରନ୍ତୁ |',
+            'ur-IN': 'نیٹ ورک کی خرابی یا سرور نے جواب دینے میں بہت وقت لیا۔ براہ کرم دوبارہ کوشش کریں۔',
+            'en-IN': 'Network error or server took too long to respond. Please try again.'
+        };
+
+        // Per-language message shown when the browser's own fetch timeout fires
+        const timeoutErrorTexts = {
+            'hi-IN': '⏱️ सर्वर 25 सेकंड में उत्तर नहीं दे सका। कृपया कुछ देर बाद पुनः प्रयास करें।',
+            'ta-IN': '⏱️ சேவையகம் 25 விநாடிகளில் பதிலளிக்கவில்லை. சிறிது நேரம் கழித்து மீண்டும் முயற்சிக்கவும்.',
+            'te-IN': '⏱️ సర్వర్ 25 సెకన్లలో ప్రతిస్పందించలేదు. దయచేసి కొంత సమయం తర్వాత మళ్లీ ప్రయత్నించండి.',
+            'bn-IN': '⏱️ সার্ভার ২৫ সেকেন্ডে সাড়া দেয়নি। একটু পরে আবার চেষ্টা করুন।',
+            'mr-IN': '⏱️ सर्व्हरने 25 सेकंदात प्रतिसाद दिला नाही. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा.',
+            'gu-IN': '⏱️ સર્વર 25 સેકન્ડમાં પ્રતિસાદ આપ્યો નહીં. થોડા સમય બાદ ફરી પ્રયાસ કરો.',
+            'kn-IN': '⏱️ ಸರ್ವರ್ 25 ಸೆಕೆಂಡ್‌ಗಳಲ್ಲಿ ಪ್ರತಿಕ್ರಿಯಿಸಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಸ್ವಲ್ಪ ಸಮಯದ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+            'ml-IN': '⏱️ 25 സെക്കൻഡിനുള്ളിൽ സെർവർ പ്രതികരിച്ചില്ല. കുറച്ച് സമയം കഴിഞ്ഞ് വീണ്ടും ശ്രമിക്കുക.',
+            'pa-IN': '⏱️ ਸਰਵਰ ਨੇ 25 ਸਕਿੰਟਾਂ ਵਿੱਚ ਜਵਾਬ ਨਹੀਂ ਦਿੱਤਾ। ਕਿਰਪਾ ਕਰਕੇ ਥੋੜੀ ਦੇਰ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।',
+            'or-IN': 'ସର୍ଭର 25 ସେକେଣ୍ଡ ମଧ୍ୟରେ ସାଡ଼ା ଦେଇ ନ ପାରିଲା। ଦୟାକରି ଟିକେ ସମୟ ପରେ ପୁନଃ ଚେଷ୍ଟା କରନ୍ତୁ।',
+            'ur-IN': '⏱️ سرور 25 سیکنڈ میں جواب نہ دے سکا۔ براہ کرم کچھ دیر بعد دوبارہ کوشش کریں۔',
+            'en-IN': '⏱️ Server did not respond within 25 seconds. Please try again in a moment.'
+        };
+
+        // --- Language Change Handler ---
+        function onLanguageChange(langCode) {
+            selectedLanguage = langCode;
+            textInput.placeholder = placeholders[langCode] || placeholders['en-IN'];
+            
+            const welcomeMsgDiv = document.getElementById('welcome-message-text');
+            if (welcomeMsgDiv) {
+                welcomeMsgDiv.innerText = welcomeTexts[langCode] || welcomeTexts['en-IN'];
+            }
+
+            // If currently listening, restart recognition with new language
+            if (isListening && recognition) {
+                recognition.stop();
+                // Will restart via onend handler
+            }
+        }
+
+        // --- Initialize Web Speech API ---
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                console.warn('Speech Recognition API not supported in this browser.');
+                recordBtn.title = 'Speech Recognition not supported';
+                recordBtn.classList.add('opacity-50');
+                return null;
+            }
+
+            const recog = new SpeechRecognition();
+            recog.continuous = false;
+            recog.interimResults = false;
+            recog.lang = selectedLanguage;
+
+            recog.onresult = (event) => {
+                // Stop mic immediately so onend fires cleanly and UI resets
+                try { recog.stop(); } catch(_) {}
+
+                const transcript = event.results[0][0].transcript.trim();
+                if (!transcript) return;
+
+                // Guard: ignore result if another request is already in-flight
+                if (isProcessing) {
+                    console.warn('Ignoring speech result — request already in progress.');
+                    return;
+                }
+
+                appendMessage(`(🎙️) ${transcript}`, 'user');
+                sendChatToBackend(transcript);
+            };
+
+            recog.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                stopListeningUI();
+                if (event.error === 'not-allowed') {
+                    alert('माइक्रोफ़ोन एक्सेस की अनुमति नहीं है। कृपया ब्राउज़र सेटिंग्स चेक करें।');
+                }
+            };
+
+            recog.onend = () => {
+                stopListeningUI();
+            };
+
+            return recog;
+        }
+
+        // --- Toggle Speech Recognition ---
+        function toggleSpeechRecognition() {
+            // Do not start a new recording while a fetch is pending
+            if (isProcessing && !isListening) return;
+
+            if (isListening) {
+                if (recognition) recognition.stop();
+                stopListeningUI();
+            } else {
+                recognition = initSpeechRecognition();
+                if (!recognition) return;
+                recognition.lang = selectedLanguage;
+                try {
+                    recognition.start();
+                    startListeningUI();
+                } catch (e) {
+                    console.error('Failed to start speech recognition:', e);
+                }
+            }
+        }
+
+        function startListeningUI() {
+            isListening = true;
+            recordBtn.classList.replace('bg-blue-500', 'bg-red-500');
+            recordBtn.classList.replace('hover:bg-blue-600', 'hover:bg-red-600');
+            recordBtn.classList.add('pulse-animation');
+            recordIcon.classList.replace('fa-microphone', 'fa-stop');
+            recordingStatus.textContent = listeningText[selectedLanguage] || listeningText['hi-IN'];
+            recordingStatus.classList.remove('hidden');
+        }
+
+        function stopListeningUI() {
+            isListening = false;
+            recordBtn.classList.replace('bg-red-500', 'bg-blue-500');
+            recordBtn.classList.replace('hover:bg-red-600', 'hover:bg-blue-600');
+            recordBtn.classList.remove('pulse-animation');
+            recordIcon.classList.replace('fa-stop', 'fa-microphone');
+            recordingStatus.classList.add('hidden');
+        }
+
+        // --- Send chat message to /chat endpoint ---
+        // FRONTEND_TIMEOUT_MS: 60 000ms — last-resort safety net only.
+        // The server enforces its own 20s asyncio.wait_for timeout and will
+        // always return a clean HTTP response long before this fires.
+        // A short AbortController timeout is the #1 cause of premature client
+        // disconnects, so we keep this high and rely on the server ceiling.
+        const FRONTEND_TIMEOUT_MS = 60000;
+
+        // Localised "Thinking..." status text shown while a request is in-flight
+        const thinkingText = {
+            'hi-IN': '🤔 सोच रहा हूँ...',
+            'ta-IN': '🤔 யோசிக்கிறேன்...',
+            'te-IN': '🤔 ఆలోచిస్తున్నాను...',
+            'bn-IN': '🤔 ভাবছি...',
+            'mr-IN': '🤔 विचार करत आहे...',
+            'gu-IN': '🤔 વિચારી રહ્યો છું...',
+            'kn-IN': '🤔 ಯೋಚಿಸುತ್ತಿದ್ದೇನೆ...',
+            'ml-IN': '🤔 ചിന്തിക്കുന്നു...',
+            'pa-IN': '🤔 ਸੋਚ ਰਿਹਾ ਹਾਂ...',
+            'or-IN': '🤔 ଭାବୁଛି...',
+            'ur-IN': '🤔 سوچ رہا ہوں...',
+            'en-IN': '🤔 Thinking / सोच रहा हूँ...'
+        };
+
+        // --- Farm Profile & Conversational History State ---
+        let farmerProfile = { state: "", district: "", soilType: "", crop: "" };
+        let chatHistory = [];
+
+        function loadFarmerProfile() {
+            try {
+                const saved = localStorage.getItem('saathi_farmer_profile');
+                if (saved) {
+                    farmerProfile = JSON.parse(saved);
+                    document.getElementById('prof-state').value = farmerProfile.state || '';
+                    document.getElementById('prof-district').value = farmerProfile.district || '';
+                    document.getElementById('prof-soil').value = farmerProfile.soilType || '';
+                    document.getElementById('prof-crop').value = farmerProfile.crop || '';
+                }
+            } catch (e) {
+                console.error('Failed to load farmer profile:', e);
+            }
+        }
+
+        function saveFarmerProfile() {
+            farmerProfile = {
+                state: document.getElementById('prof-state').value.trim(),
+                district: document.getElementById('prof-district').value.trim(),
+                soilType: document.getElementById('prof-soil').value.trim(),
+                crop: document.getElementById('prof-crop').value.trim()
+            };
+            localStorage.setItem('saathi_farmer_profile', JSON.stringify(farmerProfile));
+            closeProfileModal();
+        }
+
+        function openProfileModal() {
+            document.getElementById('profile-modal').classList.remove('hidden');
+        }
+
+        function closeProfileModal() {
+            document.getElementById('profile-modal').classList.add('hidden');
+        }
+
+        window.addEventListener('DOMContentLoaded', loadFarmerProfile);
+
+        async function sendChatToBackend(message) {
+            // ── Concurrency guard ──────────────────────────────────────────────
+            if (isProcessing) {
+                console.warn('sendChatToBackend: request already in-flight, ignoring.');
+                return;
+            }
+            isProcessing = true;
+            // ──────────────────────────────────────────────────────────────────
+
+            // Add user turn to chat history (kept to last 10 messages max)
+            chatHistory.push({ role: "user", content: message });
+            if (chatHistory.length > 10) chatHistory = chatHistory.slice(-10);
+
+            appendTypingIndicator();
+            setButtonsDisabled(true);
+
+            // Show "Thinking..." in the recording-status bar
+            recordingStatus.textContent = thinkingText[selectedLanguage] || thinkingText['en-IN'];
+            recordingStatus.classList.remove('hidden');
+
+            // AbortController — fires only if the server hangs completely
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), FRONTEND_TIMEOUT_MS);
+
+            try {
+                const response = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        language: selectedLanguage,
+                        generate_audio: false,
+                        history: chatHistory,
+                        profile: farmerProfile
+                    }),
+                    signal: controller.signal
+                });
+
+                removeTypingIndicator();
+
+                if (!response.ok) {
+                    let errorMessage = `API Request Failed (${response.status})`;
+                    try {
+                        const errorData = await response.json();
+                        if (errorData.detail) errorMessage = errorData.detail;
+                    } catch(e) {}
+                    throw new Error(errorMessage);
+                }
+
+                const data = await response.json();
+                appendMessage(data.ai_response, 'ai');
+
+                // Append assistant turn to chat history (max 10)
+                chatHistory.push({ role: "assistant", content: data.ai_response });
+                if (chatHistory.length > 10) chatHistory = chatHistory.slice(-10);
+
+                // Speak the response aloud using Web Speech Synthesis
+                speakText(data.ai_response);
+
+            } catch (error) {
+                removeTypingIndicator();
+                let displayError;
+                if (error.name === 'AbortError') {
+                    displayError = timeoutErrorTexts[selectedLanguage] || timeoutErrorTexts['en-IN'];
+                    console.error('Fetch aborted: server did not respond within', FRONTEND_TIMEOUT_MS / 1000, 's');
+                } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.name === 'TypeError') {
+                    displayError = networkErrorTexts[selectedLanguage] || networkErrorTexts['en-IN'];
+                } else {
+                    displayError = error.message;
+                }
+                appendMessage(displayError, 'ai', true);
+                console.error(error);
+            } finally {
+                // Always release the lock and restore UI, no matter what
+                clearTimeout(timeoutId);
+                isProcessing = false;
+                setButtonsDisabled(false);
+                recordingStatus.classList.add('hidden');
+            }
+        }
+
+        // --- Speak text aloud using Web Speech Synthesis ---
+        function speakText(text) {
+            if (!text || !window.speechSynthesis) return;
+            // Cancel any ongoing speech
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = selectedLanguage;
+            utterance.rate = 0.95;
+            utterance.pitch = 1;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // --- Check Backend Health ---
+        async function checkHealth() {
+            try {
+                const res = await fetch(`${API_BASE}/health`);
+                if(res.ok) {
+                    statusIndicator.classList.remove('bg-red-500');
+                    statusIndicator.classList.add('bg-green-500');
+                    statusText.innerText = '🟢 Online';
+                } else {
+                    throw new Error('Health check returned non-OK status');
+                }
+            } catch (error) {
+                console.error('Backend health check failed:', error);
+                statusIndicator.classList.remove('bg-green-500');
+                statusIndicator.classList.add('bg-red-500');
+                statusText.innerText = '🔴 Offline';
+            }
+        }
+        checkHealth();
+
+        // --- UI Helpers ---
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function appendMessage(text, sender = 'user', isError = false) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+            
+            const bubble = document.createElement('div');
+            
+            if (sender === 'user') {
+                bubble.className = 'bg-agri-600 text-white p-3 rounded-2xl rounded-tr-none max-w-[80%] shadow-sm break-words';
+            } else {
+                bubble.className = `p-3 rounded-2xl rounded-tl-none max-w-[80%] shadow-sm border ${isError ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-gray-800 border-gray-100'}`;
+            }
+            
+            bubble.innerText = text;
+            wrapper.appendChild(bubble);
+            chatContainer.appendChild(wrapper);
+            scrollToBottom();
+            return wrapper;
+        }
+
+        function appendTypingIndicator() {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'flex justify-start typing-indicator-wrapper';
+            wrapper.innerHTML = `
+                <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 flex space-x-2 items-center">
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0s"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+                </div>
+            `;
+            chatContainer.appendChild(wrapper);
+            scrollToBottom();
+            return wrapper;
+        }
+
+        function removeTypingIndicator() {
+            const indicators = document.querySelectorAll('.typing-indicator-wrapper');
+            indicators.forEach(ind => ind.remove());
+        }
+
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendTextQuery();
+            }
+        }
+
+        async function sendTextQuery() {
+            // Guard against double-submit while a request is in-flight
+            if (isProcessing) return;
+
+            const message = textInput.value.trim();
+            if (!message) return;
+
+            textInput.value = '';
+            appendMessage(message, 'user');
+            await sendChatToBackend(message);
+        }
+
+        function setButtonsDisabled(disabled) {
+            textInput.disabled = disabled;
+            sendBtn.disabled = disabled;
+            recordBtn.disabled = disabled;
+        }
+    </script>
+</body>
+</html>
