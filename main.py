@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import logging
 import base64
@@ -19,10 +21,27 @@ import asyncio
 
 # Import local modules
 from ai_pipeline import run_ai_pipeline
+from language_utils import detect_language
 from sarvam_service import speech_to_text, text_to_speech, is_valid_sarvam_key
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+from pythonjsonlogger import jsonlogger
+
+# Configure structured JSON logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Remove existing handlers if any
+if logger.hasHandlers():
+    logger.handlers.clear()
+
+logHandler = logging.StreamHandler()
+formatter = jsonlogger.JsonFormatter(
+    '%(asctime)s %(levelname)s %(name)s %(message)s'
+)
+logHandler.setFormatter(formatter)
+logger.addHandler(logHandler)
+
+# Re-assign logger for this module
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI App
@@ -52,7 +71,10 @@ app.mount("/static", StaticFiles(directory=_FRONTEND_DIR), name="static")
 # Request and Response Models
 class ChatRequest(BaseModel):
     message: str = Field(..., example="उत्तर प्रदेश में गेहूं का भाव क्या है?")
-    language: Optional[str] = Field(default="hi-IN", description="BCP-47 language code (e.g., hi-IN, ta-IN, te-IN, bn-IN, en-IN).")
+    language: Optional[str] = Field(
+        default=None,
+        description="BCP-47 language code hint (e.g., hi-IN). If omitted, language is auto-detected."
+    )
     generate_audio: bool = Field(default=True, description="Set True to generate Sarvam TTS audio.")
     speaker: Optional[str] = Field(default="shubh", description="Sarvam TTS speaker voice ID.")
     history: list[dict] = Field(default_factory=list, description="List of previous conversation turns [{'role': 'user'|'assistant', 'content': '...'}]")
@@ -64,6 +86,18 @@ class ChatResponse(BaseModel):
     user_message: str
     ai_response: str
     audio_base64: Optional[str] = None
+    detected_language: Optional[str] = Field(
+        default=None, description="Human-readable detected language, e.g. 'Hindi'"
+    )
+    detected_language_code: Optional[str] = Field(
+        default=None, description="ISO 639-1 language code, e.g. 'hi'"
+    )
+    detected_language_bcp47: Optional[str] = Field(
+        default=None, description="BCP-47 code used for AI/TTS, e.g. 'hi-IN'"
+    )
+    detection_confidence: Optional[float] = Field(
+        default=None, description="Confidence score 0.0-1.0 from language detector"
+    )
 
 
 class VoiceBase64Request(BaseModel):
@@ -96,11 +130,12 @@ def health_check():
 
 # Text Chat Endpoint
 @app.post("/chat", response_model=ChatResponse, tags=["Chat"])
-async def text_chat(request: ChatRequest) -> ChatResponse:
+async def text_chat(request: ChatRequest) -> Optional[ChatResponse]:
     """
     Text-based query endpoint.
-    Takes farmer input in Hindi or English text, processes it via Gemini LangChain Agent,
-    and optionally synthesizes Sarvam TTS audio response.
+    Auto-detects the language of the user's message (fasttext → langdetect fallback),
+    then processes it via the Gemini LangChain Agent.
+    Optionally synthesizes Sarvam TTS audio for the response.
     """
     try:
         if not request.message or not request.message.strip():
@@ -108,15 +143,29 @@ async def text_chat(request: ChatRequest) -> ChatResponse:
 
         logger.info(f"Received text query: '{request.message}'")
 
-        # Run query through Gemini AI Pipeline (with language preference, history, and profile) in a threadpool
+        # ── Language detection ─────────────────────────────────────────────
+        # Run in threadpool because fasttext is a blocking C-extension call.
+        lang_info = await run_in_threadpool(detect_language, request.message)
+
+        # Always use the auto-detected language, ignoring any client-provided language hint.
+        effective_language = lang_info["bcp47_code"]
+
+        logger.info(
+            f"Language: {lang_info['language_name']} ({lang_info['language_code']}) "
+            f"conf={lang_info['confidence']:.2f} source={lang_info['source']} "
+            f"effective_bcp47={effective_language}"
+        )
+
+        # ── Gemini AI Pipeline ─────────────────────────────────────────────
         try:
             ai_reply = await asyncio.wait_for(
                 run_in_threadpool(
                     run_ai_pipeline,
                     request.message,
-                    request.language or "hi-IN",
+                    effective_language,
                     history=request.history,
-                    profile=request.profile
+                    profile=request.profile,
+                    detected_language=lang_info
                 ),
                 timeout=20.0
             )
@@ -124,7 +173,7 @@ async def text_chat(request: ChatRequest) -> ChatResponse:
             logger.error("Gemini AI pipeline timed out after 20 seconds.")
             raise HTTPException(status_code=504, detail="AI processing timed out. Please try again.")
 
-        # Optional TTS audio synthesis
+        # ── Optional TTS audio synthesis ───────────────────────────────────
         audio_b64 = None
         if request.generate_audio:
             speaker_id = request.speaker if request.speaker else "shubh"
@@ -134,15 +183,15 @@ async def text_chat(request: ChatRequest) -> ChatResponse:
             status="success",
             user_message=request.message,
             ai_response=ai_reply,
-            audio_base64=audio_b64
+            audio_base64=audio_b64,
+            detected_language=lang_info["language_name"],
+            detected_language_code=lang_info["language_code"],
+            detected_language_bcp47=lang_info["bcp47_code"],
+            detection_confidence=lang_info["confidence"],
         )
     except HTTPException:
         raise
     except (BrokenPipeError, ConnectionError, ClientDisconnect, asyncio.CancelledError) as e:
-        # Client disconnected before we finished — nothing to send back.
-        # Log a warning and return; do NOT raise, as there is no client to
-        # receive an error response and raising causes the ugly 499 message
-        # to appear in the frontend if any response buffer is flushed.
         logger.warning(f"Client disconnected during text chat ({type(e).__name__}); response discarded.")
         return None
     except Exception as e:
@@ -155,7 +204,7 @@ async def text_chat(request: ChatRequest) -> ChatResponse:
 async def voice_chat(
     file: UploadFile = File(...),
     speaker: Optional[str] = Form("shubh")
-) -> VoiceChatResponse:
+) -> Optional[VoiceChatResponse]:
     """
     Audio file voice query endpoint.
     Upload an audio file (.wav, .mp3, .m4a), transcribes via Sarvam STT (saaras:v3),
@@ -173,10 +222,19 @@ async def voice_chat(
         transcribed_text = speech_to_text(audio_bytes, filename=filename)
         logger.info(f"Transcribed text: '{transcribed_text}'")
 
-        # 2. Gemini AI Reasoning Pipeline
+        # 2. Language Detection
+        lang_info = await run_in_threadpool(detect_language, transcribed_text)
+        effective_language = lang_info["bcp47_code"]
+
+        # 3. Gemini AI Reasoning Pipeline
         try:
             ai_reply = await asyncio.wait_for(
-                run_in_threadpool(run_ai_pipeline, transcribed_text),
+                run_in_threadpool(
+                    run_ai_pipeline, 
+                    transcribed_text, 
+                    effective_language, 
+                    detected_language=lang_info
+                ),
                 timeout=20.0
             )
         except asyncio.TimeoutError:
@@ -206,7 +264,7 @@ async def voice_chat(
 
 # Voice Chat Base64 Endpoint
 @app.post("/voice-chat-base64", response_model=VoiceChatResponse, tags=["Voice"])
-async def voice_chat_base64(request: VoiceBase64Request) -> VoiceChatResponse:
+async def voice_chat_base64(request: VoiceBase64Request) -> Optional[VoiceChatResponse]:
     """
     Base64 audio voice query endpoint.
     Accepts Base64 audio string from frontend/mobile client, converts STT -> AI -> TTS,
@@ -220,10 +278,19 @@ async def voice_chat_base64(request: VoiceBase64Request) -> VoiceChatResponse:
         # 1. STT (blocking I/O — run in threadpool)
         transcribed_text = await run_in_threadpool(speech_to_text, audio_bytes, "audio.wav")
 
-        # 2. AI Reasoning Pipeline — wrapped with timeout to prevent hanging
+        # 2. Language Detection
+        lang_info = await run_in_threadpool(detect_language, transcribed_text)
+        effective_language = lang_info["bcp47_code"]
+
+        # 3. AI Reasoning Pipeline — wrapped with timeout to prevent hanging
         try:
             ai_reply = await asyncio.wait_for(
-                run_in_threadpool(run_ai_pipeline, transcribed_text),
+                run_in_threadpool(
+                    run_ai_pipeline, 
+                    transcribed_text, 
+                    effective_language, 
+                    detected_language=lang_info
+                ),
                 timeout=20.0
             )
         except asyncio.TimeoutError:
@@ -282,9 +349,15 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                     audio_bytes = base64.b64decode(raw_b64)
                     # STT and AI pipeline: run blocking calls in threadpool
                     transcribed = await run_in_threadpool(speech_to_text, audio_bytes)
+                    lang_info = await run_in_threadpool(detect_language, transcribed)
                     try:
                         ai_reply = await asyncio.wait_for(
-                            run_in_threadpool(run_ai_pipeline, transcribed),
+                            run_in_threadpool(
+                                run_ai_pipeline, 
+                                transcribed, 
+                                lang_info["bcp47_code"], 
+                                detected_language=lang_info
+                            ),
                             timeout=WS_AI_TIMEOUT
                         )
                     except asyncio.TimeoutError:
@@ -305,9 +378,15 @@ async def websocket_voice_endpoint(websocket: WebSocket):
 
             else:  # Text action
                 query = data.get("query", "")
+                lang_info = await run_in_threadpool(detect_language, query)
                 try:
                     ai_reply = await asyncio.wait_for(
-                        run_in_threadpool(run_ai_pipeline, query),
+                        run_in_threadpool(
+                            run_ai_pipeline, 
+                            query, 
+                            lang_info["bcp47_code"], 
+                            detected_language=lang_info
+                        ),
                         timeout=WS_AI_TIMEOUT
                     )
                 except asyncio.TimeoutError:

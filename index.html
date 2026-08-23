@@ -83,23 +83,10 @@
                 <i class="fas fa-user-gear text-agri-100"></i>
                 <span class="font-medium">प्रोफाइल</span>
             </button>
-            <!-- Language Selector -->
-            <div class="flex items-center space-x-2">
+            <!-- Auto Language Indicator -->
+            <div class="flex items-center space-x-2 bg-agri-600 text-white text-sm rounded-lg border border-agri-500 px-3 py-1.5 shadow-sm">
                 <i class="fas fa-language text-agri-100"></i>
-                <select id="language-select" 
-                    class="bg-agri-600 text-white text-sm rounded-lg border border-agri-500 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-agri-100 cursor-pointer"
-                    onchange="onLanguageChange(this.value)">
-                    <option value="hi-IN">हिन्दी</option>
-                    <option value="ta-IN">தமிழ்</option>
-                    <option value="te-IN">తెలుగు</option>
-                    <option value="bn-IN">বাংলা</option>
-                    <option value="mr-IN">मराठी</option>
-                    <option value="gu-IN">ગુજરાતી</option>
-                    <option value="kn-IN">ಕನ್ನಡ</option>
-                    <option value="ml-IN">മലയാളം</option>
-                    <option value="pa-IN">ਪੰਜਾਬੀ</option>
-                    <option value="en-IN">English</option>
-                </select>
+                <span id="lang-indicator-text" class="font-medium" title="भाषा स्वतः पहचानी जाएगी">Auto</span>
             </div>
             <!-- Status -->
             <div class="text-sm flex items-center">
@@ -193,7 +180,7 @@
         let isListening = false;
         let isProcessing = false;  // Global lock: true while a fetch is in-flight
         let recognition = null;
-        let selectedLanguage = "hi-IN";
+        let selectedLanguage = 'hi-IN'; // default starting language for UI text
 
         const chatContainer = document.getElementById('chat-container');
         const textInput = document.getElementById('text-input');
@@ -204,7 +191,7 @@
         const audioPlayer = document.getElementById('audio-player');
         const statusIndicator = document.getElementById('status-indicator');
         const statusText = document.getElementById('status-text');
-        const languageSelect = document.getElementById('language-select');
+        // removed languageSelect
 
         // Placeholder text per language
         const placeholders = {
@@ -280,21 +267,14 @@
             'en-IN': '⏱️ Server did not respond within 25 seconds. Please try again in a moment.'
         };
 
-        // --- Language Change Handler ---
-        function onLanguageChange(langCode) {
+        // --- Dynamic UI Updates based on Detected Language ---
+        function updateUIForLanguage(langCode) {
+            // Keep the selected language for subsequent voice inputs
             selectedLanguage = langCode;
-            textInput.placeholder = placeholders[langCode] || placeholders['en-IN'];
             
-            const welcomeMsgDiv = document.getElementById('welcome-message-text');
-            if (welcomeMsgDiv) {
-                welcomeMsgDiv.innerText = welcomeTexts[langCode] || welcomeTexts['en-IN'];
-            }
-
-            // If currently listening, restart recognition with new language
-            if (isListening && recognition) {
-                recognition.stop();
-                // Will restart via onend handler
-            }
+            // Optionally update placeholder
+            const fallbackCode = (placeholders[langCode]) ? langCode : 'en-IN';
+            textInput.placeholder = placeholders[fallbackCode];
         }
 
         // --- Initialize Web Speech API ---
@@ -478,7 +458,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         message: message,
-                        language: selectedLanguage,
                         generate_audio: false,
                         history: chatHistory,
                         profile: farmerProfile
@@ -498,6 +477,15 @@
                 }
 
                 const data = await response.json();
+                
+                // Update detected language
+                if (data.detected_language_bcp47) {
+                    updateUIForLanguage(data.detected_language_bcp47);
+                }
+                const detectedName = data.detected_language || 'Auto';
+                document.getElementById('lang-indicator-text').textContent = detectedName;
+                
+                // Add AI response to history
                 appendMessage(data.ai_response, 'ai');
 
                 // Append assistant turn to chat history (max 10)
@@ -535,10 +523,29 @@
             // Cancel any ongoing speech
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
+            
             utterance.lang = selectedLanguage;
             utterance.rate = 0.95;
             utterance.pitch = 1;
+            
+            // Try to find a voice that matches the language
+            const voices = window.speechSynthesis.getVoices();
+            if (voices.length > 0) {
+                const langPrefix = selectedLanguage.split('-')[0].toLowerCase();
+                const matchedVoice = voices.find(v => v.lang.toLowerCase().startsWith(langPrefix));
+                if (matchedVoice) {
+                    utterance.voice = matchedVoice;
+                }
+            }
+            
             window.speechSynthesis.speak(utterance);
+        }
+        
+        // Pre-load voices to ensure they are available
+        if (window.speechSynthesis) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                window.speechSynthesis.getVoices();
+            };
         }
 
         // --- Check Backend Health ---
