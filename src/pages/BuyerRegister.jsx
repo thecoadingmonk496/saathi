@@ -98,6 +98,7 @@ export default function BuyerRegister() {
   const [form, setForm] = useState(initialForm);
   const [selectedCommodities, setSelectedCommodities] = useState([]);
   const [otherCommodity, setOtherCommodity] = useState('');
+  const [offers, setOffers] = useState({});
   const [documents, setDocuments] = useState({});
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -202,8 +203,12 @@ export default function BuyerRegister() {
       if (!/^\d{6}$/.test(form.pincode)) newErrors.pincode = 'Enter a valid 6-digit pincode';
     }
     if (step === 4) {
-      if (selectedCommodities.length === 0 && !otherCommodity.trim()) {
+      const hasRealSelection = selectedCommodities.some((c) => c !== 'Other') || otherCommodity.trim();
+      if (!hasRealSelection) {
         newErrors.commodities = 'Please select at least one crop / commodity';
+      }
+      if (selectedCommodities.includes('Other') && !otherCommodity.trim()) {
+        newErrors.otherCommodity = 'Please specify your commodity';
       }
     }
     if (step === 7) {
@@ -230,20 +235,47 @@ export default function BuyerRegister() {
     setStep((prev) => Math.max(prev - 1, 0));
   };
 
-  const buildCommoditiesPayload = () => {
-    const allCommodities = [...selectedCommodities];
-    if (otherCommodity.trim()) allCommodities.push(otherCommodity.trim());
-    return allCommodities.map((name) => ({
-      name,
-      minimumQuantity: null,
-      maximumQuantity: null,
-      unit: 'quintal',
-      purchaseFrequency: 'as_required',
-      offerPrice: null,
-      offerUnit: 'quintal',
-      offerQuantity: null,
+  const getAllSelectedNames = () => {
+    const names = selectedCommodities.filter((c) => c !== 'Other');
+    if (otherCommodity.trim()) names.push(otherCommodity.trim());
+    return names;
+  };
+
+  const handleOfferChange = (name, field, value) => {
+    setOffers((prev) => ({
+      ...prev,
+      [name]: { unit: 'quintal', ...prev[name], [field]: value },
     }));
   };
+
+  const buildCommoditiesPayload = () =>
+    getAllSelectedNames().map((name) => {
+      const offer = offers[name];
+      const offerPrice = offer?.offerPrice ? Number(offer.offerPrice) : null;
+      if (offerPrice && offerPrice > 0) {
+        const unit = ['quintal', 'ton', 'kg'].includes(offer.unit) ? offer.unit : 'quintal';
+        return {
+          name,
+          minimumQuantity: null,
+          maximumQuantity: null,
+          unit,
+          purchaseFrequency: 'as_required',
+          offerPrice,
+          offerUnit: unit,
+          offerQuantity: offer.quantity ? Number(offer.quantity) : null,
+        };
+      }
+      return {
+        name,
+        minimumQuantity: null,
+        maximumQuantity: null,
+        unit: 'quintal',
+        purchaseFrequency: 'as_required',
+        offerPrice: null,
+        offerUnit: 'quintal',
+        offerQuantity: null,
+      };
+    });
 
   const handleSubmit = async () => {
     if (!validateStep()) return;
@@ -618,16 +650,38 @@ export default function BuyerRegister() {
                     </div>
                   </div>
                 ))}
+                {/* Other category - only this reveals free-text input */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Other Commodity</label>
-                  <input
-                    type="text"
-                    value={otherCommodity}
-                    onChange={(e) => setOtherCommodity(e.target.value)}
-                    placeholder="Specify another commodity"
-                    className="w-full h-11 rounded-lg border border-slate-300 px-3 text-sm text-slate-900 focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
-                  />
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Other</p>
+                  <button
+                    type="button"
+                    onClick={() => toggleCommodity('Other')}
+                    className={`px-4 py-2 rounded-full text-sm font-semibold border-2 transition ${
+                      selectedCommodities.includes('Other')
+                        ? 'bg-[#2E7D32] text-white border-[#2E7D32]'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    Other
+                  </button>
                 </div>
+                {selectedCommodities.includes('Other') && (
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Please specify commodity *</label>
+                    <input
+                      type="text"
+                      value={otherCommodity}
+                      onChange={(e) => setOtherCommodity(e.target.value)}
+                      placeholder="Enter a crop / commodity not listed above"
+                      className={`w-full h-11 rounded-lg border px-3 text-sm text-slate-900 outline-none transition focus:ring-2 ${
+                        errors.otherCommodity
+                          ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
+                          : 'border-slate-300 focus:border-[#2E7D32] focus:ring-emerald-100'
+                      }`}
+                    />
+                    {errors.otherCommodity && <ErrorText message={errors.otherCommodity} />}
+                  </div>
+                )}
                 {errors.commodities && <ErrorText message={errors.commodities} />}
               </div>
             )}
@@ -652,7 +706,7 @@ export default function BuyerRegister() {
                 </div>
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                   <p className="text-sm font-semibold text-slate-700">
-                    Selected commodities: {selectedCommodities.length > 0 ? selectedCommodities.join(', ') : (otherCommodity || 'None')}
+                    Selected commodities: {getAllSelectedNames().length > 0 ? getAllSelectedNames().join(', ') : 'None'}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
                     You can specify detailed quantity and frequency for each commodity after submission, or continue with default settings.
@@ -664,23 +718,72 @@ export default function BuyerRegister() {
             {/* Step 6: Current Buying Offers */}
             {step === 6 && (
               <div className="space-y-5">
-                <SectionTitle title="Current Buying Offers" subtitle="Optional - provide current buying offers" />
+                <SectionTitle title="Current Buying Offers" subtitle="Optional - add an offer for any of your selected commodities" />
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                   <p className="text-sm text-amber-800 font-semibold">
-                    💡 You can add current buying offers for each commodity. This helps farmers see your offer prices.
-                  </p>
-                  <p className="mt-1 text-xs text-amber-700">
-                    Offers are optional and can be updated later. Prices will be timestamped.
+                    💡 Offers are optional per commodity. Leave a commodity blank if you don't want to publish an offer yet.
                   </p>
                 </div>
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                  <p className="text-sm font-semibold text-slate-700">
-                    Selected commodities: {selectedCommodities.length > 0 ? selectedCommodities.join(', ') : (otherCommodity || 'None')}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    You can add specific offer prices for each commodity after your application is approved.
-                  </p>
-                </div>
+                {getAllSelectedNames().length === 0 ? (
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                    <p className="text-sm font-semibold text-slate-700">
+                      No commodities selected yet. Go back to the Products step to select commodities first.
+                    </p>
+                  </div>
+                ) : (
+                  getAllSelectedNames().map((name) => {
+                    const offer = offers[name] || {};
+                    const todayLabel = new Date().toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    });
+                    return (
+                      <div key={name} className="border border-slate-200 rounded-xl p-4 space-y-3">
+                        <p className="text-sm font-bold text-slate-800">🌾 {name}</p>
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          <div>
+                            <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">Offer Price (₹)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={offer.offerPrice ?? ''}
+                              onChange={(e) => handleOfferChange(name, 'offerPrice', e.target.value)}
+                              placeholder="e.g. 2100"
+                              className="w-full h-11 rounded-lg border border-slate-300 px-3 text-sm text-slate-900 focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">Unit</label>
+                            <select
+                              value={offer.unit || 'quintal'}
+                              onChange={(e) => handleOfferChange(name, 'unit', e.target.value)}
+                              className="w-full h-11 rounded-lg border border-slate-300 px-3 text-sm text-slate-900 focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
+                            >
+                              <option value="quintal">Quintal</option>
+                              <option value="ton">Ton</option>
+                              <option value="kg">Kg</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">Quantity Required</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={offer.quantity ?? ''}
+                              onChange={(e) => handleOfferChange(name, 'quantity', e.target.value)}
+                              placeholder="e.g. 50"
+                              className="w-full h-11 rounded-lg border border-slate-300 px-3 text-sm text-slate-900 focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
+                            />
+                          </div>
+                        </div>
+                        {offer.offerPrice && Number(offer.offerPrice) > 0 && (
+                          <p className="text-xs font-semibold text-emerald-700">Price last updated: {todayLabel}</p>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             )}
 
