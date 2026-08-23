@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { useLocationContext } from '../context/LocationContext';
 import { marketService } from '../api/marketService';
@@ -8,6 +9,7 @@ const popularCrops = ['Wheat', 'Paddy', 'Onion', 'Tomato', 'Mustard', 'Maize', '
 
 export default function BuyerDiscovery() {
   const { t } = useUser();
+  const navigate = useNavigate();
   const { address } = useLocationContext();
 
   // Filter States
@@ -192,6 +194,34 @@ export default function BuyerDiscovery() {
           Discover verified wholesalers, exporters, and processors currently purchasing crops in your region.
         </p>
       </header>
+
+      {/* Verified Buyer Program CTA */}
+      <div className="mb-6 rounded-3xl bg-[#064E3B] p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-widest text-emerald-300">🛡️ SAATHI Verified Buyer Program</p>
+            <p className="mt-1.5 text-sm font-semibold text-emerald-50/90 max-w-md">
+              Are you a buyer? Get verified on SAATHI and publish your buying offers directly to farmers.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => navigate('/buyer-register')}
+              className="rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-[#064E3B] transition hover:bg-emerald-50"
+            >
+              Register as Buyer
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/buyer-status')}
+              className="rounded-xl border border-white/30 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-white/10"
+            >
+              Check Status
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Filter and Search Panel */}
       <div className="mb-6 rounded-3xl bg-white p-6 border border-slate-200 shadow-sm">
