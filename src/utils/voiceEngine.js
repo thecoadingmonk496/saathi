@@ -100,24 +100,38 @@ export function processVoiceQuery(transcript, language = 'English') {
   }
 
   if (matchedCrop || ['price', 'prices', 'rate', 'bhav', 'mandi', 'भाव', 'कीमत', 'दर', 'दाम', 'मंडी'].some((k) => clean.includes(k))) {
-    const targetCrop = matchedCrop || mockCrops[0]; 
-    const priceRecord = mockPriceHistory.find((p) => p.cropId === targetCrop.id);
-
-    if (priceRecord) {
-      let msg = `Current wholesale price for ${targetCrop.name} at ${priceRecord.mandi} is ${formatRupees(priceRecord.wholesale)} per quintal (Retail: ${formatRupees(priceRecord.retail)}, MSP: ${formatRupees(priceRecord.msp)}).`;
-      if (isHindi) msg = `${priceRecord.mandi} में ${targetCrop.name} का वर्तमान थोक भाव ${formatRupees(priceRecord.wholesale)} प्रति क्विंटल है (खुदरा: ${formatRupees(priceRecord.retail)}, एमएसपी: ${formatRupees(priceRecord.msp)})।`;
-      if (isMarathi) msg = `${priceRecord.mandi} मध्ये ${targetCrop.name} चा सध्याचा घाऊक भाव ${formatRupees(priceRecord.wholesale)} प्रति क्विंटल आहे.`;
-      if (isPunjabi) msg = `${priceRecord.mandi} ਵਿੱਚ ${targetCrop.name} ਦਾ ਮੌਜੂਦਾ ਥੋਕ ਭਾਅ ${formatRupees(priceRecord.wholesale)} ਪ੍ਰਤੀ ਕੁਇੰਟਲ ਹੈ।`;
-      if (isBengali) msg = `${priceRecord.mandi}-এ ${targetCrop.name}-এর পাইকারি দাম প্রতি কুইন্টাল ${formatRupees(priceRecord.wholesale)}।`;
-      if (isTelugu) msg = `${priceRecord.mandi} లో ${targetCrop.name} హోల్‌సేల్ ధర క్వింటాలుకు ${formatRupees(priceRecord.wholesale)}.`;
-      if (isTamil) msg = `${priceRecord.mandi} இல் ${targetCrop.name} மொத்த விலை குவிண்டாலுக்கு ${formatRupees(priceRecord.wholesale)}.`;
+    if (matchedCrop) {
+      const cropName = matchedCrop.name;
+      const cropRegionalName = isHindi && matchedCrop.nameHi ? matchedCrop.nameHi : (isMarathi && matchedCrop.nameMr ? matchedCrop.nameMr : cropName);
+      
+      let msg = `Opening government mandi prices for ${cropName}...`;
+      if (isHindi) msg = `${cropRegionalName} के लिए सरकारी मंडी भाव खोले जा रहे हैं...`;
+      if (isMarathi) msg = `${cropRegionalName} साठी सरकारी बाजार भाव उघडत आहे...`;
+      if (isPunjabi) msg = `${matchedCrop.namePa || cropName} ਲਈ ਸਰਕਾਰੀ ਮੰਡੀ ਦੇ ਭਾਅ ਖੋਲ੍ਹੇ ਜਾ ਰਹੇ ਹਨ...`;
+      if (isBengali) msg = `${cropName}-এর জন্য সরকারি মণ্ডির দাম খোলা হচ্ছে...`;
+      if (isTelugu) msg = `${cropName} కోసం ప్రభుత్వ మండి ధరలను ఓపెన్ చేస్తున్నాము...`;
+      if (isTamil) msg = `${cropName} க்கான அரசு மண்டி விலைகளைத் திறக்கிறது...`;
 
       return {
         response: msg,
-        action: navPath ? { type: 'NAVIGATE', path: navPath } : null,
+        action: { type: 'NAVIGATE', path: `/prices?search=${encodeURIComponent(cropName)}` }
+      };
+    } else {
+      let msg = `Opening daily government mandi prices...`;
+      if (isHindi) msg = `दैनिक सरकारी मंडी भाव खोले जा रहे हैं...`;
+      if (isMarathi) msg = `दैनिक सरकारी बाजार भाव उघडत आहे...`;
+      if (isPunjabi) msg = `ਰੋਜ਼ਾਨਾ ਸਰਕਾਰੀ ਮੰਡੀ ਦੇ ਭਾਅ ਖੋਲ੍ਹੇ ਜਾ ਰਹੇ ਹਨ...`;
+      if (isBengali) msg = `দৈনিক সরকারি মণ্ডির দাম খোলা হচ্ছে...`;
+      if (isTelugu) msg = `రోజువారీ ప్రభుత్వ మండి ధరలను ఓపెన్ చేస్తున్నాము...`;
+      if (isTamil) msg = `தினசரி அரசு மண்டி விலைகளைத் திறக்கிறது...`;
+
+      return {
+        response: msg,
+        action: { type: 'NAVIGATE', path: '/prices' }
       };
     }
   }
+
 
   if (['scheme', 'government', 'govt', 'yojana', 'advisory', 'सरकारी', 'योजना', 'ऑफिसर'].some((k) => clean.includes(k))) {
     const topUpdate = mockGovernmentUpdates[0];

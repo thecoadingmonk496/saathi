@@ -1,7 +1,33 @@
 import { mockCrops, mockPriceHistory, mockMandis } from '../utils/mockData';
 import { calculateDistance } from '../utils/distanceUtils';
 
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
+const apiBaseUrl = configuredBaseUrl.replace(/\/api\/auth\/?$/, '').replace(/\/$/, '');
+
 export const marketService = {
+
+  getGovernmentMandiPrices: async ({ commodity, state, district, market, limit = 50, offset = 0 } = {}) => {
+    try {
+      const params = new URLSearchParams();
+      if (commodity) params.append('commodity', commodity);
+      if (state) params.append('state', state);
+      if (district) params.append('district', district);
+      if (market) params.append('market', market);
+      params.append('limit', limit.toString());
+      params.append('offset', offset.toString());
+
+      const url = `${apiBaseUrl}/api/mandi-prices?${params.toString()}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Government Mandi API returned ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching government mandi prices:', error);
+      return { success: false, records: [], message: error.message };
+    }
+  },
+
 
   getMarketPrices: async (tab = 'Wholesale') => {
 
