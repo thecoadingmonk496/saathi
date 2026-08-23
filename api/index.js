@@ -8,6 +8,7 @@ const mandiRoutes = require('../backend/routes/mandi');
 const priceHistoryRoutes = require('../backend/routes/priceHistory');
 const buyerRoutes = require('../backend/routes/buyer');
 const buyerApplicationRoutes = require('../backend/routes/buyerApplication');
+const cronRoutes = require('../backend/routes/cron');
 const { sendOtp, verifyOtp } = require('../backend/controllers/authController');
 
 
@@ -40,6 +41,7 @@ app.use('/api/mandi-prices', mandiRoutes);
 app.use('/api/price-history', priceHistoryRoutes);
 app.use('/api/buyer-listings', buyerRoutes);
 app.use('/api/buyers', buyerApplicationRoutes);
+app.use('/api/cron', cronRoutes);
 
 
 

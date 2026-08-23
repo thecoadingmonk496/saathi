@@ -13,5 +13,11 @@
         { "key": "X-XSS-Protection", "value": "1; mode=block" }
       ]
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/refresh-mandi-cache",
+      "schedule": "0 21 * * *"
+    }
   ]
 }

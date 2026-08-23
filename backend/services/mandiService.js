@@ -1,4 +1,5 @@
 const axios = require('axios');
+const MandiPriceCache = require('../models/MandiPriceCache');
 
 // In-memory cache map
 const cache = new Map();
@@ -169,103 +170,6 @@ function normalizeMandiRecords(rawRecords) {
   }));
 }
 
-// Defensive cap for the exhaustive fetch – even though a state+district filter
-// should yield a small result set, we never request more than this in one call.
-const EXHAUSTIVE_FETCH_CAP = 10000;
-
-// Latest-available fallback: when the current-day snapshot has zero records for
-// a state/district(/commodity/market) selection, fetch the *complete* filtered
-// result set from the historical dataset (capped defensively) and keep only the
-// records sharing the single most recent arrival_date within the recent window.
-async function fetchMostRecentAvailablePrices({ apiKey, cleanCommodity, cleanState, cleanDistrict, cleanMarket, cleanLimit, cleanOffset }) {
-  try {
-    const baseFilters = {};
-    if (cleanState) baseFilters['filters[state.keyword]'] = cleanState;
-    if (cleanDistrict) baseFilters['filters[district]'] = cleanDistrict;
-    if (cleanMarket) baseFilters['filters[market]'] = cleanMarket;
-    // NOTE: commodity is intentionally NOT sent as a server-side filter here -
-    // commodity naming in the historical dataset can differ slightly
-    // (e.g. "Paddy(Dhan)(Raw)"), so it is matched loosely client-side below.
-
-    console.log('[MandiService] No same-day records found - searching last 10 days of mandi history...');
-
-    // Step 1: Probe with limit=1 to discover the total number of matching records
-    let probeResponse;
-    try {
-      probeResponse = await axios.get(
-        `https://api.data.gov.in/resource/${HISTORICAL_DAILY_RESOURCE_ID}`,
-        {
-          params: { 'api-key': apiKey, format: 'json', limit: 1, offset: 0, ...baseFilters },
-          timeout: 15000
-        }
-      );
-    } catch (probeErr) {
-      // Retry once – the public API is occasionally slow
-      console.warn('[MandiService] Probe request failed, retrying:', probeErr.message);
-      probeResponse = await axios.get(
-        `https://api.data.gov.in/resource/${HISTORICAL_DAILY_RESOURCE_ID}`,
-        {
-          params: { 'api-key': apiKey, format: 'json', limit: 1, offset: 0, ...baseFilters },
-          timeout: 15000
-        }
-      );
-    }
-
-    if (!probeResponse.data || !Array.isArray(probeResponse.data.records)) return [];
-    const total = Number(probeResponse.data.total) || 0;
-    if (total === 0) return [];
-
-    const fetchLimit = Math.min(total, EXHAUSTIVE_FETCH_CAP);
-    console.log(`[MandiService] Historical dataset total for filters: ${total} — fetching ${fetchLimit} records`);
-
-    // Step 2: Fetch the complete filtered result set in a single request
-    let fullResponse;
-    try {
-      fullResponse = await axios.get(
-        `https://api.data.gov.in/resource/${HISTORICAL_DAILY_RESOURCE_ID}`,
-        {
-          params: { 'api-key': apiKey, format: 'json', limit: fetchLimit, offset: 0, ...baseFilters },
-          timeout: 30000
-        }
-      );
-    } catch (fetchErr) {
-      // Retry once on transient failure
-      console.warn('[MandiService] Full fetch failed, retrying:', fetchErr.message);
-      fullResponse = await axios.get(
-        `https://api.data.gov.in/resource/${HISTORICAL_DAILY_RESOURCE_ID}`,
-        {
-          params: { 'api-key': apiKey, format: 'json', limit: fetchLimit, offset: 0, ...baseFilters },
-          timeout: 30000
-        }
-      );
-    }
-
-    if (!fullResponse.data || !Array.isArray(fullResponse.data.records)) return [];
-    let records = normalizeMandiRecords(fullResponse.data.records);
-
-    // Client-side safety filtering so records outside the requested selection never surface
-    if (cleanState) records = records.filter(r => r.state.toLowerCase() === cleanState.toLowerCase());
-    if (cleanDistrict) records = records.filter(r => r.district.toLowerCase() === cleanDistrict.toLowerCase());
-    if (cleanMarket) records = records.filter(r => r.market.toLowerCase().includes(cleanMarket.toLowerCase()));
-    if (cleanCommodity) records = records.filter(r => r.commodity.toLowerCase().includes(cleanCommodity.toLowerCase()));
-
-    // Restrict to the last 10 calendar days - older history is irrelevant for
-    // "current" pricing and must not mask a genuinely empty recent window
-    records = records.filter(record => isWithinRecentWindow(record.arrival_date));
-
-    if (records.length === 0) return [];
-
-    // Keep only records sharing the most recent arrival_date within the window
-    const mostRecentDate = getMostRecentArrivalDate(records);
-    records = records.filter(record => record.arrival_date === mostRecentDate);
-
-    return records.slice(cleanOffset, cleanOffset + cleanLimit);
-  } catch (fallbackError) {
-    console.error('[MandiService] Latest-available fallback query failed:', fallbackError.message);
-    return [];
-  }
-}
-
 // Summarizes whether a result set represents "most recent available" data
 // (no record dated today) along with the effective latest arrival_date.
 function summarizeArrivalFreshness(records) {
@@ -276,6 +180,90 @@ function summarizeArrivalFreshness(records) {
     isLatestAvailable: records.some(record => record.isLatestAvailable),
     latestArrivalDate: getMostRecentArrivalDate(records)
   };
+}
+
+// Nightly refresh: pulls national mandi data and caches to MongoDB
+async function refreshNationalMandiCache() {
+  const apiKey = process.env.DATA_GOV_API_KEY;
+  if (!apiKey || apiKey === 'mock_mandi_api_key_123456' || apiKey === 'your_data_gov_in_api_key') {
+    console.log('[MandiService] Using mock API key, skipping national refresh.');
+    return { success: false, message: 'Mock API key in use' };
+  }
+
+  console.log('[MandiService] Starting nightly national mandi cache refresh...');
+  const limit = 1000;
+  let offset = 0;
+  let totalRecordsFetched = 0;
+  let totalUpserted = 0;
+  let failedPages = 0;
+  let totalAvailable = null;
+
+  try {
+    while (true) {
+      try {
+        const response = await axios.get(`https://api.data.gov.in/resource/${CURRENT_DAILY_RESOURCE_ID}`, {
+          params: { 'api-key': apiKey, format: 'json', limit, offset },
+          timeout: 20000
+        });
+
+        if (!response.data || !Array.isArray(response.data.records)) {
+          throw new Error('Invalid response format');
+        }
+
+        if (totalAvailable === null) {
+          totalAvailable = Number(response.data.total) || 0;
+          console.log(`[MandiService] Total records available for today: ${totalAvailable}`);
+        }
+
+        const records = normalizeMandiRecords(response.data.records);
+        if (records.length === 0) break;
+
+        const bulkOps = records.map(record => ({
+          updateOne: {
+            filter: {
+              state: record.state,
+              district: record.district,
+              market: record.market,
+              commodity: record.commodity,
+              variety: record.variety,
+              arrival_date: record.arrival_date
+            },
+            update: { $set: { ...record, fetched_at: new Date() } },
+            upsert: true
+          }
+        }));
+
+        if (bulkOps.length > 0) {
+          const result = await MandiPriceCache.bulkWrite(bulkOps);
+          totalUpserted += result.upsertedCount + result.modifiedCount;
+        }
+
+        totalRecordsFetched += records.length;
+        offset += limit;
+
+        if (totalAvailable > 0 && offset >= totalAvailable) break;
+        if (records.length < limit) break; // Reached the end
+
+        // Small delay to avoid hammering the API
+        await new Promise(r => setTimeout(r, 500));
+
+      } catch (pageErr) {
+        console.error(`[MandiService] Error fetching page at offset ${offset}:`, pageErr.message);
+        failedPages++;
+        offset += limit;
+        if (failedPages > 5) {
+          console.error('[MandiService] Too many failed pages, aborting refresh.');
+          break;
+        }
+      }
+    }
+
+    console.log(`[MandiService] Refresh complete. Fetched: ${totalRecordsFetched}, Upserted/Updated: ${totalUpserted}, Failed Pages: ${failedPages}`);
+    return { success: true, fetched: totalRecordsFetched, upserted: totalUpserted, failedPages };
+  } catch (error) {
+    console.error('[MandiService] National refresh failed:', error.message);
+    return { success: false, error: error.message };
+  }
 }
 
 async function getMandiPrices({ commodity, state, district, market, limit = 50, offset = 0 }) {
@@ -306,7 +294,7 @@ async function getMandiPrices({ commodity, state, district, market, limit = 50, 
   };
   const cacheKey = JSON.stringify(cacheKeyObj);
 
-  // Check cache (fallback/latest-available entries expire sooner than fresh ones)
+  // Check in-memory cache
   if (cache.has(cacheKey)) {
     const cached = cache.get(cacheKey);
     const effectiveTtl = cached.isFallback ? FALLBACK_CACHE_TTL_MS : CACHE_TTL_MS;
@@ -318,7 +306,51 @@ async function getMandiPrices({ commodity, state, district, market, limit = 50, 
     }
   }
 
-  // 3. Determine if using real data.gov.in API or local mock fallback
+  // 3. Check MongoDB MandiPriceCache first
+  const query = {};
+  if (cleanState) query.state = new RegExp(`^${cleanState}$`, 'i');
+  if (cleanDistrict) query.district = new RegExp(`^${cleanDistrict}$`, 'i');
+  if (cleanMarket) query.market = new RegExp(cleanMarket, 'i');
+  if (cleanCommodity) query.commodity = new RegExp(cleanCommodity, 'i');
+
+  try {
+    // Find distinct dates for these filters
+    const distinctDates = await MandiPriceCache.distinct('arrival_date', query);
+    if (distinctDates.length > 0) {
+      let latestStr = null;
+      let latestKey = -Infinity;
+      for (const d of distinctDates) {
+        const key = parseArrivalDateKey(d);
+        if (key !== null && key > latestKey) {
+          latestKey = key;
+          latestStr = d;
+        }
+      }
+      
+      if (latestStr) {
+        query.arrival_date = latestStr;
+        const dbRecords = await MandiPriceCache.find(query).skip(cleanOffset).limit(cleanLimit).lean();
+        
+        if (dbRecords.length > 0) {
+          console.log(`[MandiService] DB Cache hit for ${cleanState}/${cleanDistrict} - date: ${latestStr}`);
+          // Re-normalize just to be safe (remove mongo _id etc if needed, though they shouldn't hurt)
+          let normalized = dbRecords.map(r => {
+            const { _id, fetched_at, __v, ...rest } = r;
+            return rest;
+          });
+          normalized = markLatestAvailable(normalized);
+          const usedFallback = normalized.some(r => r.isLatestAvailable);
+          
+          cache.set(cacheKey, { records: normalized, timestamp: Date.now(), isFallback: usedFallback });
+          return normalized;
+        }
+      }
+    }
+  } catch (dbErr) {
+    console.error('[MandiService] DB cache query failed, falling back to live API:', dbErr.message);
+  }
+
+  // 4. Determine if using real data.gov.in API or local mock fallback
   const apiKey = process.env.DATA_GOV_API_KEY;
   const isMockKey = !apiKey || apiKey === 'mock_mandi_api_key_123456' || apiKey === 'your_data_gov_in_api_key';
 
@@ -340,7 +372,6 @@ async function getMandiPrices({ commodity, state, district, market, limit = 50, 
       records = records.filter(r => r.market.toLowerCase().includes(cleanMarket.toLowerCase()));
     }
 
-    // Primary pass: mimic the live current-day snapshot (only records dated today)
     const todayStr = getTodayDateString();
     const todaysRecords = records.filter(record => record.arrival_date === todayStr);
 
@@ -349,8 +380,6 @@ async function getMandiPrices({ commodity, state, district, market, limit = 50, 
     if (todaysRecords.length > 0) {
       resultRecords = todaysRecords;
     } else if (records.length > 0) {
-      // No market reported today for this selection - fall back to the most
-      // recent arrival_date that IS available instead of showing empty state
       const mostRecentDate = getMostRecentArrivalDate(records);
       resultRecords = records
         .filter(record => record.arrival_date === mostRecentDate)
@@ -361,13 +390,11 @@ async function getMandiPrices({ commodity, state, district, market, limit = 50, 
     }
 
     const paginatedRecords = resultRecords.slice(cleanOffset, cleanOffset + cleanLimit);
-
-    // Save to cache
     cache.set(cacheKey, { records: paginatedRecords, timestamp: Date.now(), isFallback: usedFallback });
     return paginatedRecords;
   }
 
-  // 4. Query external government API
+  // 5. Query external government API (Last resort fallback)
   try {
     const baseUrl = `https://api.data.gov.in/resource/${CURRENT_DAILY_RESOURCE_ID}`;
     const params = {
@@ -382,7 +409,7 @@ async function getMandiPrices({ commodity, state, district, market, limit = 50, 
     if (cleanDistrict) params['filters[district]'] = cleanDistrict;
     if (cleanMarket) params['filters[market]'] = cleanMarket;
 
-    console.log(`[MandiService] Querying data.gov.in API with filters...`);
+    console.log(`[MandiService] Querying data.gov.in API with filters (Live Fallback)...`);
 
     const response = await axios.get(baseUrl, { 
       params,
@@ -395,37 +422,20 @@ async function getMandiPrices({ commodity, state, district, market, limit = 50, 
     }
 
     let normalized = normalizeMandiRecords(response.data.records);
-    let usedFallback = false;
-
-    // Current-day snapshot has nothing for this selection - fall back to the
-    // most recent available data instead of immediately showing "no data"
-    if (normalized.length === 0) {
-      normalized = await fetchMostRecentAvailablePrices({
-        apiKey,
-        cleanCommodity,
-        cleanState,
-        cleanDistrict,
-        cleanMarket,
-        cleanLimit,
-        cleanOffset
-      });
-      usedFallback = normalized.length > 0;
-    }
-
+    
     // Label non-today data explicitly so the UI can flag it as "latest available"
+    // Since we only queried CURRENT_DAILY, it's either today or empty.
     normalized = markLatestAvailable(normalized);
 
-    // Cache the normalized records
+    const usedFallback = normalized.some(r => r.isLatestAvailable);
     cache.set(cacheKey, { records: normalized, timestamp: Date.now(), isFallback: usedFallback });
     return normalized;
 
   } catch (error) {
     console.error('[MandiService] Error querying data.gov.in API:', error.message);
-    
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
       throw new Error('API_UNAVAILABLE_AUTH');
     }
-    
     throw new Error('API_UNAVAILABLE');
   }
 }
@@ -553,6 +563,6 @@ module.exports = {
   getMandiPrices,
   getMandiStates,
   getMandiDistricts,
-  summarizeArrivalFreshness
+  summarizeArrivalFreshness,
+  refreshNationalMandiCache
 };
-

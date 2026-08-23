@@ -12,6 +12,7 @@ const buyerRoutes = require('./routes/buyer');
 const buyerApplicationRoutes = require('./routes/buyerApplication');
 const { seedPriceHistory } = require('./config/seed');
 const { seedBuyerListings } = require('./config/seedBuyers');
+const cronRoutes = require('./routes/cron');
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use('/api/mandi-prices', mandiRoutes);
 app.use('/api/price-history', priceHistoryRoutes);
 app.use('/api/buyer-listings', buyerRoutes);
 app.use('/api/buyers', buyerApplicationRoutes);
+app.use('/api/cron', cronRoutes);
 
 
 
