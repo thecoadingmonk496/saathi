@@ -8,7 +8,9 @@ const blockchainRoutes = require('./routes/blockchain');
 const adminRoutes = require('./routes/admin');
 const mandiRoutes = require('./routes/mandi');
 const priceHistoryRoutes = require('./routes/priceHistory');
+const buyerRoutes = require('./routes/buyer');
 const { seedPriceHistory } = require('./config/seed');
+const { seedBuyerListings } = require('./config/seedBuyers');
 
 const app = express();
 
@@ -19,6 +21,7 @@ app.use('/api/blockchain', blockchainRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/mandi-prices', mandiRoutes);
 app.use('/api/price-history', priceHistoryRoutes);
+app.use('/api/buyer-listings', buyerRoutes);
 
 
 
@@ -34,6 +37,7 @@ async function startServer() {
   try {
     await connectDB();
     await seedPriceHistory();
+    await seedBuyerListings();
     app.listen(PORT, () => {
 
       console.log(`Server running on port ${PORT}`);

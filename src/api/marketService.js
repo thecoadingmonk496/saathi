@@ -146,5 +146,26 @@ export const marketService = {
     });
 
     return nearby.sort((a, b) => a.distance - b.distance).slice(0, 4); 
+  },
+
+  getBuyerListings: async ({ commodity, state, district, limit = 20, offset = 0 } = {}) => {
+    try {
+      const params = new URLSearchParams();
+      if (commodity) params.append('commodity', commodity);
+      if (state) params.append('state', state);
+      if (district) params.append('district', district);
+      params.append('limit', limit.toString());
+      params.append('offset', offset.toString());
+
+      const url = `${apiBaseUrl}/api/buyer-listings?${params.toString()}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Buyer listings API returned ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching buyer listings:', error);
+      return { success: false, listings: [], message: error.message };
+    }
   }
 };

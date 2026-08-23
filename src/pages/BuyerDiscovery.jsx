@@ -1,510 +1,415 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useUser } from '../context/UserContext';
 import { useLocationContext } from '../context/LocationContext';
-import { calculateDistance, formatDistance } from '../utils/distanceUtils';
-import { mockBuyers, mockCrops, mockPriceHistory } from '../utils/mockData';
+import { marketService } from '../api/marketService';
 import { BuyerVerification } from '../components/BlockchainVerification';
 
-const getBuyerTypes = (t) => ['All', t('explorer.stageWholesaler'), t('explorer.stageRetailer'), t('explorer.stageDistributor'), t('buyer.mandiBuyer'), 'Govt Agency'];
-const popularCrops = ['Wheat', 'Paddy', 'Mustard', 'Maize', 'Chickpea'];
-const radiusOptions = [10, 25, 50, 100];
-
-function Stars({ rating }) {
-  if (!rating) return null;
-  return (
-    <span className="flex items-center gap-0.5 text-amber-500 text-xs font-bold">
-      <span>⭐</span> {rating.toFixed(1)}
-    </span>
-  );
-}
-
-function MapViewModal({ buyers, farmerAddress, onClose }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div
-        className="relative w-full max-w-2xl rounded-3xl bg-white shadow-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <div>
-            <h2 className="text-lg font-extrabold text-slate-900">🗺️ Buyer Map View</h2>
-            <p className="text-xs font-medium text-slate-500 mt-0.5">Demo — sample buyer locations</p>
-          </div>
-          <button onClick={onClose} className="rounded-full h-8 w-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-lg transition">✕</button>
-        </div>
-
-        {}
-        <div className="relative bg-[#e8f4e8] h-72 flex items-center justify-center border-b border-slate-100 overflow-hidden">
-          <div className="absolute inset-0 opacity-10"
-            style={{backgroundImage: 'repeating-linear-gradient(0deg,#2E7D32 0,#2E7D32 1px,transparent 1px,transparent 40px),repeating-linear-gradient(90deg,#2E7D32 0,#2E7D32 1px,transparent 1px,transparent 40px)'}}
-          />
-          {}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center">
-            <div className="bg-[#2E7D32] text-white text-xs font-extrabold px-3 py-1.5 rounded-full shadow-lg border-2 border-white whitespace-nowrap">
-              📍 You (Farmer)
-            </div>
-            <div className="w-0 h-0 border-l-4 border-r-4 border-t-8 border-l-transparent border-r-transparent border-t-[#2E7D32]"></div>
-          </div>
-          {}
-          {buyers.slice(0, 6).map((b, i) => {
-            const positions = [
-              { top: '18%', left: '22%' }, { top: '30%', left: '72%' },
-              { top: '65%', left: '18%' }, { top: '70%', left: '68%' },
-              { top: '15%', left: '55%' }, { top: '60%', left: '40%' },
-            ];
-            const pos = positions[i] || { top: '50%', left: '50%' };
-            return (
-              <div key={b.id} className="absolute flex flex-col items-center" style={pos}>
-                <div className="bg-white text-slate-800 border border-slate-300 text-xs font-bold px-2 py-1 rounded-lg shadow whitespace-nowrap max-w-[110px] truncate">
-                  🏪 {b.name.split(' ').slice(0,2).join(' ')}
-                </div>
-                <p className="text-xs text-[#2E7D32] font-bold mt-0.5">{Math.round(b.realDistanceKm ?? 0)} km</p>
-              </div>
-            );
-          })}
-          <div className="absolute bottom-3 right-3 bg-white/90 text-xs text-slate-500 font-semibold px-3 py-1.5 rounded-full border border-slate-200">
-            Demo map — not real geography
-          </div>
-        </div>
-
-        {}
-        <div className="max-h-64 overflow-y-auto divide-y divide-slate-100">
-          {}
-          <div className="flex items-center gap-3 px-6 py-3 bg-green-50">
-            <span className="text-xl">📍</span>
-            <div>
-              <p className="text-sm font-extrabold text-[#2E7D32]">Your Location (Farmer)</p>
-              <p className="text-xs text-slate-500">{farmerAddress || 'Current GPS location'}</p>
-            </div>
-          </div>
-          {buyers.map((b) => (
-            <div key={b.id} className="flex items-center gap-3 px-6 py-3 hover:bg-slate-50">
-              <span className="text-lg">🏪</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-slate-900 truncate">{b.name}</p>
-                <p className="text-xs text-slate-500">{b.location} • {Math.round(b.realDistanceKm ?? 0)} km</p>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-sm font-extrabold text-[#2E7D32]">₹{b.pricePerQtl?.toLocaleString('en-IN')}</p>
-                <p className="text-xs text-slate-500">{b.cropRequired}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
+const popularCrops = ['Wheat', 'Paddy', 'Onion', 'Tomato', 'Mustard', 'Maize', 'Potato'];
 
 export default function BuyerDiscovery() {
   const { t } = useUser();
-  const { coordinates, address, permissionStatus } = useLocationContext();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCrop, setSelectedCrop] = useState('');
-  const [selectedType, setSelectedType] = useState('All');
-  const [sortOrder, setSortOrder] = useState('best-match');
-  const [radius, setRadius] = useState(100);
-  const [showMap, setShowMap] = useState(false);
+  const { address } = useLocationContext();
 
-  const getMandiPrice = (cropName) => {
-    const crop = mockCrops.find((c) => c.name.toLowerCase() === cropName.toLowerCase());
-    if (crop) {
-      const history = mockPriceHistory.find((h) => h.cropId === crop.id);
-      if (history) return history.wholesale;
-    }
-    return null;
-  };
+  // Filter States
+  const [selectedState, setSelectedState] = useState('');
+  const [selectedDistrict, setSelectedDistrict] = useState('');
+  const [commoditySearch, setCommoditySearch] = useState('');
+  const [listings, setListings] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const processedBuyers = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
+  // Dropdown options
+  const [statesList, setStatesList] = useState([]);
+  const [districtsList, setDistrictsList] = useState([]);
+  const [statesLoading, setStatesLoading] = useState(false);
+  const [districtsLoading, setDistrictsLoading] = useState(false);
 
-    const enriched = mockBuyers.map((buyer) => {
-      let realDistanceKm = null;
-      let displayDistance = permissionStatus === 'idle' ? t('location.notSet') : t('location.distUnavailable');
+  // Override tracker
+  const [hasManualOverride, setHasManualOverride] = useState(false);
 
-      if (coordinates && buyer.latitude && buyer.longitude) {
-        realDistanceKm = calculateDistance(
-          coordinates.latitude, coordinates.longitude,
-          buyer.latitude, buyer.longitude
-        );
-        displayDistance = formatDistance(realDistanceKm);
-      }
+  // Coming Soon Modal State
+  const [activeBuyer, setActiveBuyer] = useState(null);
 
-      const mandiPrice = getMandiPrice(buyer.cropRequired);
-      const priceDiff = mandiPrice ? buyer.pricePerQtl - mandiPrice : 0;
-
-      let score = 50;
-      if (realDistanceKm !== null) {
-        if (realDistanceKm < 15) score += 25;
-        else if (realDistanceKm < 40) score += 12;
-        else if (realDistanceKm < 80) score += 5;
-      }
-      if (buyer.verified) score += 12;
-      if (buyer.rating && buyer.rating >= 4.5) score += 8;
-      else if (buyer.rating && buyer.rating >= 4.0) score += 4;
-      if (priceDiff > 0) score += 10;
-      if (priceDiff < 0) score -= 8;
-      if (buyer.availability === 'Buying now') score += 5;
-      score = Math.min(Math.max(score, 10), 99);
-
-      return { ...buyer, realDistanceKm, displayDistance, mandiPrice, priceDiff, matchScore: score };
-    });
-
-    const filtered = enriched.filter((buyer) => {
-      const matchesSearch =
-        buyer.name.toLowerCase().includes(normalizedSearch) ||
-        buyer.cropRequired.toLowerCase().includes(normalizedSearch) ||
-        (buyer.cropsWanted || []).some(c => c.toLowerCase().includes(normalizedSearch)) ||
-        (buyer.location || '').toLowerCase().includes(normalizedSearch) ||
-        (buyer.type || '').toLowerCase().includes(normalizedSearch);
-
-      const matchesCrop = selectedCrop
-        ? ((buyer.cropsWanted || []).some(c => c.toLowerCase() === selectedCrop.toLowerCase()) ||
-           buyer.cropRequired.toLowerCase() === selectedCrop.toLowerCase())
-        : true;
-
-      const matchesType = selectedType === 'All' || buyer.type === selectedType;
-      const matchesRadius = buyer.realDistanceKm === null || buyer.realDistanceKm <= radius;
-
-      return matchesSearch && matchesCrop && matchesType && matchesRadius;
-    });
-
-    filtered.sort((a, b) => {
-      switch (sortOrder) {
-        case 'best-match': return b.matchScore - a.matchScore;
-        case 'nearest': return (a.realDistanceKm ?? Infinity) - (b.realDistanceKm ?? Infinity);
-        case 'highest-price': return b.pricePerQtl - a.pricePerQtl;
-        case 'highest-qty': return b.quantityNeeded - a.quantityNeeded;
-        case 'recent': {
-          const score = (s) => {
-            if (!s) return 0;
-            if (s.includes('just now') || s.includes('min')) return 5;
-            if (s.includes('hour')) return 4;
-            if (s.includes('today')) return 3;
-            if (s.includes('yesterday')) return 2;
-            return 1;
-          };
-          return score(b.updatedAt) - score(a.updatedAt);
+  // 1a. Load states list on mount
+  useEffect(() => {
+    const loadStates = async () => {
+      setStatesLoading(true);
+      try {
+        const list = await marketService.getGovernmentMandiStates();
+        if (Array.isArray(list) && list.length > 0) {
+          setStatesList(list);
         }
-        default: return 0;
+      } catch (err) {
+        console.error('Failed to load states list:', err);
+      } finally {
+        setStatesLoading(false);
       }
-    });
+    };
+    loadStates();
+  }, []);
 
-    return filtered;
-  }, [searchTerm, selectedCrop, selectedType, sortOrder, radius, coordinates, permissionStatus, t]);
+  // 1b. Load districts list when state changes
+  useEffect(() => {
+    if (!selectedState) {
+      setDistrictsList([]);
+      return;
+    }
 
-  const handleDirections = (buyer) => {
-    if (buyer.latitude && buyer.longitude) {
-      window.open(`https://maps.google.com/?q=${buyer.latitude},${buyer.longitude}`, '_blank');
+    const loadDistricts = async () => {
+      setDistrictsLoading(true);
+      try {
+        const list = await marketService.getGovernmentMandiDistricts(selectedState);
+        if (Array.isArray(list) && list.length > 0) {
+          setDistrictsList(list);
+        }
+      } catch (err) {
+        console.error('Failed to load districts list:', err);
+      } finally {
+        setDistrictsLoading(false);
+      }
+    };
+    loadDistricts();
+  }, [selectedState]);
+
+  // 2. Auto-fill based on location
+  useEffect(() => {
+    if (hasManualOverride || !address || statesList.length === 0) return;
+
+    const detectState = address.state || '';
+    const detectDistrict = address.district || '';
+
+    if (detectState) {
+      const matchedState = statesList.find(
+        s => s.toLowerCase() === detectState.toLowerCase()
+      );
+
+      if (matchedState) {
+        setSelectedState(matchedState);
+
+        marketService.getGovernmentMandiDistricts(matchedState)
+          .then(list => {
+            if (Array.isArray(list) && list.length > 0) {
+              setDistrictsList(list);
+              if (detectDistrict) {
+                const matchedDistrict = list.find(
+                  d => d.toLowerCase() === detectDistrict.toLowerCase()
+                );
+                if (matchedDistrict) {
+                  setSelectedDistrict(matchedDistrict);
+                } else {
+                  setSelectedDistrict('');
+                }
+              }
+            }
+          })
+          .catch(err => {
+            console.error('Failed to auto-fetch districts for matched state:', err);
+          });
+      }
+    }
+  }, [address, statesList, hasManualOverride]);
+
+  // 3. Fetch buyer listings
+  const fetchListings = async () => {
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const response = await marketService.getBuyerListings({
+        commodity: commoditySearch,
+        state: selectedState,
+        district: selectedDistrict,
+        limit: 50
+      });
+
+      if (response && response.success) {
+        setListings(response.listings || []);
+      } else {
+        setListings([]);
+        setErrorMsg(response.message || 'Failed to fetch buyer listings');
+      }
+    } catch (err) {
+      console.error(err);
+      setListings([]);
+      setErrorMsg('Failed to connect to the buyer network');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const fmtPrice = (val) => `₹${Number(val).toLocaleString('en-IN')}`;
+  useEffect(() => {
+    fetchListings();
+  }, [selectedState, selectedDistrict, commoditySearch]);
 
-  const renderMatchBadge = (score) => {
-    if (score >= 85) return <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs font-bold text-amber-700">⭐ Best Match · {score}%</span>;
-    if (score >= 65) return <span className="inline-flex items-center gap-1 rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-xs font-bold text-[#2E7D32]">✓ Good Match · {score}%</span>;
-    return <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-500">Nearby · {score}%</span>;
+  const handleStateChange = (e) => {
+    const state = e.target.value;
+    setHasManualOverride(true);
+    setSelectedState(state);
+    setSelectedDistrict('');
+    setDistrictsList([]);
   };
 
-  const farmerAddressStr = address?.formatted || address?.district || '';
+  const handleDistrictChange = (e) => {
+    setHasManualOverride(true);
+    setSelectedDistrict(e.target.value);
+  };
+
+  const handleUseDetectedLocation = () => {
+    setHasManualOverride(false);
+  };
+
+  const handleClearFilters = () => {
+    setSelectedState('');
+    setSelectedDistrict('');
+    setCommoditySearch('');
+  };
+
+  const showResetLocation = address?.state && (
+    (selectedState && selectedState.toLowerCase() !== address.state.toLowerCase()) ||
+    (selectedDistrict && selectedDistrict.toLowerCase() !== (address.district || '').toLowerCase())
+  );
+
+  const getRegionalCropName = (cropName) => {
+    if (!cropName) return '';
+    const translationKey = `crop.${cropName.toLowerCase()}`;
+    const translated = t(translationKey);
+    return translated !== translationKey ? translated : cropName;
+  };
+
+  const formatRupees = (val) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(val);
+  };
 
   return (
-    <section className="mx-auto w-full max-w-4xl">
-      {}
+    <section className="mx-auto w-full max-w-4xl pb-12">
       <header className="mb-6">
-        <p className="text-xs font-extrabold uppercase tracking-widest text-emerald-400 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">{t('buyer.tagline')}</p>
-        <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] sm:text-4xl">{t('buyer.title')}</h1>
-        <p className="mt-1 text-sm font-semibold text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">{t('buyer.pageSubtitle')}</p>
-
-        {}
-        <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-green-50 border border-green-100 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">📍</span>
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('buyer.usingLocation')}</p>
-              <p className="text-sm font-bold text-slate-800">
-                {permissionStatus === 'idle' ? t('buyer.locDisabled') :
-                 permissionStatus === 'loading' ? t('buyer.findingLoc') :
-                 (farmerAddressStr || t('location.unavailable'))}
-              </p>
-            </div>
-          </div>
-          <span className="shrink-0 text-xs font-bold text-[#2E7D32] bg-white border border-green-200 px-3 py-1 rounded-full">
-            {t('buyer.buyerCount', { count: processedBuyers.length })}
-          </span>
-        </div>
-
-        {}
-        <p className="mt-2 rounded-lg bg-black/50 backdrop-blur-sm py-1.5 px-3 text-center text-xs font-semibold text-white">
-          📋 {t('buyer.demoNote')}
+        <p className="text-xs font-extrabold uppercase tracking-widest text-[#2E7D32]">{t('buyer.tagline') || 'Connect with Buyers'}</p>
+        <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">{t('buyer.title') || 'Buyer Discovery'}</h1>
+        <p className="mt-2 text-sm font-semibold text-slate-600">
+          Discover verified wholesalers, exporters, and processors currently purchasing crops in your region.
         </p>
       </header>
 
-      {}
-      <div className="space-y-4 mb-6">
-        {}
-        <label className="relative block">
-          <span className="sr-only">Search</span>
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xl">🔍</span>
-          <input
-            type="search"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={t('buyer.searchPlaceholder')}
-            className="w-full rounded-2xl border border-slate-200 bg-white py-4 pl-12 pr-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#2E7D32] focus:ring-4 focus:ring-green-100"
-          />
-        </label>
-
-        {}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="mr-1 shrink-0 text-xs font-bold uppercase tracking-wider text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">{t('buyer.popularCrops')}</span>
-          {popularCrops.map((crop) => (
+      {/* Filter and Search Panel */}
+      <div className="mb-6 rounded-3xl bg-white p-6 border border-slate-200 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h3 className="text-base font-bold text-slate-900">{t('prices.filterTitle') || 'Filter Listings'}</h3>
+          {showResetLocation && (
             <button
-              key={crop}
               type="button"
-              onClick={() => setSelectedCrop(selectedCrop === crop ? '' : crop)}
-              className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition border ${
-                selectedCrop === crop
-                  ? 'bg-amber-100 text-amber-800 border-amber-300'
-                  : 'border-slate-200 bg-white text-slate-800 hover:border-amber-200 hover:text-amber-700'
-              }`}
+              onClick={handleUseDetectedLocation}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#2E7D32] hover:underline bg-green-50/50 hover:bg-green-50 px-2.5 py-1 rounded-lg border border-green-200 transition focus:outline-none"
             >
-              {crop}
+              <span>📍</span> {t('prices.useDetectedLoc') || 'Use my detected location'}
             </button>
-          ))}
+          )}
         </div>
 
-        {}
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
-          {getBuyerTypes(t).map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => setSelectedType(type)}
-              className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition border ${
-                selectedType === type
-                  ? 'bg-[#2E7D32] text-white border-transparent'
-                  : 'border-slate-200 bg-white text-slate-800 hover:border-[#2E7D32] hover:text-[#2E7D32]'
-              }`}
-            >
-              {type === 'All' ? t('buyer.allTypes') : type}
-            </button>
-          ))}
-        </div>
-
-        {}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/20 bg-black/50 backdrop-blur-sm p-3 shadow-sm">
-          <p className="text-sm font-semibold text-white px-2">
-            {t('buyer.buyerCount', { count: processedBuyers.length })} — {radius} km
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm font-semibold text-white">
-              <span className="hidden sm:inline">{t('buyer.radiusLabel')}:</span>
-              <select
-                value={radius}
-                onChange={(e) => setRadius(Number(e.target.value))}
-                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-[#2E7D32]"
-              >
-                {radiusOptions.map(r => <option key={r} value={r}>{r} km</option>)}
-              </select>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {/* Commodity search */}
+          <div>
+            <label className="block text-xs font-bold text-slate-600 uppercase mb-2">
+              {t('prices.cropCol') || 'Crop'}
             </label>
-            <label className="flex items-center gap-2 text-sm font-semibold text-white">
-              <span className="hidden sm:inline">{t('buyer.sort')}:</span>
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-[#2E7D32]"
-              >
-                <option value="best-match">{t('buyer.sortBestMatch')}</option>
-                <option value="nearest">{t('buyer.sortNearest')}</option>
-                <option value="highest-price">{t('buyer.sortHighestPrice')}</option>
-                <option value="highest-qty">{t('buyer.sortHighQty')}</option>
-                <option value="recent">{t('buyer.sortRecent')}</option>
-              </select>
-            </label>
-            <button
-              type="button"
-              onClick={() => setShowMap(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-blue-50 border border-blue-100 px-3 py-2 text-sm font-bold text-blue-700 transition hover:bg-blue-100"
-            >
-              🗺️ <span className="hidden sm:inline">{t('buyer.mapView')}</span>
-            </button>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+              <input
+                type="text"
+                value={commoditySearch}
+                onChange={(e) => setCommoditySearch(e.target.value)}
+                placeholder={t('buyer.searchPlaceholder') || 'Search crops...'}
+                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-800 outline-none transition focus:border-[#2E7D32]"
+              />
+            </div>
           </div>
+
+          {/* State select */}
+          <div>
+            <label className="block text-xs font-bold text-slate-600 uppercase mb-2">
+              {t('prices.stateCol') || 'State'}
+            </label>
+            <select
+              value={selectedState}
+              onChange={handleStateChange}
+              disabled={statesLoading}
+              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm text-slate-800 outline-none transition focus:border-[#2E7D32]"
+            >
+              <option value="">
+                {statesLoading ? 'Loading States...' : (t('prices.selectState') || 'All States')}
+              </option>
+              {statesList.map(state => (
+                <option key={state} value={state}>{state}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* District select */}
+          <div>
+            <label className="block text-xs font-bold text-slate-600 uppercase mb-2">
+              {t('prices.districtCol') || 'District'}
+            </label>
+            <select
+              value={selectedDistrict}
+              onChange={handleDistrictChange}
+              disabled={!selectedState || districtsLoading}
+              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm text-slate-800 outline-none transition disabled:bg-slate-50 focus:border-[#2E7D32]"
+            >
+              <option value="">
+                {!selectedState
+                  ? (t('prices.selectStateFirst') || 'Select a state first')
+                  : districtsLoading
+                    ? 'Loading Districts...'
+                    : (t('prices.selectDistrict') || 'All Districts')}
+              </option>
+              {districtsList.map(district => (
+                <option key={district} value={district}>{district}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Clear filters and popular crops */}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="font-bold text-slate-500 uppercase mr-1">{t('buyer.popularCrops') || 'Popular'}:</span>
+            {popularCrops.map(crop => (
+              <button
+                key={crop}
+                type="button"
+                onClick={() => setCommoditySearch(crop)}
+                className={`rounded-full px-3 py-1 font-semibold border transition ${
+                  commoditySearch.toLowerCase() === crop.toLowerCase()
+                    ? 'bg-amber-100 border-amber-300 text-amber-800'
+                    : 'bg-white border-slate-200 text-slate-700 hover:border-amber-200 hover:text-amber-700'
+                }`}
+              >
+                {crop}
+              </button>
+            ))}
+          </div>
+
+          {(commoditySearch || selectedState || selectedDistrict) && (
+            <button
+              onClick={handleClearFilters}
+              className="text-xs font-bold text-slate-500 hover:text-[#2E7D32] hover:underline"
+            >
+              {t('buyer.clearFilters') || 'Clear Filters'}
+            </button>
+          )}
         </div>
       </div>
 
-      {}
+      {/* Listings Section */}
       <div className="space-y-4">
-        {processedBuyers.map((buyer) => (
-          <article key={buyer.id} className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
-            {}
-            {buyer.matchScore >= 85 && sortOrder === 'best-match' && (
-              <div className="bg-amber-50 border-b border-amber-100 px-5 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
-                ⭐ {t('buyer.bestMatchBanner')}
-              </div>
-            )}
-            {buyer.type === 'Govt Agency' && (
-              <div className="bg-blue-50 border-b border-blue-100 px-5 py-1.5 text-xs font-bold uppercase tracking-wider text-blue-700 flex items-center gap-1.5">
-                🏛️ {t('buyer.govtProcurementBanner')}
-              </div>
-            )}
-
-            <div className="p-5 sm:p-6">
-              {}
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <h2 className="text-xl font-extrabold text-slate-900">{buyer.name}</h2>
-                    {buyer.verified && (
-                      <span className="flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 px-2 py-0.5 text-xs font-bold">
-                        ✓ {buyer.verificationType || t('buyer.verified')}
+        {loading ? (
+          // Skeleton Loader
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="animate-pulse rounded-3xl bg-white border border-slate-200 p-6 shadow-sm">
+              <div className="h-6 bg-slate-200 rounded w-1/3 mb-4"></div>
+              <div className="h-4 bg-slate-200 rounded w-1/2 mb-2"></div>
+              <div className="h-4 bg-slate-200 rounded w-1/4"></div>
+            </div>
+          ))
+        ) : errorMsg ? (
+          <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-center text-red-700">
+            <span className="text-2xl">⚠️</span>
+            <p className="mt-2 font-bold">{errorMsg}</p>
+          </div>
+        ) : listings.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
+            <span className="text-4xl">🔎</span>
+            <h3 className="mt-4 text-lg font-bold text-slate-800">{t('buyer.noBuyersFound') || 'No Buyer Listings Found'}</h3>
+            <p className="mt-2 text-sm text-slate-600 max-w-md mx-auto">
+              There are no buyers registered for this crop or region right now. Check back soon!
+            </p>
+          </div>
+        ) : (
+          listings.map((buyer) => (
+            <article key={buyer._id} className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
+              {buyer.is_demo && (
+                <div className="bg-amber-50 border-b border-amber-100 px-6 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-800">
+                  Demo Listing • Simulated Offer
+                </div>
+              )}
+              <div className="p-6">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <h2 className="text-xl font-extrabold text-slate-900">{buyer.buyer_name}</h2>
+                      <span className="rounded-full bg-slate-50 border border-slate-200 text-slate-600 px-2 py-0.5 text-xs font-bold">
+                        {buyer.buyer_type}
                       </span>
-                    )}
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-bold border ${
-                      buyer.availability === 'Buying now' || buyer.availability === 'Actively buying'
-                        ? 'bg-green-50 border-green-200 text-[#2E7D32]'
-                        : 'bg-slate-50 border-slate-200 text-slate-500'
-                    }`}>{buyer.availability || 'Available'}</span>
-                  </div>
-                  <p className="text-sm font-semibold text-slate-600">
-                    {buyer.type} · {t('buyer.lookingFor')}{' '}
-                    <span className="text-[#2E7D32]">
-                      {(buyer.cropsWanted || [buyer.cropRequired]).join(', ')}
-                    </span>
-                  </p>
-                  <div className="mt-2 flex flex-col gap-0.5 text-sm text-slate-500">
-                    <p className="flex items-center gap-1.5"><span>📍</span> {buyer.location}</p>
-                    <p className="flex items-center gap-1.5"><span>📏</span> <span className="font-semibold text-slate-700">{buyer.displayDistance}</span> {t('buyer.fromYourLocation')}</p>
-                  </div>
-                  {}
-                  <div className="mt-2 flex flex-wrap items-center gap-3">
-                    {buyer.rating && <Stars rating={buyer.rating} />}
-                    {buyer.totalTransactions && (
-                      <span className="text-xs font-medium text-slate-400">{buyer.totalTransactions} {t('buyer.transactions')}</span>
-                    )}
-                    {buyer.responseTime && (
-                      <span className="text-xs font-medium text-slate-500 flex items-center gap-1">⚡ {buyer.responseTime}</span>
-                    )}
-                  </div>
-                  <BuyerVerification buyerId={`B-${buyer.id}`} buyerType={buyer.type} />
-                </div>
-
-                {}
-                <div className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-50 p-4 border border-slate-100 sm:w-52 w-full shrink-0">
-                  <div>
-                    <p className="text-xs font-bold uppercase text-slate-400">{t('buyer.needs')}</p>
-                    <p className="mt-0.5 text-base font-extrabold text-slate-800">{buyer.quantityNeeded} qtl</p>
-                    {buyer.minimumQuantity && (
-                      <p className="text-xs text-slate-400 mt-0.5">{t('buyer.minQtl', { qty: buyer.minimumQuantity })}</p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold uppercase text-slate-400">{t('buyer.offer')}</p>
-                    <p className="mt-0.5 text-base font-extrabold text-[#2E7D32]">
-                      {fmtPrice(buyer.pricePerQtl)}<span className="text-xs font-medium text-slate-500">/qtl</span>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-600">
+                      Buying: <span className="text-[#2E7D32]">{getRegionalCropName(buyer.commodity)} ({buyer.variety})</span>
                     </p>
-                    {buyer.mandiPrice && (
-                      <p className={`text-xs font-bold mt-0.5 ${buyer.priceDiff > 0 ? 'text-[#2E7D32]' : 'text-slate-500'}`}>
-                        {buyer.priceDiff > 0 ? '+' : ''}{fmtPrice(buyer.priceDiff)} {t('buyer.vs')} {t('explorer.mandi')}
-                      </p>
-                    )}
+                    <div className="mt-3 flex flex-col gap-1 text-sm text-slate-500">
+                      <p className="flex items-center gap-2"><span>📍</span> {buyer.market}, {buyer.district}, {buyer.state}</p>
+                      <p className="flex items-center gap-2"><span>📦</span> Requirement: <span className="font-bold text-slate-700">{buyer.quantity_required}</span></p>
+                    </div>
+                    <div className="mt-2">
+                      <BuyerVerification buyerId={`B-${buyer._id}`} buyerType={buyer.buyer_type} />
+                    </div>
                   </div>
-                  <div className="col-span-2 border-t border-slate-200 pt-2 mt-1">
-                    <p className="text-xs font-bold uppercase text-slate-400">{t('buyer.match')}</p>
-                    <div className="mt-1">{renderMatchBadge(buyer.matchScore)}</div>
+
+                  {/* Price Block */}
+                  <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100 sm:w-52 w-full shrink-0 flex flex-col justify-center">
+                    <p className="text-xs font-bold uppercase text-slate-400">Offered Price</p>
+                    <p className="mt-1 text-2xl font-black text-[#2E7D32]">
+                      {formatRupees(buyer.offered_price)}
+                      <span className="text-xs font-semibold text-slate-500 ml-1">/qtl</span>
+                    </p>
                   </div>
                 </div>
-              </div>
 
-              {}
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {buyer.preferredPickup && (
-                  <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
-                    <span>🚚</span>
-                    <span><span className="font-bold">{t('buyer.pickup')}:</span> {buyer.preferredPickup}</span>
-                  </div>
-                )}
-                {buyer.paymentTerms && (
-                  <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
-                    <span>💳</span>
-                    <span><span className="font-bold">{t('buyer.payment')}:</span> {buyer.paymentTerms}</span>
-                  </div>
-                )}
-              </div>
-
-              {}
-              <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100 pt-4">
-                <div className="flex flex-col gap-1">
-                  <p className="text-xs text-slate-400">{t('buyer.updatedTime', { time: buyer.updatedAt || '' })}</p>
-                </div>
-                <div className="flex w-full sm:w-auto items-center gap-2">
-                  <a
-                    href={`tel:${buyer.contact.replace(/\s/g, '')}`}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-[#2E7D32] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#256428] focus:ring-4 focus:ring-green-200"
-                  >
-                    📞 {t('buyer.contactButton')}
-                  </a>
-                  {buyer.whatsapp && (
-                    <a
-                      href={`https://wa.me/91${buyer.contact.replace(/[^0-9]/g, '').slice(-10)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-100 text-green-700 transition hover:bg-green-200"
-                      title={t('')}
-                    >
-                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" />
-                      </svg>
-                    </a>
-                  )}
+                {/* Footer and contact button */}
+                <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                  <p className="text-xs text-slate-400">Posted on: {new Date(buyer.created_at).toLocaleDateString('en-IN')}</p>
                   <button
-                    onClick={() => handleDirections(buyer)}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 hover:border-slate-300"
+                    onClick={() => setActiveBuyer(buyer)}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-[#2E7D32] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#256428] focus:outline-none"
                   >
-                    🗺️ {t('buyer.directions')}
+                    💬 {t('buyer.contactButton') || 'Contact via SAATHI'}
                   </button>
                 </div>
               </div>
-            </div>
-          </article>
-        ))}
-
-        {}
-        {processedBuyers.length === 0 && (
-          <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
-            <span className="text-4xl">🔎</span>
-            <h3 className="mt-4 text-lg font-bold text-slate-800">{t('buyer.noBuyersFound')}</h3>
-            <p className="mt-2 text-sm text-slate-600 max-w-md mx-auto">{t('buyer.noBuyersMsg')}</p>
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
-              {radius < 100 && (
-                <button
-                  onClick={() => setRadius(100)}
-                  className="rounded-xl bg-[#2E7D32] px-6 py-2.5 text-sm font-bold text-white transition hover:bg-[#256428]"
-                >
-                  {t('buyer.expandRadius')}
-                </button>
-              )}
-              {(searchTerm || selectedCrop || selectedType !== 'All') && (
-                <button
-                  onClick={() => { setSearchTerm(''); setSelectedCrop(''); setSelectedType('All'); }}
-                  className="rounded-xl border border-slate-200 bg-white px-6 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-                >
-                  {t('buyer.clearFilters')}
-                </button>
-              )}
-            </div>
-          </div>
+            </article>
+          ))
         )}
       </div>
 
-      {}
-      {showMap && (
-        <MapViewModal
-          buyers={processedBuyers}
-          farmerAddress={farmerAddressStr}
-          onClose={() => setShowMap(false)}
-        />
+      {/* Coming Soon Modal */}
+      {activeBuyer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setActiveBuyer(null)}>
+          <div
+            className="relative w-full max-w-md rounded-3xl bg-white shadow-2xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <span className="text-5xl">💬</span>
+              <h2 className="mt-4 text-xl font-black text-slate-900">Direct Messaging Coming Soon!</h2>
+              <p className="mt-3 text-sm text-slate-600 leading-relaxed">
+                Direct buyer-to-farmer communication is currently on SAATHI's product roadmap.
+              </p>
+              <div className="mt-4 bg-slate-50 border border-slate-100 rounded-2xl p-4 text-left">
+                <p className="text-xs font-bold uppercase text-slate-400">Intended flow for {activeBuyer.buyer_name}</p>
+                <p className="text-xs font-semibold text-slate-500 mt-2">
+                  Once active, this button will open a secure chat screen in SAATHI. 
+                  The buyer will receive a notification showing your available stock, and you can negotiate the pickup date and payment terms.
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveBuyer(null)}
+                className="mt-6 w-full rounded-xl bg-[#2E7D32] py-3 text-sm font-bold text-white transition hover:bg-[#256428]"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );
