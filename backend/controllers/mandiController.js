@@ -77,6 +77,33 @@ async function getMandiPrices(req, res) {
   }
 }
 
+async function getMandiStates(req, res) {
+  try {
+    const states = await mandiService.getMandiStates();
+    return res.status(200).json(states);
+  } catch (error) {
+    console.error('[MandiController] Error fetching states:', error.message);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+}
+
+async function getMandiDistricts(req, res) {
+  try {
+    const { state } = req.query || {};
+    if (!state) {
+      return res.status(200).json([]);
+    }
+    const districts = await mandiService.getMandiDistricts(state);
+    return res.status(200).json(districts);
+  } catch (error) {
+    console.error('[MandiController] Error fetching districts:', error.message);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+}
+
 module.exports = {
-  getMandiPrices
+  getMandiPrices,
+  getMandiStates,
+  getMandiDistricts
 };
+

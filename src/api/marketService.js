@@ -49,6 +49,29 @@ export const marketService = {
     }
   },
 
+  getGovernmentMandiStates: async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/mandi-prices/states`);
+      if (!response.ok) throw new Error(`States API returned ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching government mandi states:', error);
+      return [];
+    }
+  },
+
+  getGovernmentMandiDistricts: async (state) => {
+    try {
+      if (!state) return [];
+      const response = await fetch(`${apiBaseUrl}/api/mandi-prices/districts?state=${encodeURIComponent(state)}`);
+      if (!response.ok) throw new Error(`Districts API returned ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching government mandi districts:', error);
+      return [];
+    }
+  },
+
   getMarketPrices: async (tab = 'Wholesale') => {
 
     return mockCrops.map(crop => {

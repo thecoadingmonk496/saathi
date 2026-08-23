@@ -23,6 +23,15 @@ export default function MarketPrices() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Dropdown list states
+  const [statesList, setStatesList] = useState([]);
+  const [districtsList, setDistrictsList] = useState([]);
+  const [statesLoading, setStatesLoading] = useState(false);
+  const [districtsLoading, setDistrictsLoading] = useState(false);
+
+  // Manual override tracker for dynamic selectors
+  const [hasManualOverride, setHasManualOverride] = useState(false);
+
   // Top price highlight states
   const [topRecordHistory, setTopRecordHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -33,18 +42,93 @@ export default function MarketPrices() {
   const popularCrops = ['Wheat', 'Paddy', 'Potato', 'Tomato', 'Onion', 'Mustard', 'Maize'];
 
   // 1. Initialize location filters on load if available
+  // 1. Initialize location filters dynamically based on user address context
   useEffect(() => {
-    const defaultState = address?.state || '';
-    const defaultDistrict = address?.district || '';
+    if (hasManualOverride || !address || statesList.length === 0) return;
 
-    if (defaultState && locationStates.includes(defaultState)) {
-      setSelectedState(defaultState);
-      const districts = getDistricts(defaultState);
-      if (defaultDistrict && districts.includes(defaultDistrict)) {
-        setSelectedDistrict(defaultDistrict);
+    const detectState = address.state || '';
+    const detectDistrict = address.district || '';
+
+    if (detectState) {
+      // Find case-insensitive match in the fetched states list
+      const matchedState = statesList.find(
+        s => s.toLowerCase() === detectState.toLowerCase()
+      );
+
+      if (matchedState) {
+        setSelectedState(matchedState);
+
+        // Pre-fetch districts for this state to verify a case-insensitive district match
+        marketService.getGovernmentMandiDistricts(matchedState)
+          .then(list => {
+            if (Array.isArray(list) && list.length > 0) {
+              setDistrictsList(list);
+              if (detectDistrict) {
+                const matchedDistrict = list.find(
+                  d => d.toLowerCase() === detectDistrict.toLowerCase()
+                );
+                if (matchedDistrict) {
+                  setSelectedDistrict(matchedDistrict);
+                } else {
+                  setSelectedDistrict('');
+                }
+              }
+            }
+          })
+          .catch(err => {
+            console.error('Failed to auto-fetch districts for matched state:', err);
+          });
       }
     }
-  }, [address]);
+  }, [address, statesList, hasManualOverride]);
+
+
+  // 1a. Load states list from API on mount
+  useEffect(() => {
+    const loadStates = async () => {
+      setStatesLoading(true);
+      try {
+        const list = await marketService.getGovernmentMandiStates();
+        if (Array.isArray(list) && list.length > 0) {
+          setStatesList(list);
+        } else {
+          setStatesList(locationStates);
+        }
+      } catch (err) {
+        console.error('Failed to load states list:', err);
+        setStatesList(locationStates);
+      } finally {
+        setStatesLoading(false);
+      }
+    };
+    loadStates();
+  }, []);
+
+  // 1b. Load districts list when selectedState changes
+  useEffect(() => {
+    if (!selectedState) {
+      setDistrictsList([]);
+      return;
+    }
+
+    const loadDistricts = async () => {
+      setDistrictsLoading(true);
+      try {
+        const list = await marketService.getGovernmentMandiDistricts(selectedState);
+        if (Array.isArray(list) && list.length > 0) {
+          setDistrictsList(list);
+        } else {
+          setDistrictsList(getDistricts(selectedState));
+        }
+      } catch (err) {
+        console.error('Failed to load districts list:', err);
+        setDistrictsList(getDistricts(selectedState));
+      } finally {
+        setDistrictsLoading(false);
+      }
+    };
+    loadDistricts();
+  }, [selectedState]);
 
   // 2. Read URL search params for voice search integration
   useEffect(() => {
@@ -88,13 +172,21 @@ export default function MarketPrices() {
 
   const handleStateChange = (e) => {
     const state = e.target.value;
+    setHasManualOverride(true);
     setSelectedState(state);
-    setSelectedDistrict(''); // Reset district when state changes
+    setSelectedDistrict('');
+    setDistrictsList([]);
   };
 
   const handleDistrictChange = (e) => {
+    setHasManualOverride(true);
     setSelectedDistrict(e.target.value);
   };
+
+  const handleUseDetectedLocation = () => {
+    setHasManualOverride(false);
+  };
+
 
   const handleClearFilters = () => {
     setSelectedState('');
@@ -259,7 +351,11 @@ export default function MarketPrices() {
     );
   };
 
-  const districtsOptions = selectedState ? getDistricts(selectedState) : [];
+  // districtsOptions is replaced by the dynamic districtsList state variable.
+  const showResetLocation = address?.state && (
+    (selectedState && selectedState.toLowerCase() !== address.state.toLowerCase()) ||
+    (selectedDistrict && selectedDistrict.toLowerCase() !== (address.district || '').toLowerCase())
+  );
 
   return (
     <section className="mx-auto w-full max-w-6xl pb-10 text-slate-900">
@@ -371,7 +467,19 @@ export default function MarketPrices() {
 
       {/* Filter and Search Panel */}
       <div className="mb-6 rounded-3xl bg-white p-6 border border-slate-200 shadow-sm">
-        <h3 className="text-base font-bold text-slate-900 mb-4">{t('prices.filterTitle') || 'Filter Prices'}</h3>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h3 className="text-base font-bold text-slate-900">{t('prices.filterTitle') || 'Filter Prices'}</h3>
+          {showResetLocation && (
+            <button
+              type="button"
+              onClick={handleUseDetectedLocation}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#2E7D32] hover:underline bg-green-50/50 hover:bg-green-50 px-2.5 py-1 rounded-lg border border-green-200 transition focus:outline-none"
+            >
+              <span>📍</span> {t('prices.useDetectedLoc') || 'Use my detected location'}
+            </button>
+          )}
+        </div>
+
         
         <div className="grid gap-4 sm:grid-cols-3">
           {/* Commodity search */}
@@ -399,10 +507,13 @@ export default function MarketPrices() {
             <select
               value={selectedState}
               onChange={handleStateChange}
+              disabled={statesLoading}
               className="w-full rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm text-slate-800 outline-none transition focus:border-[#2E7D32]"
             >
-              <option value="">{t('prices.selectState') || 'All States'}</option>
-              {locationStates.map(state => (
+              <option value="">
+                {statesLoading ? 'Loading States...' : (t('prices.selectState') || 'All States')}
+              </option>
+              {statesList.map(state => (
                 <option key={state} value={state}>{state}</option>
               ))}
             </select>
@@ -416,11 +527,17 @@ export default function MarketPrices() {
             <select
               value={selectedDistrict}
               onChange={handleDistrictChange}
-              disabled={!selectedState}
+              disabled={!selectedState || districtsLoading}
               className="w-full rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm text-slate-800 outline-none transition disabled:bg-slate-50 focus:border-[#2E7D32]"
             >
-              <option value="">{t('prices.selectDistrict') || 'All Districts'}</option>
-              {districtsOptions.map(district => (
+              <option value="">
+                {!selectedState
+                  ? (t('prices.selectStateFirst') || 'Select a state first')
+                  : districtsLoading
+                    ? 'Loading Districts...'
+                    : (t('prices.selectDistrict') || 'All Districts')}
+              </option>
+              {districtsList.map(district => (
                 <option key={district} value={district}>{district}</option>
               ))}
             </select>
