@@ -14,6 +14,10 @@ const FALLBACK_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const CURRENT_DAILY_RESOURCE_ID = '9ef84268-d588-465a-a308-a864a43d0070';
 const HISTORICAL_DAILY_RESOURCE_ID = '35985678-0d79-46b4-9ed6-6f13308a1d24';
 
+// How many calendar days the latest-available fallback searches across before
+// concluding there is genuinely no recent data for a selection
+const FALLBACK_WINDOW_DAYS = 10;
+
 // Today's date formatted as DD/MM/YYYY (matches the API's arrival_date format)
 function getTodayDateString() {
   const now = new Date();
@@ -50,6 +54,20 @@ function markLatestAvailable(records) {
   const hasTodayRecord = records.some(record => record.arrival_date === todayStr);
   if (hasTodayRecord) return records;
   return records.map(record => ({ ...record, isLatestAvailable: true }));
+}
+
+// True when arrival_date falls within the last `windowDays` calendar days
+// (inclusive of today). Used to bound the fallback search window generically
+// for every state/district/commodity combination.
+function isWithinRecentWindow(dateStr, windowDays = FALLBACK_WINDOW_DAYS) {
+  const key = parseArrivalDateKey(dateStr);
+  if (key === null) return false;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - windowDays);
+  const cutoffKey = Number(
+    `${cutoff.getFullYear()}${String(cutoff.getMonth() + 1).padStart(2, '0')}${String(cutoff.getDate()).padStart(2, '0')}`
+  );
+  return key >= cutoffKey;
 }
 
 // Crop translations mapping to resolve regional names to canonical names
@@ -151,50 +169,100 @@ function normalizeMandiRecords(rawRecords) {
   }));
 }
 
+// Fetch one page of the historical dataset. Returns { records, total } or null
+// on failure (network errors/timeouts must never masquerade as "no data").
+async function fetchHistoricalPage(apiKey, baseFilters, limit, offset, timeoutMs) {
+  try {
+    const response = await axios.get(
+      `https://api.data.gov.in/resource/${HISTORICAL_DAILY_RESOURCE_ID}`,
+      {
+        params: {
+          'api-key': apiKey,
+          format: 'json',
+          limit,
+          offset,
+          ...baseFilters
+        },
+        timeout: timeoutMs
+      }
+    );
+
+    if (!response.data || !Array.isArray(response.data.records)) return null;
+    return {
+      records: normalizeMandiRecords(response.data.records),
+      total: Number(response.data.total) || 0
+    };
+  } catch (pageError) {
+    console.error('[MandiService] Historical page fetch failed:', pageError.message);
+    return null;
+  }
+}
+
 // Latest-available fallback: when the current-day snapshot has zero records for
-// the selection, query the historical variety-wise dataset with the same
-// state/district/market filters (no date restriction) and keep only the records
-// sharing the single most recent arrival_date found.
+// a state/district(/commodity/market) selection, search the historical
+// variety-wide dataset across the last FALLBACK_WINDOW_DAYS calendar days and
+// keep only the records sharing the single most recent arrival_date found in
+// that window. Fully parameter-driven - identical logic for every location.
 async function fetchMostRecentAvailablePrices({ apiKey, cleanCommodity, cleanState, cleanDistrict, cleanMarket, cleanLimit, cleanOffset }) {
   try {
     // NOTE: no server-side date sort/filter here - the historical dataset stores
     // arrival_date as text (DD/MM/YYYY), so sorting/filtering on it is broken or
-    // unreliable. Its default ordering already surfaces the most recently added
-    // records first, so we pull a large window and determine the most recent
-    // arrival_date client-side.
-    const params = {
-      'api-key': apiKey,
-      format: 'json',
-      limit: 1000,
-      offset: 0
-    };
-
-    if (cleanState) params['filters[state.keyword]'] = cleanState;
-    if (cleanDistrict) params['filters[district]'] = cleanDistrict;
-    if (cleanMarket) params['filters[market]'] = cleanMarket;
+    // unreliable. We instead sample broadly (head + tail of the filtered result
+    // set) and apply the recent-window filter client-side.
+    const baseFilters = {};
+    if (cleanState) baseFilters['filters[state.keyword]'] = cleanState;
+    if (cleanDistrict) baseFilters['filters[district]'] = cleanDistrict;
+    if (cleanMarket) baseFilters['filters[market]'] = cleanMarket;
     // NOTE: commodity is intentionally NOT sent as a server-side filter here -
     // commodity naming in the historical dataset can differ slightly
     // (e.g. "Paddy(Dhan)(Raw)"), so it is matched loosely client-side below.
 
-    console.log('[MandiService] No same-day records found - falling back to most recent available prices...');
-    const response = await axios.get(
-      `https://api.data.gov.in/resource/${HISTORICAL_DAILY_RESOURCE_ID}`,
-      { params, timeout: 20000 }
-    );
+    console.log('[MandiService] No same-day records found - searching last 10 days of mandi history...');
 
-    if (!response.data || !Array.isArray(response.data.records)) return [];
+    // Sweep the most recently added records first. Retry once on failure - the
+    // public API is occasionally slow and a transient timeout must not be
+    // mistaken for "no data exists".
+    let head = await fetchHistoricalPage(apiKey, baseFilters, 1000, 0, 15000);
+    if (!head) {
+      head = await fetchHistoricalPage(apiKey, baseFilters, 1000, 0, 15000);
+    }
+    if (!head) return [];
 
-    let records = normalizeMandiRecords(response.data.records);
+    // For large districts also sample the tail of the result set so the newest
+    // era of records is covered regardless of the API's default ordering
+    let tail = null;
+    if (head.total > head.records.length) {
+      const tailOffset = Math.max(0, head.total - 1000);
+      if (tailOffset > 0) {
+        tail = await fetchHistoricalPage(apiKey, baseFilters, 1000, tailOffset, 15000);
+      }
+    }
+
+    // Merge head + tail, de-duplicating any overlapping records
+    const seen = new Set();
+    const collected = [];
+    for (const record of [...head.records, ...(tail ? tail.records : [])]) {
+      const dedupeKey = `${record.state}|${record.district}|${record.market}|${record.commodity}|${record.variety}|${record.grade}|${record.arrival_date}`;
+      if (!seen.has(dedupeKey)) {
+        seen.add(dedupeKey);
+        collected.push(record);
+      }
+    }
 
     // Client-side safety filtering so records outside the requested selection never surface
+    let records = collected;
     if (cleanState) records = records.filter(r => r.state.toLowerCase() === cleanState.toLowerCase());
     if (cleanDistrict) records = records.filter(r => r.district.toLowerCase() === cleanDistrict.toLowerCase());
     if (cleanMarket) records = records.filter(r => r.market.toLowerCase().includes(cleanMarket.toLowerCase()));
     if (cleanCommodity) records = records.filter(r => r.commodity.toLowerCase().includes(cleanCommodity.toLowerCase()));
 
+    // Restrict to the last 10 calendar days - older history is irrelevant for
+    // "current" pricing and must not mask a genuinely empty recent window
+    records = records.filter(record => isWithinRecentWindow(record.arrival_date));
+
     if (records.length === 0) return [];
 
-    // Keep only records sharing the most recent arrival_date present
+    // Keep only records sharing the most recent arrival_date within the window
     const mostRecentDate = getMostRecentArrivalDate(records);
     records = records.filter(record => record.arrival_date === mostRecentDate);
 
