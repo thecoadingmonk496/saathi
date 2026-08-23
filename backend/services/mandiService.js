@@ -169,46 +169,16 @@ function normalizeMandiRecords(rawRecords) {
   }));
 }
 
-// Fetch one page of the historical dataset. Returns { records, total } or null
-// on failure (network errors/timeouts must never masquerade as "no data").
-async function fetchHistoricalPage(apiKey, baseFilters, limit, offset, timeoutMs) {
-  try {
-    const response = await axios.get(
-      `https://api.data.gov.in/resource/${HISTORICAL_DAILY_RESOURCE_ID}`,
-      {
-        params: {
-          'api-key': apiKey,
-          format: 'json',
-          limit,
-          offset,
-          ...baseFilters
-        },
-        timeout: timeoutMs
-      }
-    );
-
-    if (!response.data || !Array.isArray(response.data.records)) return null;
-    return {
-      records: normalizeMandiRecords(response.data.records),
-      total: Number(response.data.total) || 0
-    };
-  } catch (pageError) {
-    console.error('[MandiService] Historical page fetch failed:', pageError.message);
-    return null;
-  }
-}
+// Defensive cap for the exhaustive fetch – even though a state+district filter
+// should yield a small result set, we never request more than this in one call.
+const EXHAUSTIVE_FETCH_CAP = 10000;
 
 // Latest-available fallback: when the current-day snapshot has zero records for
-// a state/district(/commodity/market) selection, search the historical
-// variety-wide dataset across the last FALLBACK_WINDOW_DAYS calendar days and
-// keep only the records sharing the single most recent arrival_date found in
-// that window. Fully parameter-driven - identical logic for every location.
+// a state/district(/commodity/market) selection, fetch the *complete* filtered
+// result set from the historical dataset (capped defensively) and keep only the
+// records sharing the single most recent arrival_date within the recent window.
 async function fetchMostRecentAvailablePrices({ apiKey, cleanCommodity, cleanState, cleanDistrict, cleanMarket, cleanLimit, cleanOffset }) {
   try {
-    // NOTE: no server-side date sort/filter here - the historical dataset stores
-    // arrival_date as text (DD/MM/YYYY), so sorting/filtering on it is broken or
-    // unreliable. We instead sample broadly (head + tail of the filtered result
-    // set) and apply the recent-window filter client-side.
     const baseFilters = {};
     if (cleanState) baseFilters['filters[state.keyword]'] = cleanState;
     if (cleanDistrict) baseFilters['filters[district]'] = cleanDistrict;
@@ -219,38 +189,61 @@ async function fetchMostRecentAvailablePrices({ apiKey, cleanCommodity, cleanSta
 
     console.log('[MandiService] No same-day records found - searching last 10 days of mandi history...');
 
-    // Sweep the most recently added records first. Retry once on failure - the
-    // public API is occasionally slow and a transient timeout must not be
-    // mistaken for "no data exists".
-    let head = await fetchHistoricalPage(apiKey, baseFilters, 1000, 0, 15000);
-    if (!head) {
-      head = await fetchHistoricalPage(apiKey, baseFilters, 1000, 0, 15000);
+    // Step 1: Probe with limit=1 to discover the total number of matching records
+    let probeResponse;
+    try {
+      probeResponse = await axios.get(
+        `https://api.data.gov.in/resource/${HISTORICAL_DAILY_RESOURCE_ID}`,
+        {
+          params: { 'api-key': apiKey, format: 'json', limit: 1, offset: 0, ...baseFilters },
+          timeout: 15000
+        }
+      );
+    } catch (probeErr) {
+      // Retry once – the public API is occasionally slow
+      console.warn('[MandiService] Probe request failed, retrying:', probeErr.message);
+      probeResponse = await axios.get(
+        `https://api.data.gov.in/resource/${HISTORICAL_DAILY_RESOURCE_ID}`,
+        {
+          params: { 'api-key': apiKey, format: 'json', limit: 1, offset: 0, ...baseFilters },
+          timeout: 15000
+        }
+      );
     }
-    if (!head) return [];
 
-    // For large districts also sample the tail of the result set so the newest
-    // era of records is covered regardless of the API's default ordering
-    let tail = null;
-    if (head.total > head.records.length) {
-      const tailOffset = Math.max(0, head.total - 1000);
-      if (tailOffset > 0) {
-        tail = await fetchHistoricalPage(apiKey, baseFilters, 1000, tailOffset, 15000);
-      }
+    if (!probeResponse.data || !Array.isArray(probeResponse.data.records)) return [];
+    const total = Number(probeResponse.data.total) || 0;
+    if (total === 0) return [];
+
+    const fetchLimit = Math.min(total, EXHAUSTIVE_FETCH_CAP);
+    console.log(`[MandiService] Historical dataset total for filters: ${total} — fetching ${fetchLimit} records`);
+
+    // Step 2: Fetch the complete filtered result set in a single request
+    let fullResponse;
+    try {
+      fullResponse = await axios.get(
+        `https://api.data.gov.in/resource/${HISTORICAL_DAILY_RESOURCE_ID}`,
+        {
+          params: { 'api-key': apiKey, format: 'json', limit: fetchLimit, offset: 0, ...baseFilters },
+          timeout: 30000
+        }
+      );
+    } catch (fetchErr) {
+      // Retry once on transient failure
+      console.warn('[MandiService] Full fetch failed, retrying:', fetchErr.message);
+      fullResponse = await axios.get(
+        `https://api.data.gov.in/resource/${HISTORICAL_DAILY_RESOURCE_ID}`,
+        {
+          params: { 'api-key': apiKey, format: 'json', limit: fetchLimit, offset: 0, ...baseFilters },
+          timeout: 30000
+        }
+      );
     }
 
-    // Merge head + tail, de-duplicating any overlapping records
-    const seen = new Set();
-    const collected = [];
-    for (const record of [...head.records, ...(tail ? tail.records : [])]) {
-      const dedupeKey = `${record.state}|${record.district}|${record.market}|${record.commodity}|${record.variety}|${record.grade}|${record.arrival_date}`;
-      if (!seen.has(dedupeKey)) {
-        seen.add(dedupeKey);
-        collected.push(record);
-      }
-    }
+    if (!fullResponse.data || !Array.isArray(fullResponse.data.records)) return [];
+    let records = normalizeMandiRecords(fullResponse.data.records);
 
     // Client-side safety filtering so records outside the requested selection never surface
-    let records = collected;
     if (cleanState) records = records.filter(r => r.state.toLowerCase() === cleanState.toLowerCase());
     if (cleanDistrict) records = records.filter(r => r.district.toLowerCase() === cleanDistrict.toLowerCase());
     if (cleanMarket) records = records.filter(r => r.market.toLowerCase().includes(cleanMarket.toLowerCase()));
@@ -393,7 +386,7 @@ async function getMandiPrices({ commodity, state, district, market, limit = 50, 
 
     const response = await axios.get(baseUrl, { 
       params,
-      timeout: 12000 // 12 seconds timeout
+      timeout: 20000 // 20 seconds timeout
     });
 
     if (!response.data || !Array.isArray(response.data.records)) {
