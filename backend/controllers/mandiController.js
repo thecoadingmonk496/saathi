@@ -53,9 +53,15 @@ async function getMandiPrices(req, res) {
       }
     });
 
+    // Flag whether this result set is "most recent available" (no same-day
+    // report) so clients can label it instead of presenting it as today's price
+    const freshness = mandiService.summarizeArrivalFreshness(records);
+
     return res.status(200).json({
       success: true,
-      records
+      records,
+      isLatestAvailable: freshness.isLatestAvailable,
+      latestArrivalDate: freshness.latestArrivalDate
     });
 
 

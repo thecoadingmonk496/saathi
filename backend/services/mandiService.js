@@ -4,6 +4,54 @@ const axios = require('axios');
 const cache = new Map();
 const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
 
+// Non-today ("latest available") results are cached more briefly so a genuinely
+// newer same-day update is never blocked behind stale fallback data for long.
+const FALLBACK_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+// Dataset resource IDs on data.gov.in:
+// - Current-day mandi snapshot (only markets that reported today)
+// - Historical variety-wise daily prices (all past reports, used for fallback)
+const CURRENT_DAILY_RESOURCE_ID = '9ef84268-d588-465a-a308-a864a43d0070';
+const HISTORICAL_DAILY_RESOURCE_ID = '35985678-0d79-46b4-9ed6-6f13308a1d24';
+
+// Today's date formatted as DD/MM/YYYY (matches the API's arrival_date format)
+function getTodayDateString() {
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, '0');
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${now.getFullYear()}`;
+}
+
+// Convert DD/MM/YYYY into a comparable numeric key (null when unparseable)
+function parseArrivalDateKey(dateStr) {
+  const match = String(dateStr || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return null;
+  return Number(`${match[3]}${String(match[2]).padStart(2, '0')}${String(match[1]).padStart(2, '0')}`);
+}
+
+// Most recent arrival_date string present among records (null when none parse)
+function getMostRecentArrivalDate(records) {
+  let latest = null;
+  let latestKey = -Infinity;
+  for (const record of records) {
+    const key = parseArrivalDateKey(record.arrival_date);
+    if (key !== null && key > latestKey) {
+      latestKey = key;
+      latest = record.arrival_date;
+    }
+  }
+  return latest;
+}
+
+// Flag every record as "latest available" when none of them are from today,
+// so the UI never mistakes older data for today's price.
+function markLatestAvailable(records) {
+  const todayStr = getTodayDateString();
+  const hasTodayRecord = records.some(record => record.arrival_date === todayStr);
+  if (hasTodayRecord) return records;
+  return records.map(record => ({ ...record, isLatestAvailable: true }));
+}
+
 // Crop translations mapping to resolve regional names to canonical names
 const cropTranslations = {
   wheat: ['wheat', 'गेहूं', 'गेहू', 'गहू', 'ਕਣਕ', 'গম', 'gadhuma', 'கோதுமை', 'godhuma'],
@@ -55,6 +103,12 @@ const mockMandiRecords = [
   { state: 'Uttar Pradesh', district: 'Chandauli', market: 'Mughalsarai Mandi', commodity: 'Wheat', variety: 'Lok-1', grade: 'FAQ', arrival_date: '23/08/2026', min_price: 2190, max_price: 2340, modal_price: 2260 },
   { state: 'Uttar Pradesh', district: 'Chandauli', market: 'Mughalsarai Mandi', commodity: 'Mustard', variety: 'Common', grade: 'FAQ', arrival_date: '23/08/2026', min_price: 5350, max_price: 5750, modal_price: 5500 },
 
+  // Uttar Pradesh - Gorakhpur (last reported a few days ago - exercises the
+  // "most recent available" fallback for markets that skip reporting some days)
+  { state: 'Uttar Pradesh', district: 'Gorakhpur', market: 'Gorakhpur Mandi', commodity: 'Wheat', variety: 'Kalyansona', grade: 'FAQ', arrival_date: '21/08/2026', min_price: 2125, max_price: 2280, modal_price: 2200 },
+  { state: 'Uttar Pradesh', district: 'Gorakhpur', market: 'Gorakhpur Mandi', commodity: 'Paddy', variety: 'Common', grade: 'FAQ', arrival_date: '21/08/2026', min_price: 2050, max_price: 2200, modal_price: 2125 },
+  { state: 'Uttar Pradesh', district: 'Gorakhpur', market: 'Campierganj Mandi', commodity: 'Maize', variety: 'Yellow', grade: 'Medium', arrival_date: '20/08/2026', min_price: 1950, max_price: 2100, modal_price: 2020 },
+
   // Maharashtra - Pune
   { state: 'Maharashtra', district: 'Pune', market: 'Pune Mandi', commodity: 'Onion', variety: 'Red', grade: 'Large', arrival_date: '23/08/2026', min_price: 1800, max_price: 2200, modal_price: 2000 },
   { state: 'Maharashtra', district: 'Pune', market: 'Pune Mandi', commodity: 'Tomato', variety: 'Local', grade: 'Medium', arrival_date: '23/08/2026', min_price: 2000, max_price: 2500, modal_price: 2250 },
@@ -72,6 +126,96 @@ const mockMandiRecords = [
   { state: 'Haryana', district: 'Gurugram', market: 'Gurugram Mandi', commodity: 'Mustard', variety: 'Common', grade: 'FAQ', arrival_date: '23/08/2026', min_price: 5400, max_price: 5800, modal_price: 5600 },
   { state: 'Haryana', district: 'Gurugram', market: 'Gurugram Mandi', commodity: 'Wheat', variety: 'Common', grade: 'FAQ', arrival_date: '23/08/2026', min_price: 2150, max_price: 2280, modal_price: 2210 }
 ];
+
+// Numeric coercion that tolerates missing/invalid values
+function toPriceNumber(value) {
+  const num = Number(value);
+  return isNaN(num) ? 0 : num;
+}
+
+// Clean and normalize raw API/mock records to only include what the UI needs.
+// Handles both lowercase fields (current-day dataset) and Capitalized fields
+// (historical variety-wise dataset).
+function normalizeMandiRecords(rawRecords) {
+  return rawRecords.map(record => ({
+    state: record.state || record.State || '',
+    district: record.district || record.District || '',
+    market: record.market || record.Market || '',
+    commodity: record.commodity || record.Commodity || '',
+    variety: record.variety || record.Variety || '',
+    grade: record.grade || record.Grade || '',
+    arrival_date: record.arrival_date || record.Arrival_Date || '',
+    min_price: toPriceNumber(record.min_price ?? record.Min_Price),
+    max_price: toPriceNumber(record.max_price ?? record.Max_Price),
+    modal_price: toPriceNumber(record.modal_price ?? record.Modal_Price)
+  }));
+}
+
+// Latest-available fallback: when the current-day snapshot has zero records for
+// the selection, query the historical variety-wise dataset with the same
+// state/district/market filters (no date restriction) and keep only the records
+// sharing the single most recent arrival_date found.
+async function fetchMostRecentAvailablePrices({ apiKey, cleanCommodity, cleanState, cleanDistrict, cleanMarket, cleanLimit, cleanOffset }) {
+  try {
+    // NOTE: no server-side date sort/filter here - the historical dataset stores
+    // arrival_date as text (DD/MM/YYYY), so sorting/filtering on it is broken or
+    // unreliable. Its default ordering already surfaces the most recently added
+    // records first, so we pull a large window and determine the most recent
+    // arrival_date client-side.
+    const params = {
+      'api-key': apiKey,
+      format: 'json',
+      limit: 1000,
+      offset: 0
+    };
+
+    if (cleanState) params['filters[state.keyword]'] = cleanState;
+    if (cleanDistrict) params['filters[district]'] = cleanDistrict;
+    if (cleanMarket) params['filters[market]'] = cleanMarket;
+    // NOTE: commodity is intentionally NOT sent as a server-side filter here -
+    // commodity naming in the historical dataset can differ slightly
+    // (e.g. "Paddy(Dhan)(Raw)"), so it is matched loosely client-side below.
+
+    console.log('[MandiService] No same-day records found - falling back to most recent available prices...');
+    const response = await axios.get(
+      `https://api.data.gov.in/resource/${HISTORICAL_DAILY_RESOURCE_ID}`,
+      { params, timeout: 20000 }
+    );
+
+    if (!response.data || !Array.isArray(response.data.records)) return [];
+
+    let records = normalizeMandiRecords(response.data.records);
+
+    // Client-side safety filtering so records outside the requested selection never surface
+    if (cleanState) records = records.filter(r => r.state.toLowerCase() === cleanState.toLowerCase());
+    if (cleanDistrict) records = records.filter(r => r.district.toLowerCase() === cleanDistrict.toLowerCase());
+    if (cleanMarket) records = records.filter(r => r.market.toLowerCase().includes(cleanMarket.toLowerCase()));
+    if (cleanCommodity) records = records.filter(r => r.commodity.toLowerCase().includes(cleanCommodity.toLowerCase()));
+
+    if (records.length === 0) return [];
+
+    // Keep only records sharing the most recent arrival_date present
+    const mostRecentDate = getMostRecentArrivalDate(records);
+    records = records.filter(record => record.arrival_date === mostRecentDate);
+
+    return records.slice(cleanOffset, cleanOffset + cleanLimit);
+  } catch (fallbackError) {
+    console.error('[MandiService] Latest-available fallback query failed:', fallbackError.message);
+    return [];
+  }
+}
+
+// Summarizes whether a result set represents "most recent available" data
+// (no record dated today) along with the effective latest arrival_date.
+function summarizeArrivalFreshness(records) {
+  if (!Array.isArray(records) || records.length === 0) {
+    return { isLatestAvailable: false, latestArrivalDate: null };
+  }
+  return {
+    isLatestAvailable: records.some(record => record.isLatestAvailable),
+    latestArrivalDate: getMostRecentArrivalDate(records)
+  };
+}
 
 async function getMandiPrices({ commodity, state, district, market, limit = 50, offset = 0 }) {
   // 1. Sanitize & Translate parameters
@@ -101,10 +245,11 @@ async function getMandiPrices({ commodity, state, district, market, limit = 50, 
   };
   const cacheKey = JSON.stringify(cacheKeyObj);
 
-  // Check cache
+  // Check cache (fallback/latest-available entries expire sooner than fresh ones)
   if (cache.has(cacheKey)) {
     const cached = cache.get(cacheKey);
-    if (Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    const effectiveTtl = cached.isFallback ? FALLBACK_CACHE_TTL_MS : CACHE_TTL_MS;
+    if (Date.now() - cached.timestamp < effectiveTtl) {
       console.log(`[MandiService] Cache Hit for key: ${cacheKey}`);
       return cached.records;
     } else {
@@ -134,16 +279,36 @@ async function getMandiPrices({ commodity, state, district, market, limit = 50, 
       records = records.filter(r => r.market.toLowerCase().includes(cleanMarket.toLowerCase()));
     }
 
-    const paginatedRecords = records.slice(cleanOffset, cleanOffset + cleanLimit);
+    // Primary pass: mimic the live current-day snapshot (only records dated today)
+    const todayStr = getTodayDateString();
+    const todaysRecords = records.filter(record => record.arrival_date === todayStr);
+
+    let resultRecords;
+    let usedFallback = false;
+    if (todaysRecords.length > 0) {
+      resultRecords = todaysRecords;
+    } else if (records.length > 0) {
+      // No market reported today for this selection - fall back to the most
+      // recent arrival_date that IS available instead of showing empty state
+      const mostRecentDate = getMostRecentArrivalDate(records);
+      resultRecords = records
+        .filter(record => record.arrival_date === mostRecentDate)
+        .map(record => ({ ...record, isLatestAvailable: true }));
+      usedFallback = true;
+    } else {
+      resultRecords = [];
+    }
+
+    const paginatedRecords = resultRecords.slice(cleanOffset, cleanOffset + cleanLimit);
 
     // Save to cache
-    cache.set(cacheKey, { records: paginatedRecords, timestamp: Date.now() });
+    cache.set(cacheKey, { records: paginatedRecords, timestamp: Date.now(), isFallback: usedFallback });
     return paginatedRecords;
   }
 
   // 4. Query external government API
   try {
-    const baseUrl = 'https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070';
+    const baseUrl = `https://api.data.gov.in/resource/${CURRENT_DAILY_RESOURCE_ID}`;
     const params = {
       'api-key': apiKey,
       format: 'json',
@@ -168,22 +333,29 @@ async function getMandiPrices({ commodity, state, district, market, limit = 50, 
       throw new Error('API_INVALID_RESPONSE');
     }
 
-    // Clean and normalize response records to only include what UI needs
-    const normalized = response.data.records.map(record => ({
-      state: record.state || '',
-      district: record.district || '',
-      market: record.market || '',
-      commodity: record.commodity || '',
-      variety: record.variety || '',
-      grade: record.grade || '',
-      arrival_date: record.arrival_date || '',
-      min_price: record.min_price ? Number(record.min_price) : 0,
-      max_price: record.max_price ? Number(record.max_price) : 0,
-      modal_price: record.modal_price ? Number(record.modal_price) : 0
-    }));
+    let normalized = normalizeMandiRecords(response.data.records);
+    let usedFallback = false;
+
+    // Current-day snapshot has nothing for this selection - fall back to the
+    // most recent available data instead of immediately showing "no data"
+    if (normalized.length === 0) {
+      normalized = await fetchMostRecentAvailablePrices({
+        apiKey,
+        cleanCommodity,
+        cleanState,
+        cleanDistrict,
+        cleanMarket,
+        cleanLimit,
+        cleanOffset
+      });
+      usedFallback = normalized.length > 0;
+    }
+
+    // Label non-today data explicitly so the UI can flag it as "latest available"
+    normalized = markLatestAvailable(normalized);
 
     // Cache the normalized records
-    cache.set(cacheKey, { records: normalized, timestamp: Date.now() });
+    cache.set(cacheKey, { records: normalized, timestamp: Date.now(), isFallback: usedFallback });
     return normalized;
 
   } catch (error) {
@@ -319,6 +491,7 @@ async function getMandiDistricts(state) {
 module.exports = {
   getMandiPrices,
   getMandiStates,
-  getMandiDistricts
+  getMandiDistricts,
+  summarizeArrivalFreshness
 };
 

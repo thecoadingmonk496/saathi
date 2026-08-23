@@ -10,6 +10,21 @@ const formatRupees = (price) => {
   return `₹${Number(price).toLocaleString('en-IN')}`;
 };
 
+// Convert DD/MM/YYYY arrival_date into a comparable numeric value (null if unparseable)
+const parseArrivalDateValue = (dateStr) => {
+  const match = String(dateStr || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return null;
+  return Number(`${match[3]}${match[2].padStart(2, '0')}${match[1].padStart(2, '0')}`);
+};
+
+// Today's date formatted as DD/MM/YYYY to compare against arrival_date values
+const getTodayDateString = () => {
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, '0');
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${now.getFullYear()}`;
+};
+
 export default function MarketPrices() {
   const { t } = useUser();
   const { address, permissionStatus, requestLocation } = useLocationContext();
@@ -210,6 +225,25 @@ export default function MarketPrices() {
       }, null)
     : null;
 
+  // Detect whether shown data is "most recent available" rather than today's report
+  // (backend flags records with isLatestAvailable; we also verify via dates as a safeguard)
+  const latestArrivalDate = (() => {
+    let latest = null;
+    let latestValue = -Infinity;
+    for (const record of records) {
+      const value = parseArrivalDateValue(record.arrival_date);
+      if (value !== null && value > latestValue) {
+        latestValue = value;
+        latest = record.arrival_date;
+      }
+    }
+    return latest;
+  })();
+  const showLatestAvailableNote =
+    records.length > 0 &&
+    latestArrivalDate !== null &&
+    latestArrivalDate !== getTodayDateString();
+
   // Track user interaction for smooth scroll override
   useEffect(() => {
     const handleInteraction = () => {
@@ -407,7 +441,9 @@ export default function MarketPrices() {
               <span className="text-3xl mt-1" role="img" aria-label="Flame">🔥</span>
               <div>
                 <p className="text-xs font-extrabold uppercase tracking-wider text-amber-800">
-                  {t('prices.highestToday') || 'Highest Price Today'}
+                  {showLatestAvailableNote
+                    ? (t('prices.highestRecent') || 'Highest Recent Price')
+                    : (t('prices.highestToday') || 'Highest Price Today')}
                 </p>
                 <h2 className="text-2xl font-extrabold text-slate-900 mt-0.5">
                   {getRegionalCropName(highestPriceRecord.commodity)}
@@ -593,7 +629,18 @@ export default function MarketPrices() {
           </button>
         </div>
       ) : records.length > 0 ? (
-        <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <>
+          {/* Explicit note when showing most recent available data instead of today's report */}
+          {showLatestAvailableNote && (
+            <div className="mb-4 flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm">
+              <span className="mt-0.5 text-lg leading-none" role="img" aria-label="Info">ℹ️</span>
+              <p className="text-sm font-semibold text-amber-800">
+                Showing most recent available prices from{' '}
+                <span className="font-extrabold">{latestArrivalDate}</span> — no data reported for this market today.
+              </p>
+            </div>
+          )}
+          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           {/* Table view for larger screens */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -670,6 +717,7 @@ export default function MarketPrices() {
             ))}
           </div>
         </div>
+        </>
       ) : (
         <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm text-center">
           <p className="text-lg font-extrabold text-slate-700 mb-2">
