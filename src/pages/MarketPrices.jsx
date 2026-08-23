@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { useLocationContext } from '../context/LocationContext';
@@ -22,6 +22,12 @@ export default function MarketPrices() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Top price highlight states
+  const [topRecordHistory, setTopRecordHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [userInteracted, setUserInteracted] = useState(false);
+  const highlightRef = useRef(null);
 
   // Suggestions/Popular crops list
   const popularCrops = ['Wheat', 'Paddy', 'Potato', 'Tomato', 'Onion', 'Mustard', 'Maize'];
@@ -105,6 +111,154 @@ export default function MarketPrices() {
     return translated !== translationKey ? translated : cropName;
   };
 
+  // Compute highest price record from current records list
+  const highestPriceRecord = (records && records.length > 0)
+    ? records.reduce((max, current) => {
+        return (Number(current.modal_price) > Number(max?.modal_price || 0)) ? current : max;
+      }, null)
+    : null;
+
+  // Track user interaction for smooth scroll override
+  useEffect(() => {
+    const handleInteraction = () => {
+      setUserInteracted(true);
+    };
+    window.addEventListener('scroll', handleInteraction, { passive: true });
+    window.addEventListener('touchstart', handleInteraction, { passive: true });
+    window.addEventListener('mousedown', handleInteraction, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleInteraction);
+      window.removeEventListener('touchstart', handleInteraction);
+      window.removeEventListener('mousedown', handleInteraction);
+    };
+  }, []);
+
+  // Fetch trend history for the highest priced commodity
+  useEffect(() => {
+    if (!highestPriceRecord) {
+      setTopRecordHistory([]);
+      return;
+    }
+
+    let isSubscribed = true;
+    setHistoryLoading(true);
+
+    marketService.getPriceHistory({
+      commodity: highestPriceRecord.commodity,
+      district: highestPriceRecord.district,
+      state: highestPriceRecord.state,
+      market: highestPriceRecord.market,
+      days: 7
+    })
+    .then(data => {
+      if (isSubscribed && Array.isArray(data)) {
+        setTopRecordHistory(data);
+      }
+    })
+    .catch(err => {
+      console.error('[MarketPrices] Failed to fetch price history:', err);
+      if (isSubscribed) setTopRecordHistory([]);
+    })
+    .finally(() => {
+      if (isSubscribed) setHistoryLoading(false);
+    });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [
+    highestPriceRecord?.commodity,
+    highestPriceRecord?.market,
+    highestPriceRecord?.district,
+    highestPriceRecord?.state
+  ]);
+
+  // Smooth scroll top highlight card into view if it starts outside the viewport on load
+  useEffect(() => {
+    if (highestPriceRecord && highlightRef.current && !userInteracted) {
+      const rect = highlightRef.current.getBoundingClientRect();
+      const inViewport = (
+        rect.top >= 0 &&
+        rect.bottom <= (window.innerHeight || document.documentElement.clientHeight)
+      );
+      if (!inViewport) {
+        const timer = setTimeout(() => {
+          highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [highestPriceRecord?.commodity, userInteracted]);
+
+  const getTrendIndicator = () => {
+    if (!topRecordHistory || topRecordHistory.length < 2) return null;
+
+    const firstPrice = Number(topRecordHistory[0].modal_price);
+    const latestPrice = Number(topRecordHistory[topRecordHistory.length - 1].modal_price);
+    if (!firstPrice || !latestPrice) return null;
+
+    const pct = ((latestPrice - firstPrice) / firstPrice) * 100;
+    const isUp = latestPrice >= firstPrice;
+
+    return {
+      percentText: `${isUp ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%`,
+      isUp,
+      colorClass: isUp ? 'text-[#2E7D32] bg-green-50 border-green-200' : 'text-[#D32F2F] bg-red-50 border-red-200'
+    };
+  };
+
+  const renderSparkline = () => {
+    if (!topRecordHistory || topRecordHistory.length < 2) return null;
+
+    const prices = topRecordHistory.map(h => Number(h.modal_price));
+    const maxVal = Math.max(...prices);
+    const minVal = Math.min(...prices);
+    const range = maxVal - minVal || 1;
+
+    const width = 120;
+    const height = 36;
+    const padding = 2;
+
+    const points = topRecordHistory.map((h, i) => {
+      const x = padding + (i / (topRecordHistory.length - 1)) * (width - 2 * padding);
+      const y = padding + (height - 2 * padding) - ((Number(h.modal_price) - minVal) / range) * (height - 2 * padding);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+
+    const isUp = prices[prices.length - 1] >= prices[0];
+    const strokeColor = isUp ? '#2E7D32' : '#D32F2F';
+
+    const lastX = padding + (width - 2 * padding);
+    const lastY = padding + (height - 2 * padding) - ((prices[prices.length - 1] - minVal) / range) * (height - 2 * padding);
+
+    return (
+      <svg width={width} height={height} className="overflow-visible">
+        <defs>
+          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" floodColor={strokeColor} floodOpacity="0.25" />
+          </filter>
+        </defs>
+        <polyline
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={points}
+          filter="url(#glow)"
+        />
+        <circle
+          cx={lastX}
+          cy={lastY}
+          r="3.5"
+          fill={strokeColor}
+          stroke="#FFFFFF"
+          strokeWidth="1.5"
+        />
+      </svg>
+    );
+  };
+
   const districtsOptions = selectedState ? getDistricts(selectedState) : [];
 
   return (
@@ -143,6 +297,77 @@ export default function MarketPrices() {
           <p className="text-xs font-semibold text-slate-600">{t('prices.dataSource')}</p>
         </div>
       </header>
+
+      {/* Top Price Highlight Block */}
+      {highestPriceRecord && (
+        <div
+          ref={highlightRef}
+          key={highestPriceRecord.commodity + '-' + highestPriceRecord.market}
+          className="mb-6 rounded-3xl bg-gradient-to-br from-amber-50 to-orange-50/55 border border-amber-200 p-6 shadow-sm animate-top-highlight"
+        >
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            {/* Crop Info */}
+            <div className="flex items-start gap-3">
+              <span className="text-3xl mt-1" role="img" aria-label="Flame">🔥</span>
+              <div>
+                <p className="text-xs font-extrabold uppercase tracking-wider text-amber-800">
+                  {t('prices.highestToday') || 'Highest Price Today'}
+                </p>
+                <h2 className="text-2xl font-extrabold text-slate-900 mt-0.5">
+                  {getRegionalCropName(highestPriceRecord.commodity)}
+                  {highestPriceRecord.variety && (
+                    <span className="text-sm font-semibold text-slate-500 ml-2">
+                      ({highestPriceRecord.variety})
+                    </span>
+                  )}
+                </h2>
+                <p className="text-sm font-medium text-slate-600 mt-1">
+                  {highestPriceRecord.market}, {highestPriceRecord.district}, {highestPriceRecord.state}
+                </p>
+              </div>
+            </div>
+
+            {/* Price & Sparkline */}
+            <div className="flex items-center gap-6 self-start sm:self-auto">
+              {/* Price Details */}
+              <div className="text-right">
+                <p className="text-3xl font-black tracking-tight text-slate-900">
+                  {formatRupees(highestPriceRecord.modal_price)}
+                </p>
+                <div className="mt-1 flex items-center justify-end gap-1.5">
+                  {(() => {
+                    const trend = getTrendIndicator();
+                    return trend ? (
+                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-bold ${trend.colorClass}`}>
+                        {trend.percentText}
+                      </span>
+                    ) : (
+                      <span className="text-xs font-semibold text-slate-500">
+                        {t('prices.buildingHistory') || 'Building history'}
+                      </span>
+                    );
+                  })()}
+                  <span className="text-xs font-medium text-slate-400">/ quintal</span>
+                </div>
+              </div>
+
+              {/* Sparkline Container */}
+              <div className="flex h-12 items-center border-l border-slate-200 pl-6 min-w-[120px]">
+                {historyLoading ? (
+                  <div className="h-4 w-16 animate-pulse rounded bg-slate-200"></div>
+                ) : topRecordHistory && topRecordHistory.length >= 2 ? (
+                  renderSparkline()
+                ) : (
+                  <p className="text-[10px] leading-tight text-slate-400 max-w-[100px]">
+                    {t('prices.buildingNote') || 'Building price history — check back soon'}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Filter and Search Panel */}
       <div className="mb-6 rounded-3xl bg-white p-6 border border-slate-200 shadow-sm">

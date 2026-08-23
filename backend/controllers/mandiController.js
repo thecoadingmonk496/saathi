@@ -21,10 +21,43 @@ async function getMandiPrices(req, res) {
       });
     }
 
+    // Asynchronous background write to store historical daily mandi price entries
+    Promise.resolve().then(async () => {
+      try {
+        const PriceHistory = require('../models/PriceHistory');
+        for (const record of records) {
+          if (!record.commodity || !record.modal_price || !record.arrival_date) continue;
+
+          await PriceHistory.findOneAndUpdate(
+            {
+              commodity: record.commodity.toLowerCase(),
+              variety: record.variety || '',
+              market: record.market,
+              district: record.district,
+              state: record.state,
+              arrival_date: record.arrival_date
+            },
+            {
+              $set: {
+                modal_price: Number(record.modal_price)
+              },
+              $setOnInsert: {
+                recorded_at: new Date()
+              }
+            },
+            { upsert: true }
+          );
+        }
+      } catch (err) {
+        console.error('[MandiController] Failed to write opportunistic history points:', err.message);
+      }
+    });
+
     return res.status(200).json({
       success: true,
       records
     });
+
 
   } catch (error) {
     console.error('[MandiController] Error fetching mandi prices:', error.message);

@@ -5,7 +5,9 @@ const authRoutes = require('../backend/routes/auth');
 const blockchainRoutes = require('../backend/routes/blockchain');
 const adminRoutes = require('../backend/routes/admin');
 const mandiRoutes = require('../backend/routes/mandi');
+const priceHistoryRoutes = require('../backend/routes/priceHistory');
 const { sendOtp, verifyOtp } = require('../backend/controllers/authController');
+
 
 
 const app = express();
@@ -32,6 +34,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/blockchain', blockchainRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/mandi-prices', mandiRoutes);
+app.use('/api/price-history', priceHistoryRoutes);
+
 
 
 // Direct alias routes for backward compatibility

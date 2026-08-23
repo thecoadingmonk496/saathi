@@ -28,6 +28,26 @@ export const marketService = {
     }
   },
 
+  getPriceHistory: async ({ commodity, district, state, market, days = 7 } = {}) => {
+    try {
+      const params = new URLSearchParams();
+      if (commodity) params.append('commodity', commodity);
+      if (district) params.append('district', district);
+      if (state) params.append('state', state);
+      if (market) params.append('market', market);
+      params.append('days', days.toString());
+
+      const url = `${apiBaseUrl}/api/price-history?${params.toString()}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Price history API returned ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching price history:', error);
+      return [];
+    }
+  },
 
   getMarketPrices: async (tab = 'Wholesale') => {
 

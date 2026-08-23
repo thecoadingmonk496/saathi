@@ -248,7 +248,11 @@ export const translations = {
     'prices.selectState': 'Select State',
     'prices.selectDistrict': 'Select District',
     'prices.filterTitle': 'Filter Prices',
+    'prices.highestToday': 'Highest Price Today',
+    'prices.buildingHistory': 'Building history',
+    'prices.buildingNote': 'Building price history — check back soon',
     'prices.compareTitle': 'Compare Crops',
+
 
     'prices.compareSubtitle': 'Select two crops to compare their current prices.',
 
@@ -658,7 +662,11 @@ export const translations = {
     'prices.selectState': 'राज्य चुनें',
     'prices.selectDistrict': 'ज़िला चुनें',
     'prices.filterTitle': 'फ़िल्टर मूल्य',
+    'prices.highestToday': 'आज का उच्चतम मूल्य',
+    'prices.buildingHistory': 'इतिहास बन रहा है',
+    'prices.buildingNote': 'मूल्य इतिहास बन रहा है — जल्द ही वापस आएं',
     'prices.compareTitle': 'फसलों की तुलना करें',
+
 
     'prices.compareSubtitle': 'वर्तमान मूल्यों की तुलना करने के लिए दो फसलें चुनें।',
 
