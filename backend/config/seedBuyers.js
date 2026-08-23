@@ -1,11 +1,15 @@
 /**
- * HACKATHON DEMO & TRANSPARENCY NOTE:
+* HACKATHON DEMO & TRANSPARENCY NOTE:
  * The buyer listings generated and seeded by this script represent simulated/placeholder data
  * that mirrors SAATHI's production data model. In the final release, real retailers, wholesalers,
  * and exporters will register via a self-serve onboarding flow and post their own live listings.
- * 
- * For the demo, this script pulls active markets and commodity prices dynamically from the 
+ *
+ * For the demo, this script pulls active markets and commodity prices dynamically from the
  * government mandi dataset (mandiService) to populate a realistic, internally consistent market.
+ *
+ * In addition to the dynamic listings, a small deterministic set of Uttar Pradesh demo listings
+ * (Paddy + Wheat) is always ensured so the popular-filter combos (Paddy / Uttar Pradesh /
+ * Gautam Buddha Nagar, Wheat + Uttar Pradesh) return results in the Buyer Discovery UI.
  */
 
 const mongoose = require('mongoose');
@@ -40,12 +44,134 @@ const fictionalBuyers = [
   { name: 'Punjab Grain Suppliers', type: 'Wholesaler', qty: '90 quintals' }
 ];
 
+// Deterministic Uttar Pradesh listings covering the popular filter combos shown in the app:
+// - Paddy / Uttar Pradesh / Gautam Buddha Nagar
+// - Wheat + Uttar Pradesh
+// Prices reflect realistic north-India mandi ranges (₹/quintal).
+const uttarPradeshListings = [
+  {
+    buyer_name: 'Annapurna Agri Solutions',
+    buyer_type: 'Wholesaler',
+    commodity: 'paddy',
+    variety: 'Common',
+    offered_price: 2180,
+    quantity_required: '120 quintals',
+    market: 'Jewar Mandi',
+    district: 'Gautam Buddha Nagar',
+    state: 'Uttar Pradesh'
+  },
+  {
+    buyer_name: 'Kisan Mitra Mandi Suppliers',
+    buyer_type: 'Wholesaler',
+    commodity: 'paddy',
+    variety: 'Common',
+    offered_price: 2215,
+    quantity_required: '80 quintals',
+    market: 'Dadri Mandi',
+    district: 'Gautam Buddha Nagar',
+    state: 'Uttar Pradesh'
+  },
+  {
+    buyer_name: 'Bharat Foods & Grains',
+    buyer_type: 'Processing Unit',
+    commodity: 'paddy',
+    variety: 'Basmati',
+    offered_price: 3420,
+    quantity_required: '150 quintals',
+    market: 'Bilaspur Mandi',
+    district: 'Gautam Buddha Nagar',
+    state: 'Uttar Pradesh'
+  },
+  {
+    buyer_name: 'Gauri Shankar Flour Mills',
+    buyer_type: 'Processing Unit',
+    commodity: 'wheat',
+    variety: 'Sharbati',
+    offered_price: 2650,
+    quantity_required: '200 quintals',
+    market: 'Dadri Mandi',
+    district: 'Gautam Buddha Nagar',
+    state: 'Uttar Pradesh'
+  },
+  {
+    buyer_name: 'Rajat Grain Merchants',
+    buyer_type: 'Wholesaler',
+    commodity: 'wheat',
+    variety: 'Common',
+    offered_price: 2450,
+    quantity_required: '100 quintals',
+    market: 'Hapur Mandi',
+    district: 'Hapur',
+    state: 'Uttar Pradesh'
+  },
+  {
+    buyer_name: 'Om Shakti Grain Traders',
+    buyer_type: 'Wholesaler',
+    commodity: 'wheat',
+    variety: 'Common',
+    offered_price: 2485,
+    quantity_required: '90 quintals',
+    market: 'Mawana Mandi',
+    district: 'Meerut',
+    state: 'Uttar Pradesh'
+  },
+  {
+    buyer_name: 'National Agro Exports',
+    buyer_type: 'Exporter',
+    commodity: 'wheat',
+    variety: 'Sharbati',
+    offered_price: 2720,
+    quantity_required: '300 quintals',
+    market: 'Modinagar Mandi',
+    district: 'Ghaziabad',
+    state: 'Uttar Pradesh'
+  }
+];
+
+async function seedUttarPradeshListings() {
+  try {
+    const existing = await BuyerListing.countDocuments({
+      state: { $regex: '^Uttar Pradesh$', $options: 'i' },
+      is_demo: true
+    });
+
+    if (existing > 0) {
+      console.log('[SeedBuyers] Uttar Pradesh demo listings already present.');
+      return;
+    }
+
+    const now = new Date();
+    const payload = uttarPradeshListings.map((listing, i) => ({
+      ...listing,
+      contact_note: 'Contact via SAATHI messaging',
+      is_demo: true,
+      created_at: new Date(now.getTime() - (i * 2 * 60 * 60 * 1000))
+    }));
+
+    await BuyerListing.insertMany(payload);
+    console.log(
+      `[SeedBuyers] Seeded ${payload.length} Uttar Pradesh demo buyer listings (Paddy + Wheat).`
+    );
+  } catch (err) {
+    console.error('[SeedBuyers] Error seeding Uttar Pradesh listings:', err.message);
+  }
+}
+
 async function seedBuyerListings() {
   try {
+    const force =
+      process.env.FORCE_SEED === '1' || process.env.FORCE_SEED === 'true';
+
     const existingCount = await BuyerListing.countDocuments({ is_demo: true });
-    if (existingCount > 0) {
+    if (existingCount > 0 && !force) {
       console.log('[SeedBuyers] Demo buyer listings already seeded.');
+      await seedUttarPradeshListings();
       return;
+    }
+
+    if (force) {
+      console.log('[SeedBuyers] FORCE_SEED enabled — clearing existing demo listings...');
+      await BuyerListing.deleteMany({ is_demo: true });
     }
 
     console.log('[SeedBuyers] Seeding dynamic demo buyer listings...');
@@ -54,7 +180,8 @@ async function seedBuyerListings() {
     // Fetch dynamic prices to use as real markets and price references
     const mandiPrices = await mandiService.getMandiPrices({ limit: 100 });
     if (!mandiPrices || mandiPrices.length === 0) {
-      console.log('[SeedBuyers] No mandi prices fetched, skipping seeding.');
+      console.log('[SeedBuyers] No mandi prices fetched, skipping dynamic seeding.');
+      await seedUttarPradeshListings();
       return;
     }
 
@@ -88,6 +215,8 @@ async function seedBuyerListings() {
 
     await BuyerListing.insertMany(seededListings);
     console.log(`[SeedBuyers] Seeded ${seededListings.length} demo buyer listings across dynamic markets.`);
+
+    await seedUttarPradeshListings();
   } catch (err) {
     console.error('[SeedBuyers] Error seeding buyer listings:', err.message);
   }
