@@ -77,13 +77,13 @@ const cropTranslations = {
   wheat: ['wheat', 'गेहूं', 'गेहू', 'गहू', 'ਕਣਕ', 'গম', 'gadhuma', 'கோதுமை', 'godhuma'],
   paddy: ['paddy', 'rice', 'धान', 'चावल', 'भात', 'तांदूळ', 'ਝੋਨਾ', 'ধান', 'vari', 'அரிసి', 'நெல்'],
   maize: ['maize', 'corn', 'मक्का', 'मका', 'ਮੱਕੀ', 'ਭੁੱਟਾ', 'mokkajonna', 'சோளம்'],
-  mustard: ['mustard', 'सरसों', 'राई', 'मोहरी', 'ਸਰ੍ਹੋਂ', 'ਸਰੀਸ਼า', 'aavalu', 'கடுகு'],
+  mustard: ['mustard', 'सरसों', 'राई', 'मोहरी', 'ਸਰ੍ਹੋਂ', 'ਸਰੀਸ਼ਾ', 'aavalu', 'கடுகு'],
   chickpea: ['chickpea', 'gram', 'चना', 'हरभरा', 'ਛੋਲੇ', 'ছোলা', 'senagalu', 'கொண்டைக் கடலை'],
   onion: ['onion', 'प्याज', 'कांदा', 'ਪਿਆਜ਼', 'পেঁয়াজ', 'ullipaya', 'வெங்காயம்'],
-  potato: ['potato', 'आलू', 'बटाटा', 'ਆਲੂ', 'আলु', 'bangaladumpa', 'உருளைக்கிழங்கு'],
-  tomato: ['tomato', 'टमाटर', 'टोमॅटो', 'ਟਮਾਟਰ', 'টমেটো', 'தக்காளி'],
+  potato: ['potato', 'आलू', 'बटाटा', 'ਆਲੂ', 'আলੂ', 'bangaladumpa', 'உருளைக்கிழங்கு'],
+  tomato: ['tomato', 'टमाटर', 'टोमॅटो', 'ਟਮਾਟਰ', 'টমেटो', 'தக்காளி'],
   soybean: ['soybean', 'सोयाबीन', 'ਸੋਇਆਬੀਨ', 'ਸੋਇਆਬੀਨ'],
-  cotton: ['cotton', 'कपास', 'कापूस', 'ਕਪਾਹ', 'তুলা', 'prathi', 'பруத்தி'],
+  cotton: ['cotton', 'कपास', 'कापूस', 'ਕਪਾਹ', 'তুला', 'prathi', 'பруத்தி'],
   sugarcane: ['sugarcane', 'गन्ना', 'ऊस', 'ਗੰਨਾ', 'ਆਖ', 'cheruku', 'கரும்பு']
 };
 
@@ -374,6 +374,9 @@ async function fetchMostRecentAvailablePrices({ apiKey, cleanCommodity, cleanSta
     return records.slice(cleanOffset, cleanOffset + cleanLimit);
   } catch (fallbackError) {
     console.error('[MandiService] Historical dataset fallback query failed:', fallbackError.message);
+    if (fallbackError.response && fallbackError.response.status === 429) {
+      throw new Error('API_RATE_LIMIT');
+    }
     return [];
   }
 }
@@ -591,8 +594,13 @@ async function getMandiPrices({ commodity, state, district, market, limit = 50, 
 
   } catch (error) {
     console.error('[MandiService] Error querying data.gov.in API:', error.message);
-    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-      throw new Error('API_UNAVAILABLE_AUTH');
+    if (error.response) {
+      if (error.response.status === 429) {
+        throw new Error('API_RATE_LIMIT');
+      }
+      if (error.response.status === 401 || error.response.status === 403) {
+        throw new Error('API_UNAVAILABLE_AUTH');
+      }
     }
     throw new Error('API_UNAVAILABLE');
   }
@@ -623,7 +631,7 @@ const fallbackStatesAndDistricts = {
   'Rajasthan': ['Ajmer', 'Alwar', 'Banswara', 'Baran', 'Barmer', 'Bharatpur', 'Bhilwara', 'Bikaner', 'Bundi', 'Chittorgarh', 'Churu', 'Dausa', 'Dholpur', 'Dungarpur', 'Hanumangarh', 'Jaipur', 'Jaisalmer', 'Jalore', 'Jhalawar', 'Jhunjhunu', 'Jodhpur', 'Karauli', 'Kota', 'Nagaur', 'Pali', 'Pratapgarh', 'Rajsamand', 'Sawai Madhopur', 'Sikar', 'Sirohi', 'Sri Ganganagar', 'Tonk', 'Udaipur'],
   'Sikkim': ['East Sikkim', 'North Sikkim', 'South Sikkim', 'West Sikkim'],
   'Tamil Nadu': ['Ariyalur', 'Chengalpattu', 'Chennai', 'Coimbatore', 'Cuddalore', 'Dharmapuri', 'Dindigul', 'Erode', 'Kallakurichi', 'Kanchipuram', 'Kanyakumari', 'Karur', 'Krishnagiri', 'Madurai', 'Mayiladuthurai', 'Nagapattinam', 'Namakkal', 'Nilgiris', 'Perambalur', 'Pudukkottai', 'Ramanathapuram', 'Ranipet', 'Salem', 'Sivaganga', 'Tenkasi', 'Thanjavur', 'Theni', 'Thoothukudi', 'Tiruchirappalli', 'Tirunelveli', 'Tirupathur', 'Tiruppur', 'Tiruvallur', 'Tiruvannamalai', 'Tiruvarur', 'Vellore', 'Viluppuram', 'Virudhunagar'],
-  'Telangana': ['Adilabad', 'Bhadradri Kothagudem', 'Hyderabad', 'Jagtial', 'Jangaon', 'Jayashankar Bhupalpally', 'Jogulamba Gadwal', 'Kamareddy', 'Karimnagar', 'Khammam', 'Komaram Bheem Asifabad', 'Medak', 'Medchal-Malkajgiri', 'Mulugu', 'Nagarkurnool', 'Nalgonda', 'Narayanpet', 'Nirmal', 'Nizamabad', 'Peddapalli', 'Rajanna Sircilla', 'Rangareddy', 'Medak', 'Medchal-Malkajgiri', 'Mulugu', 'Nagarkurnool', 'Nalgonda', 'Narayanpet', 'Nirmal', 'Nizamabad', 'Peddapalli', 'Rajanna Sircilla', 'Rangareddy', 'Sangareddy', 'Siddipet', 'Suryapet', 'Vikarabad', 'Wanaparthy', 'Warangal Rural', 'Warangal Urban', 'Yadadri Bhuvanagiri'],
+  'Telangana': ['Adilabad', 'Bhadradri Kothagudem', 'Hyderabad', 'Jagtial', 'Jangaon', 'Jayashankar Bhupalpally', 'Jogulamba Gadwal', 'Kamareddy', 'Karimnagar', 'Khammam', 'Komaram Bheem Asifabad', 'Medak', 'Medchal-Malkajgiri', 'Mulugu', 'Nagarkurnool', 'Nalgonda', 'Narayanpet', 'Nirmal', 'Nizamabad', 'Peddapalli', 'Rajanna Sircilla', 'Rangareddy', 'Sangareddy', 'Siddipet', 'Suryapet', 'Vikarabad', 'Wanaparthy', 'Warangal Rural', 'Warangal Urban', 'Yadadri Bhuvanagiri'],
   'Tripura': ['Dhalai', 'Gomati', 'Khowai', 'North Tripura', 'Sepahijala', 'South Tripura', 'Unakoti', 'West Tripura'],
   'Uttar Pradesh': ['Agra', 'Aligarh', 'Allahabad', 'Ambedkar Nagar', 'Amethi', 'Amroha', 'Auraiya', 'Azamgarh', 'Baghpat', 'Bahraich', 'Ballia', 'Balrampur', 'Banda', 'Barabanki', 'Bareilly', 'Basti', 'Bhadohi', 'Bijnor', 'Budaun', 'Bulandshahr', 'Chandauli', 'Chitrakoot', 'Deoria', 'Etah', 'Etawah', 'Ayodhya', 'Farrukhabad', 'Fatehpur', 'Firozabad', 'Gautam Buddha Nagar', 'Ghaziabad', 'Ghazipur', 'Gonda', 'Gorakhpur', 'Hamirpur', 'Hapur', 'Hardoi', 'Hathras', 'Jalaun', 'Jaunpur', 'Jhansi', 'Kannauj', 'Kanpur Dehat', 'Kanpur Nagar', 'Kasganj', 'Kaushambi', 'Kheri', 'Kushinagar', 'Lalitpur', 'Lucknow', 'Maharajganj', 'Mahoba', 'Mainpuri', 'Mathura', 'Mau', 'Meerut', 'Mirzapur', 'Moradabad', 'Muzaffarnagar', 'Pilibhit', 'Pratapgarh', 'Raebareli', 'Rampur', 'Saharanpur', 'Sambhal', 'Sant Kabir Nagar', 'Shahjahanpur', 'Shamli', 'Shravasti', 'Siddharthnagar', 'Sitapur', 'Sonbhadra', 'Sultanpur', 'Unnao', 'Varanasi'],
   'Uttarakhand': ['Almora', 'Bageshwar', 'Chamoli', 'Champawat', 'Dehradun', 'Haridwar', 'Nainital', 'Pauri Garhwal', 'Pithoragarh', 'Rudraprayag', 'Tehri Garhwal', 'Udham Singh Nagar', 'Uttarkashi'],
