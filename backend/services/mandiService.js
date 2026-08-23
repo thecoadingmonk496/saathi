@@ -77,14 +77,14 @@ const cropTranslations = {
   wheat: ['wheat', 'गेहूं', 'गेहू', 'गहू', 'ਕਣਕ', 'গম', 'gadhuma', 'கோதுமை', 'godhuma'],
   paddy: ['paddy', 'rice', 'धान', 'चावल', 'भात', 'तांदूळ', 'ਝੋਨਾ', 'ধান', 'vari', 'அரிసి', 'நெல்'],
   maize: ['maize', 'corn', 'मक्का', 'मका', 'ਮੱਕੀ', 'ਭੁੱਟਾ', 'mokkajonna', 'சோளம்'],
-  mustard: ['mustard', 'सरसों', 'राई', 'मोहरी', 'ਸਰ੍ਹੋਂ', 'ਸਰੀਸ਼ਾ', 'aavalu', 'கடுகு'],
+  mustard: ['mustard', 'सरसों', 'राई', 'मोहरी', 'ਸਰ੍ਹੋਂ', 'ਸਰੀਸ਼า', 'aavalu', 'கடுகு'],
   chickpea: ['chickpea', 'gram', 'चना', 'हरभरा', 'ਛੋਲੇ', 'ছোলা', 'senagalu', 'கொண்டைக் கடலை'],
   onion: ['onion', 'प्याज', 'कांदा', 'ਪਿਆਜ਼', 'পেঁয়াজ', 'ullipaya', 'வெங்காயம்'],
-  potato: ['potato', 'आलू', 'बटाटा', 'ਆਲੂ', 'আলু', 'bangaladumpa', 'உருளைக்கிழங்கு'],
+  potato: ['potato', 'आलू', 'बटाटा', 'ਆਲੂ', 'আলु', 'bangaladumpa', 'உருளைக்கிழங்கு'],
   tomato: ['tomato', 'टमाटर', 'टोमॅटो', 'ਟਮਾਟਰ', 'টমেটো', 'தக்காளி'],
   soybean: ['soybean', 'सोयाबीन', 'ਸੋਇਆਬੀਨ', 'ਸੋਇਆਬੀਨ'],
   cotton: ['cotton', 'कपास', 'कापूस', 'ਕਪਾਹ', 'তুলা', 'prathi', 'பруத்தி'],
-  sugarcane: ['sugarcane', 'गन्ना', 'ऊस', 'ਗੰਨਾ', 'আখ', 'cheruku', 'கரும்பு']
+  sugarcane: ['sugarcane', 'गन्ना', 'ऊस', 'ਗੰਨਾ', 'ਆਖ', 'cheruku', 'கரும்பு']
 };
 
 function getCanonicalCommodityName(query) {
@@ -123,8 +123,7 @@ const mockMandiRecords = [
   { state: 'Uttar Pradesh', district: 'Chandauli', market: 'Mughalsarai Mandi', commodity: 'Wheat', variety: 'Lok-1', grade: 'FAQ', arrival_date: '23/08/2026', min_price: 2190, max_price: 2340, modal_price: 2260 },
   { state: 'Uttar Pradesh', district: 'Chandauli', market: 'Mughalsarai Mandi', commodity: 'Mustard', variety: 'Common', grade: 'FAQ', arrival_date: '23/08/2026', min_price: 5350, max_price: 5750, modal_price: 5500 },
 
-  // Uttar Pradesh - Gorakhpur (last reported a few days ago - exercises the
-  // "most recent available" fallback for markets that skip reporting some days)
+  // Uttar Pradesh - Gorakhpur
   { state: 'Uttar Pradesh', district: 'Gorakhpur', market: 'Gorakhpur Mandi', commodity: 'Wheat', variety: 'Kalyansona', grade: 'FAQ', arrival_date: '21/08/2026', min_price: 2125, max_price: 2280, modal_price: 2200 },
   { state: 'Uttar Pradesh', district: 'Gorakhpur', market: 'Gorakhpur Mandi', commodity: 'Paddy', variety: 'Common', grade: 'FAQ', arrival_date: '21/08/2026', min_price: 2050, max_price: 2200, modal_price: 2125 },
   { state: 'Uttar Pradesh', district: 'Gorakhpur', market: 'Campierganj Mandi', commodity: 'Maize', variety: 'Yellow', grade: 'Medium', arrival_date: '20/08/2026', min_price: 1950, max_price: 2100, modal_price: 2020 },
@@ -154,8 +153,6 @@ function toPriceNumber(value) {
 }
 
 // Clean and normalize raw API/mock records to only include what the UI needs.
-// Handles both lowercase fields (current-day dataset) and Capitalized fields
-// (historical variety-wise dataset).
 function normalizeMandiRecords(rawRecords) {
   return rawRecords.map(record => ({
     state: record.state || record.State || '',
@@ -172,7 +169,6 @@ function normalizeMandiRecords(rawRecords) {
 }
 
 // Summarizes whether a result set represents "most recent available" data
-// (no record dated today) along with the effective latest arrival_date.
 function summarizeArrivalFreshness(records) {
   if (!Array.isArray(records) || records.length === 0) {
     return { isLatestAvailable: false, latestArrivalDate: null };
@@ -200,10 +196,8 @@ async function refreshNationalMandiCache() {
     progressRecord = new MandiRefreshProgress({ date: todayStr, lastOffset: 0, status: 'IN_PROGRESS' });
     await progressRecord.save();
   } else if (progressRecord.status === 'COMPLETED') {
-    // If today was previously marked completed but triggered again, restart
-    progressRecord.lastOffset = 0;
-    progressRecord.status = 'IN_PROGRESS';
-    await progressRecord.save();
+    console.log('[MandiService] Cache refresh for today is already completed. Skipping restart.');
+    return { success: true, message: 'Already completed today' };
   }
 
   let offset = progressRecord.lastOffset;
@@ -214,6 +208,14 @@ async function refreshNationalMandiCache() {
 
   try {
     while (true) {
+      // CKAN API hard limits offsets to 10000.
+      if (offset >= 10000) {
+        console.log('[MandiService] Reached maximum CKAN pagination offset limit (10,000). Marking refresh as COMPLETED.');
+        progressRecord.status = 'COMPLETED';
+        await progressRecord.save();
+        break;
+      }
+
       let pageSuccess = false;
       let response = null;
       
@@ -286,26 +288,93 @@ async function refreshNationalMandiCache() {
       progressRecord.lastOffset = offset;
       await progressRecord.save();
 
-      if (totalAvailable > 0 && offset >= totalAvailable) break;
-      if (records.length < limit) break; // Reached the end
+      if (totalAvailable > 0 && offset >= totalAvailable) {
+        progressRecord.status = 'COMPLETED';
+        await progressRecord.save();
+        break;
+      }
+      if (records.length < limit) {
+        progressRecord.status = 'COMPLETED';
+        await progressRecord.save();
+        break;
+      }
 
       // Small delay to avoid hammering the API
       await new Promise(r => setTimeout(r, 500));
     }
     
-    // Status update
-    if (totalAvailable > 0 && offset >= totalAvailable) {
-      progressRecord.status = 'COMPLETED';
-    } else {
-      progressRecord.status = failedPages > 5 ? 'FAILED' : 'IN_PROGRESS';
-    }
-    await progressRecord.save();
-
-    console.log(`[MandiService] Refresh run ended. Attempted from start offset. Succeeded pages: ${totalRecordsFetched/limit}. Total fetched in this run: ${totalRecordsFetched}.`);
+    console.log(`[MandiService] Refresh run ended. Succeeded pages: ${totalRecordsFetched/limit}. Total fetched in this run: ${totalRecordsFetched}. Status: ${progressRecord.status}`);
     return { success: progressRecord.status === 'COMPLETED', fetched: totalRecordsFetched, upserted: totalUpserted, failedPages };
   } catch (error) {
     console.error('[MandiService] National refresh failed:', error.message);
     return { success: false, error: error.message };
+  }
+}
+
+// Fetch historical records from the historical variety-wise dataset as a fallback
+async function fetchMostRecentAvailablePrices({ apiKey, cleanCommodity, cleanState, cleanDistrict, cleanMarket, cleanLimit, cleanOffset }) {
+  try {
+    const params = {
+      'api-key': apiKey,
+      format: 'json',
+      limit: 500, // Fetch a reasonably sized window
+      offset: 0
+    };
+
+    if (cleanState) params['filters[state.keyword]'] = cleanState;
+    if (cleanDistrict) params['filters[district]'] = cleanDistrict;
+    if (cleanMarket) params['filters[market]'] = cleanMarket;
+
+    console.log('[MandiService] Querying historical dataset for fallback prices...');
+    const response = await axios.get(
+      `https://api.data.gov.in/resource/${HISTORICAL_DAILY_RESOURCE_ID}`,
+      { params, timeout: 25000 }
+    );
+
+    if (!response.data || !Array.isArray(response.data.records)) return [];
+
+    let records = normalizeMandiRecords(response.data.records);
+
+    if (cleanState) records = records.filter(r => r.state.toLowerCase() === cleanState.toLowerCase());
+    if (cleanDistrict) records = records.filter(r => r.district.toLowerCase() === cleanDistrict.toLowerCase());
+    if (cleanMarket) records = records.filter(r => r.market.toLowerCase().includes(cleanMarket.toLowerCase()));
+    if (cleanCommodity) records = records.filter(r => r.commodity.toLowerCase().includes(cleanCommodity.toLowerCase()));
+
+    if (records.length === 0) return [];
+
+    // Keep only records sharing the most recent arrival_date present
+    const mostRecentDate = getMostRecentArrivalDate(records);
+    records = records.filter(record => record.arrival_date === mostRecentDate);
+
+    // Upsert these fallback records into MongoDB MandiPriceCache so they are cached locally
+    const bulkOps = records.map(record => ({
+      updateOne: {
+        filter: {
+          state: record.state,
+          district: record.district,
+          market: record.market,
+          commodity: record.commodity,
+          variety: record.variety,
+          arrival_date: record.arrival_date
+        },
+        update: { $set: { ...record, fetched_at: new Date() } },
+        upsert: true
+      }
+    }));
+
+    try {
+      if (bulkOps.length > 0) {
+        await MandiPriceCache.bulkWrite(bulkOps);
+        console.log(`[MandiService] Cached ${records.length} historical records for ${cleanState}/${cleanDistrict}`);
+      }
+    } catch (dbErr) {
+      console.error('[MandiService] Failed to cache historical records in DB:', dbErr.message);
+    }
+
+    return records.slice(cleanOffset, cleanOffset + cleanLimit);
+  } catch (fallbackError) {
+    console.error('[MandiService] Historical dataset fallback query failed:', fallbackError.message);
+    return [];
   }
 }
 
@@ -473,12 +542,50 @@ async function getMandiPrices({ commodity, state, district, market, limit = 50, 
     }
 
     let normalized = normalizeMandiRecords(response.data.records);
-    
+    let usedFallback = false;
+
+    // Current-day snapshot has nothing for this selection - fall back to the
+    // historical variety-wise dataset to find older data.
+    if (normalized.length === 0) {
+      normalized = await fetchMostRecentAvailablePrices({
+        apiKey,
+        cleanCommodity,
+        cleanState,
+        cleanDistrict,
+        cleanMarket,
+        cleanLimit,
+        cleanOffset
+      });
+      usedFallback = normalized.length > 0;
+    } else {
+      // If we got current daily records, upsert them to MongoDB cache as well!
+      const bulkOps = normalized.map(record => ({
+        updateOne: {
+          filter: {
+            state: record.state,
+            district: record.district,
+            market: record.market,
+            commodity: record.commodity,
+            variety: record.variety,
+            arrival_date: record.arrival_date
+          },
+          update: { $set: { ...record, fetched_at: new Date() } },
+          upsert: true
+        }
+      }));
+      try {
+        if (bulkOps.length > 0) {
+          await MandiPriceCache.bulkWrite(bulkOps);
+          console.log(`[MandiService] Cached ${normalized.length} current daily records in DB for ${cleanState}/${cleanDistrict}`);
+        }
+      } catch (dbErr) {
+        console.error('[MandiService] Failed to cache current records in DB:', dbErr.message);
+      }
+    }
+
     // Label non-today data explicitly so the UI can flag it as "latest available"
-    // Since we only queried CURRENT_DAILY, it's either today or empty.
     normalized = markLatestAvailable(normalized);
 
-    const usedFallback = normalized.some(r => r.isLatestAvailable);
     cache.set(cacheKey, { records: normalized, timestamp: Date.now(), isFallback: usedFallback });
     return normalized;
 
@@ -516,7 +623,7 @@ const fallbackStatesAndDistricts = {
   'Rajasthan': ['Ajmer', 'Alwar', 'Banswara', 'Baran', 'Barmer', 'Bharatpur', 'Bhilwara', 'Bikaner', 'Bundi', 'Chittorgarh', 'Churu', 'Dausa', 'Dholpur', 'Dungarpur', 'Hanumangarh', 'Jaipur', 'Jaisalmer', 'Jalore', 'Jhalawar', 'Jhunjhunu', 'Jodhpur', 'Karauli', 'Kota', 'Nagaur', 'Pali', 'Pratapgarh', 'Rajsamand', 'Sawai Madhopur', 'Sikar', 'Sirohi', 'Sri Ganganagar', 'Tonk', 'Udaipur'],
   'Sikkim': ['East Sikkim', 'North Sikkim', 'South Sikkim', 'West Sikkim'],
   'Tamil Nadu': ['Ariyalur', 'Chengalpattu', 'Chennai', 'Coimbatore', 'Cuddalore', 'Dharmapuri', 'Dindigul', 'Erode', 'Kallakurichi', 'Kanchipuram', 'Kanyakumari', 'Karur', 'Krishnagiri', 'Madurai', 'Mayiladuthurai', 'Nagapattinam', 'Namakkal', 'Nilgiris', 'Perambalur', 'Pudukkottai', 'Ramanathapuram', 'Ranipet', 'Salem', 'Sivaganga', 'Tenkasi', 'Thanjavur', 'Theni', 'Thoothukudi', 'Tiruchirappalli', 'Tirunelveli', 'Tirupathur', 'Tiruppur', 'Tiruvallur', 'Tiruvannamalai', 'Tiruvarur', 'Vellore', 'Viluppuram', 'Virudhunagar'],
-  'Telangana': ['Adilabad', 'Bhadradri Kothagudem', 'Hyderabad', 'Jagtial', 'Jangaon', 'Jayashankar Bhupalpally', 'Jogulamba Gadwal', 'Kamareddy', 'Karimnagar', 'Khammam', 'Komaram Bheem Asifabad', 'Mahabubabad', 'Mahabubnagar', 'Mancherial', 'Medak', 'Medchal-Malkajgiri', 'Mulugu', 'Nagarkurnool', 'Nalgonda', 'Narayanpet', 'Nirmal', 'Nizamabad', 'Peddapalli', 'Rajanna Sircilla', 'Rangareddy', 'Sangareddy', 'Siddipet', 'Suryapet', 'Vikarabad', 'Wanaparthy', 'Warangal Rural', 'Warangal Urban', 'Yadadri Bhuvanagiri'],
+  'Telangana': ['Adilabad', 'Bhadradri Kothagudem', 'Hyderabad', 'Jagtial', 'Jangaon', 'Jayashankar Bhupalpally', 'Jogulamba Gadwal', 'Kamareddy', 'Karimnagar', 'Khammam', 'Komaram Bheem Asifabad', 'Medak', 'Medchal-Malkajgiri', 'Mulugu', 'Nagarkurnool', 'Nalgonda', 'Narayanpet', 'Nirmal', 'Nizamabad', 'Peddapalli', 'Rajanna Sircilla', 'Rangareddy', 'Medak', 'Medchal-Malkajgiri', 'Mulugu', 'Nagarkurnool', 'Nalgonda', 'Narayanpet', 'Nirmal', 'Nizamabad', 'Peddapalli', 'Rajanna Sircilla', 'Rangareddy', 'Sangareddy', 'Siddipet', 'Suryapet', 'Vikarabad', 'Wanaparthy', 'Warangal Rural', 'Warangal Urban', 'Yadadri Bhuvanagiri'],
   'Tripura': ['Dhalai', 'Gomati', 'Khowai', 'North Tripura', 'Sepahijala', 'South Tripura', 'Unakoti', 'West Tripura'],
   'Uttar Pradesh': ['Agra', 'Aligarh', 'Allahabad', 'Ambedkar Nagar', 'Amethi', 'Amroha', 'Auraiya', 'Azamgarh', 'Baghpat', 'Bahraich', 'Ballia', 'Balrampur', 'Banda', 'Barabanki', 'Bareilly', 'Basti', 'Bhadohi', 'Bijnor', 'Budaun', 'Bulandshahr', 'Chandauli', 'Chitrakoot', 'Deoria', 'Etah', 'Etawah', 'Ayodhya', 'Farrukhabad', 'Fatehpur', 'Firozabad', 'Gautam Buddha Nagar', 'Ghaziabad', 'Ghazipur', 'Gonda', 'Gorakhpur', 'Hamirpur', 'Hapur', 'Hardoi', 'Hathras', 'Jalaun', 'Jaunpur', 'Jhansi', 'Kannauj', 'Kanpur Dehat', 'Kanpur Nagar', 'Kasganj', 'Kaushambi', 'Kheri', 'Kushinagar', 'Lalitpur', 'Lucknow', 'Maharajganj', 'Mahoba', 'Mainpuri', 'Mathura', 'Mau', 'Meerut', 'Mirzapur', 'Moradabad', 'Muzaffarnagar', 'Pilibhit', 'Pratapgarh', 'Raebareli', 'Rampur', 'Saharanpur', 'Sambhal', 'Sant Kabir Nagar', 'Shahjahanpur', 'Shamli', 'Shravasti', 'Siddharthnagar', 'Sitapur', 'Sonbhadra', 'Sultanpur', 'Unnao', 'Varanasi'],
   'Uttarakhand': ['Almora', 'Bageshwar', 'Chamoli', 'Champawat', 'Dehradun', 'Haridwar', 'Nainital', 'Pauri Garhwal', 'Pithoragarh', 'Rudraprayag', 'Tehri Garhwal', 'Udham Singh Nagar', 'Uttarkashi'],
