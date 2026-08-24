@@ -427,27 +427,7 @@ export default function MarketExplorer() {
               </div>
             </div>
 
-            {/* Report a Discrepancy */}
-            <div className="bg-[#FEF2F2] rounded-xl shadow-sm border border-red-200 p-6 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-5">
-                <AlertTriangle className="h-24 w-24 text-red-900" />
-              </div>
-              <h3 className="font-bold text-[#DC2626] mb-5 flex items-center gap-2 text-base relative z-10">
-                <AlertTriangle className="h-5 w-5" /> Report a Discrepancy
-              </h3>
-              
-              <div className="flex flex-wrap gap-2.5 mb-6 relative z-10">
-                {['Price Different', 'Quantity Different', 'Weighing Problem', 'Unauthorized Deduction', 'Transaction Missing', 'Other Issue'].map(tag => (
-                  <button key={tag} className="bg-white border border-red-100 text-gray-700 hover:border-red-300 hover:text-[#DC2626] hover:bg-red-50 hover:shadow-sm text-xs font-semibold py-1.5 px-3 rounded-full transition-all">
-                    {tag}
-                  </button>
-                ))}
-              </div>
 
-              <button className="relative z-10 w-full bg-[#DC2626] hover:bg-red-700 text-white font-bold py-3 rounded-lg transition text-sm shadow-md flex justify-center items-center gap-2">
-                Report Now
-              </button>
-            </div>
             
           </div>
         </div>
