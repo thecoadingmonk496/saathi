@@ -19,7 +19,7 @@ export default function PlatformTopNav({ preferredLanguage, user, onLanguageChan
 
   const navItems = [
     { label: t('nav.dashboard'), mobileLabel: t('nav.dashboard'), path: '/', icon: HomeIcon },
-    { label: t('nav.marketExplorer'), mobileLabel: t('nav.marketExplorer'), path: '/explorer', icon: MapIcon },
+    { label: t('nav.cropJourney') || 'Crop Journey', mobileLabel: t('nav.cropJourney') || 'Crop Journey', path: '/explorer', icon: MapIcon },
     { label: t('nav.marketPrices'), mobileLabel: t('nav.marketPrices'), path: '/prices', icon: CurrencyRupeeIcon },
     { label: t('nav.buyerDiscovery'), mobileLabel: t('nav.buyerDiscovery'), path: '/buyers', icon: UserGroupIcon },
   ];

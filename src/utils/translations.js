@@ -18,6 +18,7 @@ export const translations = {
 
     'nav.dashboard': 'Dashboard',
     'nav.marketExplorer': 'Market Explorer',
+    'nav.cropJourney': 'Crop Journey',
     'nav.marketPrices': 'Market Prices',
     'nav.buyerDiscovery': 'Buyer Discovery',
     'nav.askSaathi': 'Ask SAATHI',

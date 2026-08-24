@@ -1,715 +1,688 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { useLocationContext } from '../context/LocationContext';
-import { mockBuyers, mockCrops, mockSupplyChain } from '../utils/mockData';
-import { SupplyChainVerification } from '../components/BlockchainVerification';
+import { mockSupplyChain } from '../utils/mockData';
+import { getStates, getDistricts, getBlocks, getMandis, CROP_LIST } from '../utils/indiaLocations';
 
+// ─── Helpers ───────────────────────────────────────────────────────
 const fmt = (v) => `₹${Number(v).toLocaleString('en-IN')}`;
-const diff = (a, b) => (b > a ? `+${fmt(b - a)}` : fmt(b - a));
-
-const STAGE_KEYS = ['farmer', 'mandi', 'wholesaler', 'distributor', 'retailer', 'consumer'];
-
-const STAGE_META = {
-  farmer:      { icon: '👨‍🌾', colorClass: 'bg-emerald-600',  borderClass: 'border-emerald-600' },
-  mandi:       { icon: '🏛️',  colorClass: 'bg-amber-600',    borderClass: 'border-amber-600'   },
-  wholesaler:  { icon: '🏪',  colorClass: 'bg-blue-600',     borderClass: 'border-blue-600'    },
-  distributor: { icon: '🚚',  colorClass: 'bg-violet-600',   borderClass: 'border-violet-600'  },
-  retailer:    { icon: '🛒',  colorClass: 'bg-rose-600',     borderClass: 'border-rose-600'    },
-  consumer:    { icon: '👤',  colorClass: 'bg-slate-600',    borderClass: 'border-slate-600'   },
+const dateFmt = () => {
+  const d = new Date();
+  return `${d.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${d.getFullYear()}`;
 };
 
-function PriceStep({ label, price, prevPrice, isLast }) {
-  const added = prevPrice != null ? price - prevPrice : null;
+const STAGE_KEYS = ['farmer', 'mandi', 'wholesaler', 'distributor', 'retailer', 'consumer'];
+const STAGE_META = {
+  farmer:      { icon: '👨‍🌾', label: 'Farmer',      color: '#16a34a', bg: 'bg-emerald-50',  border: 'border-emerald-500', ring: 'ring-emerald-200' },
+  mandi:       { icon: '🏛️',  label: 'Mandi',       color: '#d97706', bg: 'bg-amber-50',    border: 'border-amber-500',   ring: 'ring-amber-200'   },
+  wholesaler:  { icon: '🏪',  label: 'Wholesaler',  color: '#2563eb', bg: 'bg-blue-50',     border: 'border-blue-500',    ring: 'ring-blue-200'    },
+  distributor: { icon: '🚚',  label: 'Distributor', color: '#7c3aed', bg: 'bg-violet-50',   border: 'border-violet-500',  ring: 'ring-violet-200'  },
+  retailer:    { icon: '🛒',  label: 'Retailer',    color: '#e11d48', bg: 'bg-rose-50',     border: 'border-rose-500',    ring: 'ring-rose-200'    },
+  consumer:    { icon: '👤',  label: 'Consumer',    color: '#475569', bg: 'bg-slate-50',    border: 'border-slate-500',   ring: 'ring-slate-200'   },
+};
+
+// Mock journey data generator for any crop + location
+function generateJourney(crop, state, district, block, mandi) {
+  const base = 1800 + Math.floor(Math.random() * 800);
+  const loc = block || district;
+  const mandiName = mandi || `${district} Mandi`;
+  return {
+    cropName: crop,
+    stages: {
+      farmer:      { price: base,              location: `${loc}, ${state}`,       quantity: `${80 + Math.floor(Math.random()*40)} Quintal`, date: dateFmt(), status: 'completed' },
+      mandi:       { price: base + 50 + Math.floor(Math.random()*100), location: mandiName + ', ' + district,    quantity: `${800 + Math.floor(Math.random()*600)} Quintal`, date: dateFmt(), status: 'completed' },
+      wholesaler:  { price: base + 200 + Math.floor(Math.random()*150), location: `${district}, ${state}`,       quantity: `${80 + Math.floor(Math.random()*40)} Quintal`, date: dateFmt(), status: 'completed' },
+      distributor: { price: base + 400 + Math.floor(Math.random()*150), location: `${district}, ${state}`,       quantity: `${70 + Math.floor(Math.random()*30)} Quintal`, date: dateFmt(), status: 'completed' },
+      retailer:    { price: base + 600 + Math.floor(Math.random()*200), location: `${district}, ${state}`,       quantity: `${60 + Math.floor(Math.random()*40)} Quintal`, date: dateFmt(), status: 'completed' },
+      consumer:    { price: base + 800 + Math.floor(Math.random()*200), location: 'End Customer',                quantity: `${60 + Math.floor(Math.random()*40)} Quintal`, date: dateFmt(), status: 'current'   },
+    },
+    costs: {
+      transport: 80 + Math.floor(Math.random()*60),
+      storage:   40 + Math.floor(Math.random()*50),
+      handling:  20 + Math.floor(Math.random()*30),
+      marketCharges: 40 + Math.floor(Math.random()*30),
+      margin:    200 + Math.floor(Math.random()*200),
+    },
+    mandiDetails: {
+      name: mandiName,
+      location: `${block || district}, ${district}, ${state}`,
+      arrivalQty: `${800 + Math.floor(Math.random()*600)} Quintal`,
+      modalPrice: base + 50 + Math.floor(Math.random()*100),
+      minPrice:   base,
+      maxPrice:   base + 100 + Math.floor(Math.random()*150),
+      date: dateFmt(),
+      source: 'data.gov.in (AGMARKNET)',
+      txId: `MANDI-${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}-${String(Math.floor(10000+Math.random()*90000))}`,
+    },
+    transparencyScore: 85 + Math.floor(Math.random()*13),
+  };
+}
+
+// ─── SVG Price Chart ───────────────────────────────────────────────
+function PriceChart({ journey }) {
+  if (!journey) return null;
+  const prices = STAGE_KEYS.map(k => journey.stages[k].price);
+  const minP = Math.min(...prices) - 200;
+  const maxP = Math.max(...prices) + 200;
+  const W = 560, H = 220, padX = 50, padY = 30;
+  const chartW = W - padX * 2, chartH = H - padY * 2;
+
+  const points = prices.map((p, i) => ({
+    x: padX + (i / (prices.length - 1)) * chartW,
+    y: padY + chartH - ((p - minP) / (maxP - minP)) * chartH,
+    price: p,
+    label: STAGE_META[STAGE_KEYS[i]].label,
+  }));
+
+  const linePath = points.map((pt, i) => `${i === 0 ? 'M' : 'L'}${pt.x},${pt.y}`).join(' ');
+  const areaPath = linePath + ` L${points[points.length-1].x},${padY+chartH} L${points[0].x},${padY+chartH} Z`;
+
+  // Grid lines
+  const gridCount = 4;
+  const gridLines = Array.from({ length: gridCount + 1 }, (_, i) => {
+    const val = minP + ((maxP - minP) / gridCount) * i;
+    const y = padY + chartH - ((val - minP) / (maxP - minP)) * chartH;
+    return { y, label: `₹${Math.round(val).toLocaleString('en-IN')}` };
+  });
+
   return (
-    <div className="flex flex-col items-center">
-      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center shadow-sm min-w-[110px]">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-        <p className="mt-1 text-xl font-extrabold text-[#2E7D32]">{fmt(price)}</p>
-        <p className="text-xs text-slate-400">/qtl</p>
-      </div>
-      {!isLast && added != null && (
-        <div className="flex flex-col items-center my-1">
-          <div className="w-px h-4 bg-amber-400" />
-          <span className="rounded-full bg-amber-50 border border-amber-300 px-2 py-0.5 text-xs font-bold text-amber-700">
-            {diff(prevPrice, price)}
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
+      {/* Grid */}
+      {gridLines.map((g, i) => (
+        <g key={i}>
+          <line x1={padX} y1={g.y} x2={W - padX} y2={g.y} stroke="#e2e8f0" strokeWidth="1" strokeDasharray="4,4" />
+          <text x={padX - 6} y={g.y + 4} textAnchor="end" fill="#94a3b8" fontSize="9" fontFamily="sans-serif">{g.label}</text>
+        </g>
+      ))}
+      {/* Area fill */}
+      <defs>
+        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#16a34a" stopOpacity="0.25" />
+          <stop offset="100%" stopColor="#16a34a" stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill="url(#areaGrad)" />
+      {/* Line */}
+      <path d={linePath} fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Points & labels */}
+      {points.map((pt, i) => (
+        <g key={i}>
+          <circle cx={pt.x} cy={pt.y} r="5" fill="white" stroke="#16a34a" strokeWidth="2.5" />
+          <text x={pt.x} y={pt.y - 12} textAnchor="middle" fill="#1e293b" fontSize="10" fontWeight="700" fontFamily="sans-serif">
+            {fmt(pt.price)}
+          </text>
+          {i < points.length - 1 && (
+            <text
+              x={(pt.x + points[i+1].x) / 2}
+              y={Math.min(pt.y, points[i+1].y) - 2}
+              textAnchor="middle" fill="#16a34a" fontSize="8" fontWeight="600" fontFamily="sans-serif"
+            >
+              +₹{points[i+1].price - pt.price}
+            </text>
+          )}
+          <text x={pt.x} y={padY + chartH + 16} textAnchor="middle" fill="#64748b" fontSize="8" fontFamily="sans-serif">{pt.label}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+// ─── Sub-components ────────────────────────────────────────────────
+function FilterSelect({ label, value, onChange, options, placeholder, disabled, required }) {
+  return (
+    <div className="flex-1 min-w-[140px]">
+      <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">
+        {label} {required && <span className="text-red-400">*</span>}
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32]/30 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400 transition appearance-none"
+      >
+        <option value="">{placeholder}</option>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function StageCard({ stageKey, stage, idx, isActive, isLast, onClick }) {
+  const meta = STAGE_META[stageKey];
+  const isCurrent = stage.status === 'current';
+  const isCompleted = stage.status === 'completed';
+  return (
+    <div className="flex items-center">
+      <button
+        onClick={() => onClick(stageKey)}
+        className={`
+          relative flex flex-col items-center rounded-2xl border-2 px-4 py-3 min-w-[120px] transition-all duration-200 cursor-pointer
+          ${isActive ? `${meta.border} ${meta.bg} shadow-md ring-2 ${meta.ring}` : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'}
+          ${isCurrent ? 'border-amber-400 ring-2 ring-amber-100' : ''}
+        `}
+      >
+        <span className="absolute -top-2.5 -left-1 flex h-5 w-5 items-center justify-center rounded-full bg-white border border-slate-200 text-[10px] font-extrabold text-slate-600 shadow-sm">
+          {idx + 1}
+        </span>
+        <span className="text-2xl mb-1">{meta.icon}</span>
+        <span className="text-xs font-bold text-slate-800">{meta.label}</span>
+        <span className="text-[10px] text-slate-500 mt-0.5 max-w-[100px] truncate">{stage.location?.split(',')[0]}</span>
+        {isCompleted && (
+          <span className="mt-1 inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+            ✓ Completed
           </span>
-          <div className="w-px h-4 bg-amber-400" />
+        )}
+        {isCurrent && (
+          <span className="mt-1 inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+            Current Stage
+          </span>
+        )}
+      </button>
+      {!isLast && (
+        <div className="flex items-center mx-1">
+          <div className="w-6 h-0.5 bg-slate-300" />
+          <svg className="w-2.5 h-2.5 text-slate-400 -ml-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </div>
       )}
     </div>
   );
 }
 
-function InfoRow({ label, value }) {
-  if (!value) return null;
+function FlowCard({ stageKey, stage, cropName, isLast, isCurrent }) {
+  const meta = STAGE_META[stageKey];
+  const [open, setOpen] = useState(false);
   return (
-    <div className="flex flex-col sm:flex-row sm:items-start gap-0.5 sm:gap-2 py-2 border-b border-slate-100 last:border-0">
-      <span className="min-w-[160px] text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</span>
-      <span className="text-sm font-medium text-slate-800">{value}</span>
+    <div className="flex items-start shrink-0">
+      <div className={`rounded-2xl border-2 ${isCurrent ? 'border-amber-400' : 'border-slate-200'} bg-white p-4 min-w-[180px] max-w-[200px] shadow-sm`}>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xl">{meta.icon}</span>
+          <span className="font-bold text-sm" style={{ color: meta.color }}>{meta.label}</span>
+        </div>
+        <div className="space-y-1.5 text-[11px]">
+          <div className="flex justify-between"><span className="text-slate-500">Location</span><span className="text-slate-800 font-medium text-right max-w-[100px] truncate">{stage.location?.split(',')[0]}</span></div>
+          <div className="flex justify-between"><span className="text-slate-500">Quantity</span><span className="text-slate-800 font-medium">{stage.quantity}</span></div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">{stageKey === 'consumer' ? 'Estimated Price' : 'Price'}</span>
+            <span className={`font-bold ${isCurrent ? 'text-red-600' : 'text-[#2E7D32]'}`}>{fmt(stage.price)}/q</span>
+          </div>
+          <div className="flex justify-between"><span className="text-slate-500">Date</span><span className={`text-slate-800 font-medium ${isCurrent ? 'text-red-500' : ''}`}>{stage.date}</span></div>
+        </div>
+        {open && (
+          <div className="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-600">
+            <p>Crop: {cropName}</p>
+            <p>Status: {isCurrent ? 'In Transit' : 'Completed'}</p>
+          </div>
+        )}
+        <button onClick={() => setOpen(!open)} className="mt-3 flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-[#2E7D32] transition">
+          {open ? 'Hide' : 'View'} Details
+          <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+      </div>
+      {!isLast && (
+        <div className="flex items-center mx-2 mt-10 shrink-0">
+          <div className="w-6 h-0.5 bg-slate-300" />
+          <svg className="w-2.5 h-2.5 text-slate-400 -ml-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </div>
+      )}
     </div>
   );
 }
 
-function PriceBadge({ children, accent }) {
-  return (
-    <span className={`inline-block rounded-xl px-3 py-1.5 text-base font-extrabold ${accent ? 'bg-[#2E7D32] text-white' : 'bg-green-50 text-[#2E7D32]'}`}>
-      {children}
-    </span>
-  );
-}
-
-export default function MarketExplorer({ onVoiceStart }) {
+// ─── Main Component ────────────────────────────────────────────────
+export default function MarketExplorer() {
   const { t } = useUser();
-  const { address, permissionStatus } = useLocationContext();
   const navigate = useNavigate();
 
-  const [query, setQuery] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [activeStage, setActiveStage] = useState('farmer');
-  const [searchError, setSearchError] = useState('');
-  const inputRef = useRef(null);
+  // Filter state
+  const [selState, setSelState] = useState('');
+  const [selDistrict, setSelDistrict] = useState('');
+  const [selBlock, setSelBlock] = useState('');
+  const [selMandi, setSelMandi] = useState('');
+  const [cropQuery, setCropQuery] = useState('');
+  const [showCropSuggestions, setShowCropSuggestions] = useState(false);
+  const [selectedCrop, setSelectedCrop] = useState('');
+  const cropInputRef = useRef(null);
 
-  const suggestions = query.trim().length > 0
-    ? mockCrops.filter((c) =>
-        c.name.toLowerCase().includes(query.toLowerCase()) ||
-        (c.nameHi && c.nameHi.includes(query)) ||
-        (c.nameMr && c.nameMr.includes(query)) ||
-        (c.namePa && c.namePa.includes(query))
-      )
-    : [];
+  // Journey state
+  const [journey, setJourney] = useState(null);
+  const [activeStage, setActiveStage] = useState('mandi');
+  const [loading, setLoading] = useState(false);
+  const [breadcrumb, setBreadcrumb] = useState(null);
 
-  const doSearch = (nameOrCrop) => {
-    const crop = typeof nameOrCrop === 'object'
-      ? nameOrCrop
-      : mockCrops.find((c) =>
-          c.name.toLowerCase().includes(nameOrCrop.toLowerCase()) ||
-          (c.nameHi && c.nameHi.includes(nameOrCrop))
-        );
+  // Discrepancy tags
+  const [selectedTags, setSelectedTags] = useState([]);
+  const discrepancyTags = ['Price Different', 'Quantity Different', 'Weighing Problem', 'Unauthorized Deduction', 'Transaction Missing', 'Other Issue'];
 
-    setShowSuggestions(false);
+  // Derived filter options
+  const states = useMemo(() => getStates(), []);
+  const districts = useMemo(() => getDistricts(selState), [selState]);
+  const blocks = useMemo(() => getBlocks(selState, selDistrict), [selState, selDistrict]);
+  const mandis = useMemo(() => getMandis(selState, selDistrict, selBlock), [selState, selDistrict, selBlock]);
 
-    if (!crop) {
-      setSelectedProduct(null);
-      setSearchError(t('explorer.noData'));
-      return;
-    }
+  // Crop suggestions
+  const cropSuggestions = useMemo(() => {
+    if (!cropQuery.trim()) return [];
+    const q = cropQuery.toLowerCase();
+    return CROP_LIST.filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      (c.nameHi && c.nameHi.includes(cropQuery)) ||
+      c.category.toLowerCase().includes(q)
+    ).slice(0, 8);
+  }, [cropQuery]);
 
-    const sc = mockSupplyChain.find((s) => s.cropId === crop.id);
-    if (!sc) {
-      setSelectedProduct(null);
-      setSearchError(t('explorer.noData'));
-      return;
-    }
+  // Filter handlers
+  const handleStateChange = (v) => { setSelState(v); setSelDistrict(''); setSelBlock(''); setSelMandi(''); setJourney(null); };
+  const handleDistrictChange = (v) => { setSelDistrict(v); setSelBlock(''); setSelMandi(''); setJourney(null); };
+  const handleBlockChange = (v) => { setSelBlock(v); setSelMandi(''); };
+  const handleMandiChange = (v) => { setSelMandi(v); };
 
-    const buyers = mockBuyers.filter((b) =>
-      b.cropRequired.toLowerCase() === crop.name.toLowerCase()
-    );
-
-    setSelectedProduct({ crop, sc, buyers });
-    setActiveStage('farmer');
-    setSearchError('');
-    setQuery(crop.name);
+  const selectCrop = (crop) => {
+    setSelectedCrop(crop.name);
+    setCropQuery(crop.name);
+    setShowCropSuggestions(false);
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    doSearch(query.trim());
+  const canSearch = selState && selDistrict && selectedCrop;
+
+  const viewJourney = () => {
+    if (!canSearch) return;
+    setLoading(true);
+    // Simulate API delay
+    setTimeout(() => {
+      const j = generateJourney(selectedCrop, selState, selDistrict, selBlock, selMandi);
+      setJourney(j);
+      setActiveStage('mandi');
+      setBreadcrumb({
+        state: selState,
+        district: selDistrict,
+        block: selBlock,
+        mandi: selMandi || `${selDistrict} Mandi`,
+        crop: selectedCrop,
+      });
+      setLoading(false);
+    }, 600);
   };
 
-  const renderStageDetail = () => {
-    if (!selectedProduct) return null;
-    const { crop, sc, buyers } = selectedProduct;
-
-    switch (activeStage) {
-      case 'farmer':
-        return (
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">👨‍🌾</span>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-[#2E7D32]">{t('explorer.farmerStageTitle')}</p>
-                <p className="text-xl font-extrabold text-slate-900">{crop.name}</p>
-              </div>
-            </div>
-            <div className="space-y-0">
-              <InfoRow label={t('explorer.product')} value={`${crop.icon || ''} ${crop.name} (${crop.category})`} />
-              <InfoRow label={t('explorer.farmLocation')} value={address?.formatted || (permissionStatus === 'idle' ? t('location.notSet') : sc.farmerLocation)} />
-              <InfoRow label={t('explorer.farmGatePrice')} value={`${fmt(sc.farmerCost)} / ${t('explorer.qtl')}`} />
-              <InfoRow label={t('explorer.quantityFlow')} value={sc.farmQuantity} />
-              <InfoRow label={t('explorer.distanceToWholesaler')} value={`${sc.wholesalerDistance} ${t('explorer.km')}`} />
-            </div>
-            {buyers.length > 0 && (
-              <div className="mt-5">
-                <p className="text-sm font-bold text-slate-700 mb-3">{t('explorer.nearbyBuyers')}</p>
-                <div className="space-y-2">
-                  {buyers.slice(0, 3).map((b) => (
-                    <div key={b.id} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
-                      <div>
-                        <p className="text-sm font-bold text-slate-800">{b.name}</p>
-                        <p className="text-xs text-slate-500">{b.location} · {b.distance} {t('explorer.km')}</p>
-                      </div>
-                      <PriceBadge>{fmt(b.pricePerQtl)}</PriceBadge>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  onClick={() => navigate('/buyers')}
-                  className="mt-3 w-full rounded-xl border border-[#2E7D32] py-2.5 text-sm font-bold text-[#2E7D32] hover:bg-green-50 transition"
-                >
-                  {t('explorer.compareBuyers')}
-                </button>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'mandi':
-        return (
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">🏛️</span>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-amber-600">{t('explorer.stageMandi')}</p>
-                <p className="text-xl font-extrabold text-slate-900">{sc.mandiName}</p>
-              </div>
-            </div>
-            <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
-              <p className="text-xs text-amber-700 font-semibold">{t('explorer.mandiPrice')}</p>
-              <p className="text-2xl font-extrabold text-amber-800 mt-1">{fmt(sc.mandiPrice)} <span className="text-base font-medium">/ {t('explorer.qtl')}</span></p>
-            </div>
-            <div className="space-y-0">
-              <InfoRow label={t('explorer.location')} value={sc.mandiName} />
-              <InfoRow label={t('explorer.distance')} value={`${sc.mandiDistance} ${t('explorer.km')} ${t('explorer.transportFrom')} ${t('explorer.farmerStageTitle')}`} />
-              <InfoRow label={t('explorer.msPrice')} value={`${fmt(sc.farmerCost)} / ${t('explorer.qtl')}`} />
-            </div>
-          </div>
-        );
-
-      case 'wholesaler':
-        return (
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">🏪</span>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-blue-600">{t('explorer.stageWholesaler')}</p>
-                <p className="text-xl font-extrabold text-slate-900">{sc.wholesalerName}</p>
-              </div>
-            </div>
-            <div className="mb-4 rounded-xl bg-blue-50 border border-blue-200 px-4 py-3">
-              <p className="text-xs text-blue-700 font-semibold">{t('explorer.purchasePrice')}</p>
-              <p className="text-2xl font-extrabold text-blue-800 mt-1">{fmt(sc.wholesalerCost)} <span className="text-base font-medium">/ {t('explorer.qtl')}</span></p>
-            </div>
-            <div className="space-y-0">
-              <InfoRow label={t('explorer.location')} value={sc.wholesalerLocation} />
-              <InfoRow label={t('explorer.distance')} value={`${sc.wholesalerDistance} ${t('explorer.km')}`} />
-              <InfoRow label={t('explorer.quantityAccepted')} value={sc.wholesalerQuantityAccepted} />
-              <InfoRow label={t('explorer.transportArrangement')} value={sc.wholesalerTransport} />
-            </div>
-            {}
-            <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
-              <p className="text-sm font-bold text-blue-800 mb-3">{t('explorer.wholesalerMarket')}</p>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-xl bg-white border border-blue-100 p-3 text-center">
-                  <p className="text-2xl font-extrabold text-blue-700">{sc.wholesalerActiveCount}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{t('explorer.activeBuyers')}</p>
-                </div>
-                <div className="rounded-xl bg-white border border-blue-100 p-3 text-center">
-                  <p className="text-lg font-extrabold text-[#2E7D32]">{fmt(sc.wholesalerBestPrice)}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{t('explorer.bestOffer')}</p>
-                </div>
-                <div className="rounded-xl bg-white border border-blue-100 p-3 text-center">
-                  <p className="text-lg font-extrabold text-slate-700">{fmt(sc.wholesalerAvgPrice)}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{t('explorer.avgPrice')}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'distributor':
-        return (
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">🚚</span>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-violet-600">{t('explorer.stageDistributor')}</p>
-                <p className="text-xl font-extrabold text-slate-900">{sc.distributorName}</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="rounded-xl bg-violet-50 border border-violet-200 px-4 py-3 text-center">
-                <p className="text-xs text-violet-700 font-semibold">{t('explorer.purchasePrice')}</p>
-                <p className="text-xl font-extrabold text-violet-800 mt-1">{fmt(sc.distributorCost)}</p>
-              </div>
-              <div className="rounded-xl bg-violet-100 border border-violet-300 px-4 py-3 text-center">
-                <p className="text-xs text-violet-800 font-semibold">{t('explorer.sellingPrice')}</p>
-                <p className="text-xl font-extrabold text-violet-900 mt-1">{fmt(sc.distributorSelling)}</p>
-              </div>
-            </div>
-            <div className="space-y-0">
-              <InfoRow label={t('explorer.location')} value={sc.distributorLocation} />
-              <InfoRow label={t('explorer.distance')} value={`${sc.distributorDistance} ${t('explorer.km')}`} />
-              <InfoRow label={t('explorer.transportMode')} value={sc.distributorTransportMode} />
-              <InfoRow label={t('explorer.transportPaidBy')} value={sc.distributorTransportPayer} />
-              <InfoRow label={t('explorer.transportEstTime')} value={sc.distributorEstHours} />
-            </div>
-          </div>
-        );
-
-      case 'retailer':
-        return (
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">🛒</span>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-rose-600">{t('explorer.stageRetailer')}</p>
-                <p className="text-xl font-extrabold text-slate-900">{sc.retailerName}</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-center">
-                <p className="text-xs text-rose-700 font-semibold">{t('explorer.retailPurchase')}</p>
-                <p className="text-xl font-extrabold text-rose-800 mt-1">{fmt(sc.retailerCost)}</p>
-              </div>
-              <div className="rounded-xl bg-rose-100 border border-rose-300 px-4 py-3 text-center">
-                <p className="text-xs text-rose-800 font-semibold">{t('explorer.retailSelling')}</p>
-                <p className="text-xl font-extrabold text-rose-900 mt-1">{fmt(sc.consumerPrice)}</p>
-              </div>
-            </div>
-            <div className="space-y-0">
-              <InfoRow label={t('explorer.retailerType')} value={sc.retailerType} />
-              <InfoRow label={t('explorer.location')} value={sc.retailerLocation} />
-              <InfoRow label={t('explorer.marketServed')} value={sc.retailerMarket} />
-            </div>
-          </div>
-        );
-
-      case 'consumer':
-        return (
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">👤</span>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{t('explorer.stageConsumer')}</p>
-                <p className="text-xl font-extrabold text-slate-900">{t('explorer.consumer')}</p>
-              </div>
-            </div>
-            <div className="mb-4 rounded-xl bg-slate-800 px-4 py-4 text-center">
-              <p className="text-xs text-slate-300 font-semibold">{t('explorer.consumer')}</p>
-              <p className="text-3xl font-extrabold text-white mt-1">{fmt(sc.consumerPrice)}</p>
-              <p className="text-slate-400 text-sm">/ {t('explorer.qtl')}</p>
-            </div>
-            <div className="rounded-xl border border-green-200 bg-green-50 p-4">
-              <p className="text-sm font-bold text-slate-700 mb-2">{t('explorer.marketInsightTitle')}</p>
-              {buyers.length > 0 && (
-                <p className="text-sm text-slate-700">
-                  {t('explorer.insightNearest', { dist: buyers.slice().sort((a,b)=>a.distance-b.distance)[0]?.distance })}
-                </p>
-              )}
-              {buyers.length > 0 && (
-                <p className="text-sm text-slate-700">
-                  {t('explorer.insightBestOffer', { price: Number(buyers.slice().sort((a,b)=>b.pricePerQtl-a.pricePerQtl)[0]?.pricePerQtl).toLocaleString('en-IN') })}
-                </p>
-              )}
-              <p className="text-sm text-slate-700">
-                {t('explorer.insightConsumer', { price: Number(sc.consumerPrice).toLocaleString('en-IN') })}
-              </p>
-              <p className="text-sm font-semibold text-[#2E7D32] mt-1">{t('explorer.insightCompare')}</p>
-            </div>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  const priceLadder = selectedProduct
-    ? [
-        { key: 'farmGate', label: t('explorer.farmGate'), price: selectedProduct.sc.farmerCost },
-        { key: 'mandi', label: t('explorer.mandi'), price: selectedProduct.sc.mandiPrice },
-        { key: 'wholesale', label: t('explorer.wholesale'), price: selectedProduct.sc.wholesalerCost },
-        { key: 'retail', label: t('explorer.retail'), price: selectedProduct.sc.retailerCost },
-        { key: 'consumer', label: t('explorer.consumer'), price: selectedProduct.sc.consumerPrice },
-      ]
-    : [];
+  const activeStageData = journey ? journey.stages[activeStage] : null;
+  const totalIncrease = journey
+    ? journey.stages.consumer.price - journey.stages.farmer.price
+    : 0;
 
   return (
-    <section className="mx-auto w-full max-w-5xl">
-      {}
-      <header className="mb-7">
-        <p className="text-xs font-extrabold uppercase tracking-widest text-[#2E7D32]">
-          {t('explorer.tagline')}
-        </p>
-        <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-          {t('explorer.heading')}
-        </h1>
-        <p className="mt-2 max-w-2xl rounded-lg bg-white/65 px-3 py-2 text-sm font-medium leading-6 text-slate-800 backdrop-blur-sm">
-          {t('explorer.subtitle')}
-        </p>
-      </header>
+    <div className="mx-auto max-w-7xl px-4 pt-24 sm:px-6 lg:pt-28 pb-12">
 
-      {}
-      <form onSubmit={handleSubmit} className="relative flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1110.5 3a7.5 7.5 0 016.15 13.65z" />
-            </svg>
-          </span>
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setShowSuggestions(true);
-            }}
-            onFocus={() => setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-            placeholder={t('explorer.searchPlaceholder')}
-            aria-label={t('explorer.searchLabel')}
-            className="w-full rounded-2xl border border-slate-200 bg-white py-4 pl-12 pr-4 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#2E7D32] focus:ring-4 focus:ring-green-100"
-          />
-          {}
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute left-0 right-0 top-full z-30 mt-1 rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
-              <p className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                {t('explorer.suggestionsLabel')}
-              </p>
-              {suggestions.map((crop) => (
-                <button
-                  key={crop.id}
-                  type="button"
-                  onMouseDown={() => doSearch(crop)}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-green-50 transition"
-                >
-                  <span className="text-xl">{crop.icon}</span>
-                  <div>
-                    <p className="text-sm font-bold text-slate-800">{crop.name}</p>
-                    <p className="text-xs text-slate-400">{crop.nameHi} · {crop.category}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+      {/* ─── Header Row ─────────────────────────────────────────── */}
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
+        {/* Title */}
+        <div>
+          <h1 className="text-3xl font-extrabold text-white drop-shadow-md flex items-center gap-2">
+            🌾 Crop Journey
+          </h1>
+          <p className="mt-1 text-sm text-white/80 font-medium">
+            Track your crop from farm to consumer — every step, every price
+          </p>
         </div>
-        <button
-          type="submit"
-          className="rounded-2xl bg-[#2E7D32] px-6 py-4 text-base font-bold text-white shadow-sm transition hover:bg-[#256428] focus:outline-none focus:ring-4 focus:ring-green-200"
-        >
-          {t('explorer.searchButton')}
-        </button>
-      </form>
 
-      {}
-      {searchError && !selectedProduct && (
-        <p className="mt-3 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm font-medium text-red-700">
-          {searchError}
-        </p>
-      )}
-
-      {}
-      {!selectedProduct && !searchError && (
-        <div className="mt-8 rounded-3xl border border-dashed border-green-200 bg-green-50/80 p-8 text-center">
-          <p className="text-base font-bold text-slate-800">{t('explorer.emptyTitle')}</p>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-1 rounded-xl bg-white/65 px-3 py-2 text-sm font-semibold text-slate-800 backdrop-blur-sm">
-            {t('explorer.emptyFlow').split('→').map((stage, i, arr) => (
-              <span key={i} className="flex items-center gap-1">
-                <span className="rounded-lg bg-white border border-green-200 px-2 py-1 text-xs font-bold text-[#2E7D32]">
-                  {stage.trim()}
-                </span>
-                {i < arr.length - 1 && <span className="text-amber-500 font-bold">→</span>}
-              </span>
-            ))}
-          </div>
-          <p className="mt-3 text-sm text-slate-500">{t('explorer.emptySubtitle')}</p>
-        </div>
-      )}
-
-      {}
-      {selectedProduct && (() => {
-        const { crop, sc, buyers } = selectedProduct;
-
-        const stageLabels = {
-          farmer:      t('explorer.stageFarmer'),
-          mandi:       t('explorer.stageMandi'),
-          wholesaler:  t('explorer.stageWholesaler'),
-          distributor: t('explorer.stageDistributor'),
-          retailer:    t('explorer.stageRetailer'),
-          consumer:    t('explorer.stageConsumer'),
-        };
-
-        const stagePrices = {
-          farmer:      sc.farmerCost,
-          mandi:       sc.mandiPrice,
-          wholesaler:  sc.wholesalerCost,
-          distributor: sc.distributorCost,
-          retailer:    sc.retailerCost,
-          consumer:    sc.consumerPrice,
-        };
-
-        return (
-          <>
-            {}
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-4xl">{crop.icon}</span>
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-[#2E7D32]">
-                      {t('explorer.productSummaryLabel')}
-                    </p>
-                    <h2 className="text-2xl font-extrabold text-slate-900">{crop.name}</h2>
-                    <p className="text-xs text-slate-500">{crop.category} · {address?.locality || address?.city || address?.district || sc.farmerLocation}</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-2 text-center">
-                    <p className="text-xs text-slate-500">{t('explorer.farmGatePrice')}</p>
-                    <p className="text-lg font-extrabold text-[#2E7D32]">{fmt(sc.farmerCost)}</p>
-                  </div>
-                  <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-2 text-center">
-                    <p className="text-xs text-slate-500">{t('explorer.mandiPrice')}</p>
-                    <p className="text-lg font-extrabold text-amber-700">{fmt(sc.mandiPrice)}</p>
-                  </div>
-                  <div className="rounded-xl bg-slate-800 px-4 py-2 text-center">
-                    <p className="text-xs text-slate-300">{t('explorer.totalJourneyKm')}</p>
-                    <p className="text-lg font-extrabold text-white">{sc.distance} {t('explorer.km')}</p>
-                  </div>
-                </div>
+        {/* Transparency + Last Updated cards (only shown when journey active) */}
+        {journey && (
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Transparency Score */}
+            <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 px-5 py-4 shadow-sm flex items-center gap-4 min-w-[260px]">
+              <div className="relative flex items-center justify-center">
+                <svg width="64" height="64" viewBox="0 0 64 64">
+                  <circle cx="32" cy="32" r="28" fill="none" stroke="#e2e8f0" strokeWidth="5" />
+                  <circle cx="32" cy="32" r="28" fill="none" stroke="#16a34a" strokeWidth="5"
+                    strokeDasharray={`${(journey.transparencyScore / 100) * 176} 176`}
+                    strokeLinecap="round" transform="rotate(-90 32 32)" />
+                </svg>
+                <span className="absolute text-lg font-extrabold text-[#2E7D32]">{journey.transparencyScore}</span>
               </div>
-            </div>
-
-            <SupplyChainVerification
-              recordId={`SC-CROP-${crop.id}`}
-              product={crop.name}
-              stage="Farm to consumer"
-            />
-
-            {}
-            <div className="mt-6">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
-                  {t('explorer.supplyChainTitle')}
-                </h3>
-                <p className="text-xs text-slate-400">{t('explorer.clickStageHint')}</p>
-              </div>
-
-              {}
-              <div className="hidden sm:flex items-center gap-0 overflow-x-auto pb-2">
-                {STAGE_KEYS.map((key, idx) => {
-                  const meta = STAGE_META[key];
-                  const isActive = activeStage === key;
-                  return (
-                    <div key={key} className="flex items-center shrink-0">
-                      <button
-                        onClick={() => setActiveStage(key)}
-                        className={`flex flex-col items-center gap-2 rounded-2xl border-2 px-4 py-4 transition focus:outline-none focus:ring-2 focus:ring-[#2E7D32] min-w-[90px] ${
-                          isActive
-                            ? `${meta.borderClass} ${meta.colorClass} text-white shadow-md`
-                            : 'border-slate-200 bg-white text-slate-700 hover:border-green-400 hover:bg-green-50'
-                        }`}
-                      >
-                        <span className="text-2xl">{meta.icon}</span>
-                        <span className="text-xs font-bold text-center leading-tight">{stageLabels[key]}</span>
-                        <span className={`text-sm font-extrabold ${isActive ? 'text-white' : 'text-[#2E7D32]'}`}>
-                          {fmt(stagePrices[key])}
-                        </span>
-                      </button>
-                      {idx < STAGE_KEYS.length - 1 && (
-                        <div className="flex flex-col items-center mx-1">
-                          <span className="text-amber-500 font-bold text-lg">→</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {}
-              <div className="sm:hidden grid grid-cols-3 gap-2">
-                {STAGE_KEYS.map((key) => {
-                  const meta = STAGE_META[key];
-                  const isActive = activeStage === key;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => setActiveStage(key)}
-                      className={`flex flex-col items-center gap-1 rounded-2xl border-2 p-3 transition focus:outline-none ${
-                        isActive
-                          ? `${meta.borderClass} ${meta.colorClass} text-white shadow-md`
-                          : 'border-slate-200 bg-white text-slate-700'
-                      }`}
-                    >
-                      <span className="text-xl">{meta.icon}</span>
-                      <span className="text-xs font-bold text-center leading-tight">{stageLabels[key]}</span>
-                      <span className={`text-xs font-extrabold ${isActive ? 'text-white' : 'text-[#2E7D32]'}`}>
-                        {fmt(stagePrices[key])}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {}
-            <div className="mt-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              {renderStageDetail()}
-            </div>
-
-            {}
-            <div className="mt-6 rounded-3xl border border-white/20 bg-black/60 backdrop-blur-md p-5 shadow-lg sm:p-6">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400 mb-1">
-                {t('explorer.priceProgressionTitle')}
-              </h3>
-              <p className="text-xs text-white/70 mb-5">{t('explorer.priceProgressionSubtitle')}</p>
-
-              {}
-              <div className="flex flex-col items-center sm:hidden gap-0">
-                {priceLadder.map((step, i) => (
-                  <PriceStep
-                    key={step.key}
-                    label={step.label}
-                    price={step.price}
-                    prevPrice={i > 0 ? priceLadder[i - 1].price : null}
-                    isLast={i === priceLadder.length - 1}
-                  />
-                ))}
-              </div>
-
-              {}
-              <div className="hidden sm:flex items-stretch gap-2 overflow-x-auto">
-                {priceLadder.map((step, i) => (
-                  <div key={step.key} className="flex items-center gap-2">
-                    <div className="rounded-2xl border border-white/20 bg-white/10 px-4 py-4 text-center shadow-sm min-w-[100px]">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-300">{step.label}</p>
-                      <p className="mt-1 text-xl font-extrabold text-white">{fmt(step.price)}</p>
-                      <p className="text-xs text-white/60">/qtl</p>
-                    </div>
-                    {i < priceLadder.length - 1 && (
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-xs font-bold text-amber-300 bg-amber-900/60 border border-amber-500/40 rounded-full px-2 py-0.5">
-                          {diff(step.price, priceLadder[i + 1].price)}
-                        </span>
-                        <span className="text-amber-400 font-bold">→</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <p className="mt-4 text-xs text-white/60 text-center">{t('explorer.notProfit')}</p>
-            </div>
-
-            {}
-            <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 sm:p-6">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 mb-4">
-                {t('explorer.transportTitle')}
-              </h3>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {}
-                <div className="rounded-2xl bg-amber-50 border border-amber-100 p-4">
-                  <p className="text-xs font-bold text-amber-700 mb-2">
-                    {t('explorer.stageFarmer')} → {t('explorer.stageMandi')}
-                  </p>
-                  <InfoRow label={t('explorer.transportDistance')} value={`${sc.mandiDistance} ${t('explorer.km')}`} />
-                  <InfoRow label={t('explorer.transportMode')} value={t('explorer.road')} />
-                  <InfoRow label={t('explorer.transportPaidBy')} value={t('explorer.stageFarmer')} />
-                </div>
-                {}
-                <div className="rounded-2xl bg-violet-50 border border-violet-100 p-4">
-                  <p className="text-xs font-bold text-violet-700 mb-2">
-                    {t('explorer.stageWholesaler')} → {t('explorer.stageDistributor')}
-                  </p>
-                  <InfoRow label={t('explorer.transportDistance')} value={`${sc.distributorDistance} ${t('explorer.km')}`} />
-                  <InfoRow label={t('explorer.transportMode')} value={sc.distributorTransportMode} />
-                  <InfoRow label={t('explorer.transportPaidBy')} value={sc.distributorTransportPayer} />
-                  <InfoRow label={t('explorer.transportEstTime')} value={sc.distributorEstHours} />
-                </div>
-              </div>
-            </div>
-
-            {}
-            {buyers.length > 0 && (
-              <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 sm:p-6">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 mb-4">
-                  {t('explorer.nearbyBuyers')}
-                </h3>
-                <div className="space-y-3">
-                  {buyers.slice(0, 3).map((b, i) => (
-                    <div key={b.id} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#2E7D32] text-xs font-bold text-white">
-                          {i + 1}
-                        </span>
-                        <div>
-                          <p className="text-sm font-bold text-slate-800">{b.name}</p>
-                          <p className="text-xs text-slate-500">{b.type} · {b.location}</p>
-                          <p className="text-xs text-slate-500">{b.distance} {t('explorer.km')}</p>
-                        </div>
-                      </div>
-                      <PriceBadge>{fmt(b.pricePerQtl)}<span className="text-xs font-normal">/qtl</span></PriceBadge>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Transparency Score</p>
+                <p className="text-sm font-extrabold text-[#2E7D32]">{journey.transparencyScore}/100</p>
+                <p className="text-[10px] text-emerald-600 font-semibold">Highly Transparent</p>
+                <div className="mt-1.5 space-y-0.5">
+                  {['Government Data', 'Buyer Verified', 'Digital Records', 'Secure Records', 'Location Tracking'].map(item => (
+                    <div key={item} className="flex items-center gap-1.5 text-[10px]">
+                      <span className="text-emerald-500">✓</span>
+                      <span className="text-slate-600">{item}</span>
+                      <span className="ml-auto text-slate-400 font-medium">Yes</span>
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+
+            {/* Last Updated */}
+            <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 px-5 py-4 shadow-sm min-w-[180px]">
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Last Updated</span>
+              </div>
+              <p className="text-sm font-extrabold text-slate-900">{dateFmt()}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
+              <div className="mt-3">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Data Source</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-[#2E7D32]">data.gov.in</span>
+                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">eNAM</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Filter Section ─────────────────────────────────────── */}
+      <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-5 shadow-sm mb-4">
+        <div className="flex flex-col md:flex-row gap-3 items-end">
+          <FilterSelect label="State" value={selState} onChange={handleStateChange}
+            options={states} placeholder="Select State" required />
+          <FilterSelect label="District" value={selDistrict} onChange={handleDistrictChange}
+            options={districts} placeholder="Select District" disabled={!selState} required />
+          <FilterSelect label="Block / Tehsil (Optional)" value={selBlock} onChange={handleBlockChange}
+            options={blocks} placeholder="Select Block" disabled={!selDistrict} />
+          <FilterSelect label="Market / Mandi (Optional)" value={selMandi} onChange={handleMandiChange}
+            options={mandis} placeholder="Select Mandi" disabled={!selDistrict} />
+
+          {/* Crop Search */}
+          <div className="flex-1 min-w-[160px] relative">
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">
+              Crop / Commodity <span className="text-red-400">*</span>
+            </label>
+            <div className="relative">
+              <input
+                ref={cropInputRef}
+                type="text"
+                value={cropQuery}
+                onChange={(e) => { setCropQuery(e.target.value); setSelectedCrop(''); setShowCropSuggestions(true); }}
+                onFocus={() => { if (cropQuery) setShowCropSuggestions(true); }}
+                placeholder="Search crop..."
+                className="w-full rounded-lg border border-slate-200 bg-white pl-3 pr-8 py-2 text-sm text-slate-800 shadow-sm focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32]/30 focus:outline-none transition"
+              />
+              {cropQuery && (
                 <button
-                  onClick={() => navigate('/buyers')}
-                  className="mt-4 w-full rounded-2xl border-2 border-[#2E7D32] py-3 text-sm font-bold text-[#2E7D32] hover:bg-green-50 transition"
-                >
-                  {t('explorer.compareBuyers')}
-                </button>
+                  onClick={() => { setCropQuery(''); setSelectedCrop(''); setShowCropSuggestions(false); }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-lg leading-none"
+                >×</button>
+              )}
+            </div>
+            {/* Suggestions dropdown */}
+            {showCropSuggestions && cropSuggestions.length > 0 && (
+              <div className="absolute z-50 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg max-h-52 overflow-y-auto">
+                {cropSuggestions.map(c => (
+                  <button key={c.name}
+                    onClick={() => selectCrop(c)}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-emerald-50 transition"
+                  >
+                    <span className="text-base">{c.icon}</span>
+                    <span className="font-semibold text-slate-800">{c.name}</span>
+                    {c.nameHi && <span className="text-slate-400 text-xs">({c.nameHi})</span>}
+                    <span className="ml-auto text-[10px] rounded-full bg-slate-100 px-2 py-0.5 text-slate-500 font-medium">{c.category}</span>
+                  </button>
+                ))}
               </div>
             )}
+          </div>
 
-            {}
-            <div className="mt-6 rounded-3xl border border-white/20 bg-black/60 backdrop-blur-md p-5 shadow-lg sm:p-6">
-              <div className="flex items-start gap-4">
-                <div className="shrink-0 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2E7D32]">
-                  <img src="/saathi-mic-logo.png" alt="SAATHI AI" className="h-8 w-8 object-contain" />
+          {/* View Journey Button */}
+          <button
+            onClick={viewJourney}
+            disabled={!canSearch || loading}
+            className={`
+              shrink-0 rounded-xl px-6 py-2.5 text-sm font-bold shadow-sm transition-all duration-200
+              ${canSearch && !loading
+                ? 'bg-[#2E7D32] text-white hover:bg-[#256c29] active:scale-[0.97]'
+                : 'bg-slate-200 text-slate-400 cursor-not-allowed'}
+            `}
+          >
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="31.4 31.4" strokeLinecap="round"/></svg>
+                Loading…
+              </span>
+            ) : 'View Journey'}
+          </button>
+        </div>
+
+        {/* Breadcrumb */}
+        {breadcrumb && (
+          <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+            <span className="text-slate-400">📍</span>
+            <span>Showing data for:</span>
+            <span className="text-slate-700 font-semibold">{breadcrumb.state}</span>
+            <span className="text-slate-300">›</span>
+            <span className="text-slate-700 font-semibold">{breadcrumb.district}</span>
+            {breadcrumb.block && <>
+              <span className="text-slate-300">›</span>
+              <span className="text-slate-700 font-semibold">{breadcrumb.block}</span>
+            </>}
+            <span className="text-slate-300">›</span>
+            <span className="text-slate-700 font-semibold">{breadcrumb.mandi}</span>
+            <span className="text-slate-300">›</span>
+            <span className="text-[#2E7D32] font-bold">{breadcrumb.crop}</span>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Empty state ────────────────────────────────────────── */}
+      {!journey && !loading && (
+        <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-12 shadow-sm text-center">
+          <div className="text-6xl mb-4">🌾</div>
+          <h2 className="text-xl font-extrabold text-slate-800 mb-2">Start Your Crop Journey</h2>
+          <p className="text-sm text-slate-500 max-w-md mx-auto">
+            Select a <strong>State</strong>, <strong>District</strong>, and <strong>Crop</strong> above, then click <strong>"View Journey"</strong> to track your crop's path from farm to consumer with real-time price data.
+          </p>
+          <div className="mt-6 flex items-center justify-center gap-6 text-slate-400 text-sm">
+            <div className="flex items-center gap-1.5"><span>👨‍🌾</span> Farmer</div>
+            <span>→</span>
+            <div className="flex items-center gap-1.5"><span>🏛️</span> Mandi</div>
+            <span>→</span>
+            <div className="flex items-center gap-1.5"><span>🏪</span> Wholesaler</div>
+            <span>→</span>
+            <div className="flex items-center gap-1.5"><span>🚚</span> Distributor</div>
+            <span>→</span>
+            <div className="flex items-center gap-1.5"><span>🛒</span> Retailer</div>
+            <span>→</span>
+            <div className="flex items-center gap-1.5"><span>👤</span> Consumer</div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Loading skeleton ───────────────────────────────────── */}
+      {loading && (
+        <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-8 shadow-sm">
+          <div className="flex gap-4 overflow-hidden">
+            {STAGE_KEYS.map((_, i) => (
+              <div key={i} className="flex items-center">
+                <div className="rounded-2xl border-2 border-slate-100 p-4 min-w-[120px] animate-pulse">
+                  <div className="h-8 w-8 rounded-full bg-slate-200 mx-auto mb-2" />
+                  <div className="h-3 w-16 rounded bg-slate-200 mx-auto mb-1" />
+                  <div className="h-2 w-12 rounded bg-slate-100 mx-auto" />
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-white">{t('explorer.askSaathiCTA')}</p>
-                  <div className="mt-2 space-y-1">
-                    <p className="text-xs text-white/70">{t('explorer.aiQuestion1')}</p>
-                    <p className="text-xs text-white/70">{t('explorer.aiQuestion2')}</p>
-                    <p className="text-xs text-white/70">{t('explorer.aiQuestion3')}</p>
-                  </div>
+                {i < 5 && <div className="w-8 h-0.5 bg-slate-100 mx-1" />}
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 h-60 rounded-2xl bg-slate-100 animate-pulse" />
+            <div className="h-60 rounded-2xl bg-slate-100 animate-pulse" />
+          </div>
+        </div>
+      )}
+
+      {/* ─── Journey Content ────────────────────────────────────── */}
+      {journey && !loading && (
+        <>
+          {/* Timeline */}
+          <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-5 shadow-sm mb-4 overflow-x-auto">
+            <div className="flex items-center gap-0 min-w-max">
+              {STAGE_KEYS.map((key, i) => (
+                <StageCard
+                  key={key}
+                  stageKey={key}
+                  stage={journey.stages[key]}
+                  idx={i}
+                  isActive={activeStage === key}
+                  isLast={i === STAGE_KEYS.length - 1}
+                  onClick={setActiveStage}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+            {/* Left Column: Price Chart + Why Price Changed */}
+            <div className="lg:col-span-2 space-y-4">
+              {/* Price Journey Chart */}
+              <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-extrabold text-slate-800">Price Journey (₹ per Quintal)</h3>
+                  <span className="text-[10px] rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-500">Price per Quintal</span>
+                </div>
+                <PriceChart journey={journey} />
+              </div>
+
+              {/* Why Price Changed */}
+              <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-5 shadow-sm">
+                <h3 className="text-sm font-extrabold text-slate-800 mb-4">Why Price Changed?</h3>
+                <div className="space-y-3">
+                  {[
+                    { label: 'Transport Cost', value: journey.costs.transport },
+                    { label: 'Storage Cost', value: journey.costs.storage },
+                    { label: 'Handling Cost', value: journey.costs.handling },
+                    { label: 'Market Charges & Taxes', value: journey.costs.marketCharges },
+                    { label: 'Estimated Margin', value: journey.costs.margin },
+                  ].map(item => (
+                    <div key={item.label} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                        <span className="text-sm text-slate-700">{item.label}</span>
+                      </div>
+                      <span className="text-sm font-bold text-amber-600">+₹{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 pt-3 border-t-2 border-slate-200 flex items-center justify-between">
+                  <span className="text-sm font-extrabold text-slate-800">Total Increase</span>
+                  <span className="text-base font-extrabold text-red-600">+₹{totalIncrease}</span>
                 </div>
               </div>
-              <button
-                onClick={onVoiceStart}
-                className="mt-4 w-full rounded-2xl bg-[#2E7D32] py-3 text-sm font-bold text-white hover:bg-[#256428] transition shadow-md"
-              >
-                {t('explorer.askSaathi')}
-              </button>
             </div>
 
-            {}
-            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <button
-                onClick={() => navigate('/buyers')}
-                className="rounded-2xl border-2 border-emerald-400 bg-black/50 backdrop-blur-sm py-3 text-sm font-bold text-white hover:bg-emerald-700 transition shadow-md"
-              >
-                {t('explorer.findBuyers')}
-              </button>
-              <button
-                onClick={() => navigate('/prices')}
-                className="rounded-2xl border-2 border-amber-400 bg-black/50 backdrop-blur-sm py-3 text-sm font-bold text-amber-300 hover:bg-amber-700 transition shadow-md"
-              >
-                {t('explorer.viewMarketPrices')}
-              </button>
-              <button
-                onClick={onVoiceStart}
-                className="col-span-2 sm:col-span-1 rounded-2xl bg-[#2E7D32] py-3 text-sm font-bold text-white hover:bg-[#256428] transition shadow-md"
-              >
-                {t('explorer.askSaathi')}
-              </button>
+            {/* Right Column: Stage Details + Report */}
+            <div className="space-y-4">
+              {/* Stage Details */}
+              <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-extrabold text-slate-800">Stage Details</h3>
+                  <span className="text-[10px] rounded-full bg-emerald-100 px-2 py-0.5 font-bold text-emerald-700">
+                    Stage {STAGE_KEYS.indexOf(activeStage) + 1} of {STAGE_KEYS.length}
+                  </span>
+                </div>
+                <h4 className="text-lg font-extrabold text-slate-900 mb-4">{STAGE_META[activeStage].label}</h4>
+                <div className="space-y-3">
+                  {activeStage === 'mandi' || activeStage === 'farmer' ? (
+                    <>
+                      <DetailRow icon="🏛" label="Market Name" value={journey.mandiDetails.name} />
+                      <DetailRow icon="📍" label="Location" value={journey.mandiDetails.location} />
+                      <DetailRow icon="📦" label="Arrival Quantity" value={journey.mandiDetails.arrivalQty} />
+                      <DetailRow icon="💰" label="Modal Price (₹/q)" value={fmt(journey.mandiDetails.modalPrice)} />
+                      <DetailRow icon="📉" label="Min Price (₹/q)" value={fmt(journey.mandiDetails.minPrice)} />
+                      <DetailRow icon="📈" label="Max Price (₹/q)" value={fmt(journey.mandiDetails.maxPrice)} />
+                      <DetailRow icon="📅" label="Date" value={journey.mandiDetails.date} />
+                      <DetailRow icon="🌐" label="Source" value={journey.mandiDetails.source} />
+                      <DetailRow icon="🔗" label="Transaction ID" value={journey.mandiDetails.txId} highlight />
+                    </>
+                  ) : (
+                    <>
+                      <DetailRow icon="📍" label="Location" value={activeStageData?.location} />
+                      <DetailRow icon="📦" label="Quantity" value={activeStageData?.quantity} />
+                      <DetailRow icon="💰" label="Price (₹/q)" value={fmt(activeStageData?.price)} />
+                      <DetailRow icon="📅" label="Date" value={activeStageData?.date} />
+                      <DetailRow icon="📊" label="Status" value={activeStageData?.status === 'completed' ? '✓ Completed' : '⏳ Current Stage'} />
+                    </>
+                  )}
+                </div>
+                <a
+                  href="https://agmarknet.gov.in/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 flex items-center justify-center gap-2 w-full rounded-xl bg-[#2E7D32] py-2.5 text-sm font-bold text-white hover:bg-[#256c29] transition shadow-sm"
+                >
+                  View Source <span className="text-xs">↗</span>
+                </a>
+              </div>
+
+              {/* Report a Discrepancy */}
+              <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-red-100 p-5 shadow-sm">
+                <h3 className="text-sm font-extrabold text-red-600 flex items-center gap-1.5 mb-3">
+                  ⚠️ Report a Discrepancy
+                </h3>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {discrepancyTags.map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
+                      className={`rounded-full px-3 py-1.5 text-[11px] font-semibold border transition ${
+                        selectedTags.includes(tag)
+                          ? 'bg-red-50 border-red-300 text-red-700'
+                          : 'bg-white border-slate-200 text-slate-600 hover:border-red-200'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+                <button className="w-full rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white hover:bg-red-700 transition shadow-sm">
+                  Report Now
+                </button>
+              </div>
             </div>
-          </>
-        );
-      })()}
-    </section>
+          </div>
+
+          {/* Journey Flow — Detailed Information */}
+          <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-5 shadow-sm mb-4">
+            <h3 className="text-sm font-extrabold text-slate-800 mb-4">Journey Flow — Detailed Information</h3>
+            <div className="flex items-start gap-0 overflow-x-auto pb-2">
+              {STAGE_KEYS.map((key, i) => (
+                <FlowCard
+                  key={key}
+                  stageKey={key}
+                  stage={journey.stages[key]}
+                  cropName={journey.cropName}
+                  isLast={i === STAGE_KEYS.length - 1}
+                  isCurrent={journey.stages[key].status === 'current'}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Footer Note */}
+          <div className="rounded-2xl bg-emerald-50/80 backdrop-blur-sm border border-emerald-200 px-5 py-3 flex items-start gap-2.5">
+            <span className="text-emerald-600 mt-0.5 text-sm">ℹ️</span>
+            <p className="text-xs text-emerald-800 font-medium">
+              Government data verifies market-level information; downstream transaction details are shown only when recorded/verified through SAATHI.
+            </p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Detail Row helper ─────────────────────────────────────────────
+function DetailRow({ icon, label, value, highlight }) {
+  return (
+    <div className="flex items-start gap-2 py-1.5 border-b border-slate-50 last:border-0">
+      <span className="text-xs mt-0.5">{icon}</span>
+      <div className="flex-1 min-w-0">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
+        <p className={`text-sm font-semibold ${highlight ? 'text-[#2E7D32]' : 'text-slate-800'} break-all`}>{value}</p>
+      </div>
+      {highlight && <span className="text-emerald-500 text-xs mt-1">Verified ✓</span>}
+    </div>
   );
 }
