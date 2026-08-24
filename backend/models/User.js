@@ -30,6 +30,11 @@ const userSchema = new mongoose.Schema(
       required: true,
       minlength: 6,
     },
+    role: {
+      type: String,
+      enum: ['FARMER', 'BUYER', 'WHOLESALER', 'DISTRIBUTOR', 'RETAILER', 'CONSUMER', 'USER', 'ADMIN'],
+      default: 'USER'
+    },
   },
   { timestamps: true },
 );
