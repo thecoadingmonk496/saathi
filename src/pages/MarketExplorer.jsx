@@ -40,6 +40,23 @@ const CustomizedLabel = (props) => {
 };
 
 export default function MarketExplorer() {
+  const [selectedState, setSelectedState] = useState('Uttar Pradesh');
+  const [selectedDistrict, setSelectedDistrict] = useState('Chandauli');
+  const [selectedBlock, setSelectedBlock] = useState('Chakia');
+  const [selectedMandi, setSelectedMandi] = useState('Chakia Mandi');
+  const [selectedCrop, setSelectedCrop] = useState('Wheat');
+
+  const statesOfIndia = [
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Lakshadweep", "Puducherry", "Jammu and Kashmir", "Ladakh"
+  ];
+
+  const upDistricts = [
+    "Agra", "Aligarh", "Ambedkar Nagar", "Amethi", "Amroha", "Auraiya", "Ayodhya", "Azamgarh", "Baghpat", "Bahraich", "Ballia", "Balrampur", "Banda", "Barabanki", "Bareilly", "Basti", "Bhadohi", "Bijnor", "Budaun", "Bulandshahr", "Chandauli", "Chitrakoot", "Deoria", "Etah", "Etawah", "Farrukhabad", "Fatehpur", "Firozabad", "Gautam Buddha Nagar", "Ghaziabad", "Ghazipur", "Gonda", "Gorakhpur", "Hamirpur", "Hapur", "Hardoi", "Hathras", "Jalaun", "Jaunpur", "Jhansi", "Kannauj", "Kanpur Dehat", "Kanpur Nagar", "Kasganj", "Kaushambi", "Kheri", "Kushinagar", "Lalitpur", "Lucknow", "Maharajganj", "Mahoba", "Mainpuri", "Mathura", "Mau", "Meerut", "Mirzapur", "Moradabad", "Muzaffarnagar", "Pilibhit", "Pratapgarh", "Prayagraj", "Raebareli", "Rampur", "Saharanpur", "Sambhal", "Sant Kabir Nagar", "Shahjahanpur", "Shamli", "Shravasti", "Siddharthnagar", "Sitapur", "Sonbhadra", "Sultanpur", "Unnao", "Varanasi"
+  ];
+
+  const availableDistricts = selectedState === 'Uttar Pradesh' ? upDistricts : [selectedDistrict, "District 1", "District 2"];
+  const cropsList = ["Wheat", "Rice", "Maize", "Cotton", "Sugarcane", "Mustard", "Soyabean", "Potato"];
+
   const priceData = [
     { name: 'Farmer', price: 2350, increase: null },
     { name: 'Mandi', price: 2400, increase: 50 },
