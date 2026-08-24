@@ -449,23 +449,42 @@ export default function MarketExplorer() {
           </div>
 
           {/* View Journey Button */}
-          <button
-            onClick={viewJourney}
-            disabled={!canSearch || loading}
-            className={`
-              shrink-0 rounded-xl px-6 py-2.5 text-sm font-bold shadow-sm transition-all duration-200
-              ${canSearch && !loading
-                ? 'bg-[#2E7D32] text-white hover:bg-[#256c29] active:scale-[0.97]'
-                : 'bg-slate-200 text-slate-400 cursor-not-allowed'}
-            `}
-          >
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="31.4 31.4" strokeLinecap="round"/></svg>
-                Loading…
-              </span>
-            ) : 'View Journey'}
-          </button>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={viewJourney}
+              disabled={!canSearch || loading}
+              className={`
+                rounded-xl px-6 py-2.5 text-sm font-bold shadow-sm transition-all duration-200
+                ${canSearch && !loading
+                  ? 'bg-[#2E7D32] text-white hover:bg-[#256c29] active:scale-[0.97]'
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'}
+              `}
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="31.4 31.4" strokeLinecap="round"/></svg>
+                  Loading…
+                </span>
+              ) : 'View Journey'}
+            </button>
+            {(selState || selDistrict || selectedCrop || cropQuery) && (
+              <button
+                onClick={() => {
+                  setSelState('');
+                  setSelDistrict('');
+                  setSelBlock('');
+                  setSelMandi('');
+                  setCropQuery('');
+                  setSelectedCrop('');
+                  setJourney(null);
+                  setBreadcrumb(null);
+                }}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 transition active:scale-[0.97]"
+              >
+                Reset
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Breadcrumb */}
@@ -695,30 +714,21 @@ export default function MarketExplorer() {
                 </a>
               </div>
 
-              {/* Report a Discrepancy */}
-              <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-red-100 p-5 shadow-sm">
-                <h3 className="text-sm font-extrabold text-red-600 flex items-center gap-1.5 mb-3">
-                  ⚠️ Report a Discrepancy
-                </h3>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {discrepancyTags.map(tag => (
-                    <button
-                      key={tag}
-                      onClick={() => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
-                      className={`rounded-full px-3 py-1.5 text-[11px] font-semibold border transition ${
-                        selectedTags.includes(tag)
-                          ? 'bg-red-50 border-red-300 text-red-700'
-                          : 'bg-white border-slate-200 text-slate-600 hover:border-red-200'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
+              {/* Mandi/Agmarknet external link box (only shown when mandi stage selected) */}
+              {activeStage === 'mandi' && (
+                <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 shadow-sm">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Government Data Verification</p>
+                  <p className="text-xs text-slate-600 mb-3">Government data verifies market-level details on data.gov.in. Downstream stages represent SAATHI records.</p>
+                  <a
+                    href="https://agmarknet.gov.in/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full rounded-xl bg-[#2E7D32] py-2 text-xs font-bold text-white hover:bg-[#256c29] transition shadow-sm"
+                  >
+                    View Agmarknet Portal <span className="text-xs">↗</span>
+                  </a>
                 </div>
-                <button className="w-full rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white hover:bg-red-700 transition shadow-sm">
-                  Report Now
-                </button>
-              </div>
+              )}
             </div>
           </div>
 
