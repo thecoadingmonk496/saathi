@@ -78,8 +78,11 @@ export default function MarketExplorer() {
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">State</label>
                     <div className="relative">
-                      <select className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] focus:bg-white transition-colors">
-                        <option>Uttar Pradesh</option>
+                      <select 
+                        value={selectedState} 
+                        onChange={(e) => { setSelectedState(e.target.value); setSelectedDistrict(e.target.value === 'Uttar Pradesh' ? 'Chandauli' : 'Select District'); }}
+                        className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] focus:bg-white transition-colors">
+                        {statesOfIndia.map(state => <option key={state} value={state}>{state}</option>)}
                       </select>
                       <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
                     </div>
@@ -88,8 +91,11 @@ export default function MarketExplorer() {
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">District</label>
                     <div className="relative">
-                      <select className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] focus:bg-white transition-colors">
-                        <option>Chandauli</option>
+                      <select 
+                        value={selectedDistrict}
+                        onChange={(e) => setSelectedDistrict(e.target.value)}
+                        className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] focus:bg-white transition-colors">
+                        {availableDistricts.map(dist => <option key={dist} value={dist}>{dist}</option>)}
                       </select>
                       <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
                     </div>
@@ -98,8 +104,13 @@ export default function MarketExplorer() {
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Block / Tehsil</label>
                     <div className="relative">
-                      <select className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] focus:bg-white transition-colors">
-                        <option>Chakia</option>
+                      <select 
+                        value={selectedBlock}
+                        onChange={(e) => setSelectedBlock(e.target.value)}
+                        className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] focus:bg-white transition-colors">
+                        <option value="Chakia">Chakia</option>
+                        <option value="Sakaldiha">Sakaldiha</option>
+                        <option value="Chandauli">Chandauli</option>
                       </select>
                       <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
                     </div>
@@ -108,8 +119,12 @@ export default function MarketExplorer() {
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Market / Mandi</label>
                     <div className="relative">
-                      <select className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] focus:bg-white transition-colors">
-                        <option>Chakia Mandi</option>
+                      <select 
+                        value={selectedMandi}
+                        onChange={(e) => setSelectedMandi(e.target.value)}
+                        className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] focus:bg-white transition-colors">
+                        <option value="Chakia Mandi">Chakia Mandi</option>
+                        <option value="Chandauli Mandi">Chandauli Mandi</option>
                       </select>
                       <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
                     </div>
@@ -118,10 +133,13 @@ export default function MarketExplorer() {
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Crop / Commodity</label>
                     <div className="relative">
-                      <select className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] focus:bg-white transition-colors">
-                        <option>Wheat</option>
+                      <select 
+                        value={selectedCrop}
+                        onChange={(e) => setSelectedCrop(e.target.value)}
+                        className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] focus:bg-white transition-colors">
+                        {cropsList.map(crop => <option key={crop} value={crop}>{crop}</option>)}
                       </select>
-                      <X className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" />
+                      <X onClick={() => setSelectedCrop('')} className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" />
                     </div>
                   </div>
                 </div>
@@ -130,7 +148,7 @@ export default function MarketExplorer() {
               {/* Breadcrumb */}
               <div className="mt-3 text-xs font-medium text-[#6B7280] flex items-center gap-1.5">
                 <MapPin className="h-3 w-3 text-amber-600" />
-                Showing data for: <span className="font-semibold text-gray-800">Uttar Pradesh {'>'} Chandauli {'>'} Chakia {'>'} Chakia Mandi {'>'} Wheat</span>
+                Showing data for: <span className="font-semibold text-gray-800">{selectedState} {'>'} {selectedDistrict} {'>'} {selectedBlock} {'>'} {selectedMandi} {'>'} {selectedCrop}</span>
               </div>
             </div>
 
