@@ -18,7 +18,8 @@ import {
   Lock,
   ArrowRight,
   TrendingUp,
-  AlertTriangle
+  AlertTriangle,
+  Link as LinkIcon
 } from 'lucide-react';
 
 // Recharts Custom Marker
@@ -344,79 +345,94 @@ export default function MarketExplorer() {
                  <X className="h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" />
               </div>
               <div className="p-6">
-                <div className="inline-flex items-center gap-1 bg-[#ECFDF5] text-[#10B981] border border-[#10B981]/20 px-2 py-0.5 rounded-full text-[10px] font-bold mb-3">
-                  <CheckCircle2 className="h-3 w-3" /> Stage 2 of 6
+                <div className="mb-6">
+                  <div className="inline-flex items-center gap-1.5 bg-[#ECFDF5] text-[#10B981] font-bold text-xs px-2.5 py-1 rounded-full mb-3 border border-[#10B981]/20">
+                    <div className="w-2 h-2 rounded-full bg-[#10B981]"></div>
+                    Stage 1 of 6
+                  </div>
+                  <h2 className="text-3xl font-black text-gray-900 tracking-tight">Wholesaler</h2>
                 </div>
-                
-                <div className="flex justify-between items-center mb-6">
-                  <h4 className="text-2xl font-bold text-[#111827]">Mandi</h4>
-                </div>
-                
+
                 <div className="space-y-4 mb-8">
-                  <div className="flex items-start gap-3 border-b border-gray-100 pb-3">
-                    <span className="text-gray-400 text-lg leading-none">🏛️</span>
-                    <div className="flex-1 flex justify-between items-start">
-                      <span className="text-[11px] font-semibold text-gray-500 mt-0.5">Market Name</span>
-                      <span className="text-[13px] font-bold text-gray-800 text-right">Chakia Mandi</span>
+                  <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
+                    <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center border border-gray-100">
+                      <img src="/images/details/warehouse.jpg" alt="Warehouse" className="w-full h-full object-cover mix-blend-multiply" />
+                    </div>
+                    <div className="flex-1 flex justify-between items-center">
+                      <span className="text-sm font-semibold text-gray-800">Wholesaler Name</span>
+                      <span className="text-sm font-bold text-gray-900 text-right">Sharma Traders</span>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 border-b border-gray-100 pb-3">
-                    <MapPin className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
-                    <div className="flex-1 flex justify-between items-start">
-                      <span className="text-[11px] font-semibold text-gray-500 mt-0.5">Location</span>
-                      <span className="text-[13px] font-bold text-gray-800 text-right">Chakia, Chandauli, UP</span>
+                  
+                  <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
+                    <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center border border-gray-100">
+                      <img src="/images/details/pin.jpg" alt="Location" className="w-full h-full object-cover mix-blend-multiply scale-110" />
+                    </div>
+                    <div className="flex-1 flex justify-between items-center">
+                      <span className="text-sm font-semibold text-gray-800">Location</span>
+                      <span className="text-sm font-bold text-gray-900 text-right">Varanasi, UP</span>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 border-b border-gray-100 pb-3">
-                    <span className="text-gray-400 text-base leading-none mt-0.5">📦</span>
-                    <div className="flex-1 flex justify-between items-start">
-                      <span className="text-[11px] font-semibold text-gray-500 mt-0.5">Arrival Quantity</span>
-                      <span className="text-[13px] font-bold text-gray-800 text-right">1,240 Quintal</span>
+                  
+                  <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
+                    <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center border border-gray-100">
+                      <img src="/images/details/boxes.jpg" alt="Price" className="w-full h-full object-cover mix-blend-multiply scale-125" />
+                    </div>
+                    <div className="flex-1 flex justify-between items-center">
+                      <span className="text-sm font-semibold text-gray-800">Wholesale Price (₹/q)</span>
+                      <span className="text-sm font-bold text-gray-900 text-right">₹2,550</span>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 border-b border-gray-100 pb-3">
-                    <TrendingUp className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
-                    <div className="flex-1 flex justify-between items-start">
-                      <span className="text-[11px] font-semibold text-gray-500 mt-0.5">Modal Price (₹/q)</span>
-                      <span className="text-[13px] font-bold text-gray-800 text-right">₹2,400</span>
+                  
+                  <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
+                    <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center border border-gray-100">
+                      <img src="/images/details/calculator.jpg" alt="Quantity" className="w-full h-full object-cover mix-blend-multiply scale-110" />
+                    </div>
+                    <div className="flex-1 flex justify-between items-center">
+                      <span className="text-sm font-semibold text-gray-800">Quantity Purchased</span>
+                      <span className="text-sm font-bold text-gray-900 text-right">1,000 Quintal</span>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 border-b border-gray-100 pb-3">
-                    <TrendingUp className="h-4 w-4 text-gray-400 mt-0.5 shrink-0 rotate-180" />
-                    <div className="flex-1 flex justify-between items-start">
-                      <span className="text-[11px] font-semibold text-gray-500 mt-0.5">Min Price (₹/q)</span>
-                      <span className="text-[13px] font-bold text-gray-800 text-right">₹2,250</span>
+                  
+                  <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
+                    <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center border border-gray-100">
+                      <img src="/images/details/document.jpg" alt="Date" className="w-full h-full object-cover mix-blend-multiply scale-110" />
+                    </div>
+                    <div className="flex-1 flex justify-between items-center">
+                      <span className="text-sm font-semibold text-gray-800">Purchase Date</span>
+                      <span className="text-sm font-bold text-gray-900 text-right">25 Aug 2026</span>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 border-b border-gray-100 pb-3">
-                    <TrendingUp className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
-                    <div className="flex-1 flex justify-between items-start">
-                      <span className="text-[11px] font-semibold text-gray-500 mt-0.5">Max Price (₹/q)</span>
-                      <span className="text-[13px] font-bold text-gray-800 text-right">₹2,550</span>
+                  
+                  <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
+                    <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center border border-gray-100">
+                      <img src="/images/details/creditcard.jpg" alt="Payment" className="w-full h-full object-cover mix-blend-multiply scale-110" />
+                    </div>
+                    <div className="flex-1 flex justify-between items-center">
+                      <span className="text-sm font-semibold text-gray-800">Payment Status</span>
+                      <span className="text-xs font-bold text-[#10B981] bg-[#ECFDF5] border border-[#10B981]/30 px-2 py-0.5 rounded flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> PAID
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 border-b border-gray-100 pb-3">
-                    <span className="text-gray-400 text-base leading-none mt-0.5">📅</span>
-                    <div className="flex-1 flex justify-between items-start">
-                      <span className="text-[11px] font-semibold text-gray-500 mt-0.5">Date</span>
-                      <span className="text-[13px] font-bold text-gray-800 text-right">24 Aug 2026</span>
+                  
+                  <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
+                    <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center border border-gray-100">
+                      <img src="/images/details/calendar.jpg" alt="Completion" className="w-full h-full object-cover mix-blend-multiply scale-110" />
+                    </div>
+                    <div className="flex-1 flex justify-between items-center">
+                      <span className="text-sm font-semibold text-gray-800">Completion Date</span>
+                      <span className="text-sm font-bold text-gray-900 text-right">26 Aug 2026</span>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 border-b border-gray-100 pb-3">
-                    <span className="text-gray-400 text-base leading-none mt-0.5">🌐</span>
-                    <div className="flex-1 flex justify-between items-start">
-                      <span className="text-[11px] font-semibold text-gray-500 mt-0.5">Source</span>
-                      <div className="text-right">
-                        <span className="text-[12px] font-bold text-gray-800 block">data.gov.in (AGMARKNET)</span>
-                        <span className="text-[9px] text-[#10B981] font-bold inline-flex items-center gap-0.5 bg-[#ECFDF5] px-1.5 py-0.5 rounded border border-[#10B981]/20 mt-1"><CheckCircle2 className="h-3 w-3" /> Verified</span>
-                      </div>
+                  
+                  <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
+                    <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center border border-gray-100">
+                       <LinkIcon className="h-4 w-4 text-gray-400 -rotate-45" />
                     </div>
-                  </div>
-                  <div className="flex items-start gap-3 border-b border-gray-100 pb-3">
-                    <span className="text-gray-400 text-base leading-none mt-0.5">🔗</span>
-                    <div className="flex-1 flex justify-between items-start">
-                      <span className="text-[11px] font-semibold text-gray-500 mt-0.5">Transaction ID</span>
-                      <span className="text-[11px] font-mono font-bold text-gray-700 text-right bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">MANDI-2026-08-24-00123</span>
+                    <div className="flex-1 flex justify-between items-center">
+                      <span className="text-sm font-semibold text-gray-800">Wholesale Transaction ID</span>
+                      <span className="text-[11px] font-mono font-medium text-gray-600 bg-gray-100 border border-gray-200 px-2 py-1 rounded">WS-2026-08-26-00987</span>
                     </div>
                   </div>
                 </div>
@@ -426,9 +442,6 @@ export default function MarketExplorer() {
                 </button>
               </div>
             </div>
-
-
-            
           </div>
         </div>
 
