@@ -422,7 +422,7 @@ export default function MarketPrices() {
         {/* Update note */}
         <div className="mt-3 flex items-center gap-2 rounded-xl bg-white/75 px-3 py-2 shadow-sm backdrop-blur-sm">
           <span className="flex h-2.5 w-2.5 rounded-full bg-green-500"></span>
-          <p className="text-sm font-semibold text-slate-700">{t('prices.marketUpdatedToday')}</p>
+          <p className="text-sm font-semibold text-slate-700">{t('prices.marketUpdatedToday')} ({getTodayDateString()})</p>
           <span className="mx-2 text-slate-400">•</span>
           <p className="text-xs font-semibold text-slate-600">{t('prices.dataSource')}</p>
         </div>
