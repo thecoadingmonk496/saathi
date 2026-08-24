@@ -182,6 +182,7 @@ function StageCard({ stageKey, stage, idx, isActive, isLast, onClick }) {
         <span className="text-2xl mb-1">{meta.icon}</span>
         <span className="text-xs font-bold text-slate-800">{meta.label}</span>
         <span className="text-[10px] text-slate-500 mt-0.5 max-w-[100px] truncate">{stage.location?.split(',')[0]}</span>
+        <span className="text-[11px] font-bold text-[#2E7D32] mt-1">{fmt(stage.price)}</span>
         {isCompleted && (
           <span className="mt-1 inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
             ✓ Completed
@@ -192,6 +193,9 @@ function StageCard({ stageKey, stage, idx, isActive, isLast, onClick }) {
             Current Stage
           </span>
         )}
+        <span className="mt-2 text-[9px] font-extrabold text-[#2E7D32] hover:underline uppercase tracking-wider">
+          View Details
+        </span>
       </button>
       {!isLast && (
         <div className="flex items-center mx-1">
@@ -603,27 +607,81 @@ export default function MarketExplorer() {
                     Stage {STAGE_KEYS.indexOf(activeStage) + 1} of {STAGE_KEYS.length}
                   </span>
                 </div>
-                <h4 className="text-lg font-extrabold text-slate-900 mb-4">{STAGE_META[activeStage].label}</h4>
+                <h4 className="text-lg font-extrabold text-slate-900 mb-2 flex items-center gap-2">
+                  <span>{STAGE_META[activeStage].icon}</span>
+                  <span>{STAGE_META[activeStage].label}</span>
+                </h4>
+                {/* Meta Verification Badges */}
+                <div className="mb-4">
+                  {activeStage === 'mandi' && (
+                    <div className="flex flex-wrap gap-1">
+                      <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">Government Data</span>
+                      <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700">Verified Source</span>
+                    </div>
+                  )}
+                  {activeStage === 'farmer' && (
+                    <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[9px] font-bold text-purple-700">SAATHI Recorded</span>
+                  )}
+                  {(activeStage === 'wholesaler' || activeStage === 'distributor' || activeStage === 'retailer') && (
+                    <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[9px] font-bold text-purple-700">SAATHI Recorded</span>
+                  )}
+                  {activeStage === 'consumer' && (
+                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">Estimated</span>
+                  )}
+                </div>
                 <div className="space-y-3">
-                  {activeStage === 'mandi' || activeStage === 'farmer' ? (
+                  {activeStage === 'mandi' && (
                     <>
                       <DetailRow icon="🏛" label="Market Name" value={journey.mandiDetails.name} />
                       <DetailRow icon="📍" label="Location" value={journey.mandiDetails.location} />
                       <DetailRow icon="📦" label="Arrival Quantity" value={journey.mandiDetails.arrivalQty} />
-                      <DetailRow icon="💰" label="Modal Price (₹/q)" value={fmt(journey.mandiDetails.modalPrice)} />
-                      <DetailRow icon="📉" label="Min Price (₹/q)" value={fmt(journey.mandiDetails.minPrice)} />
-                      <DetailRow icon="📈" label="Max Price (₹/q)" value={fmt(journey.mandiDetails.maxPrice)} />
+                      <DetailRow icon="💰" label="Modal Price" value={fmt(journey.mandiDetails.modalPrice)} />
+                      <DetailRow icon="📉" label="Minimum Price" value={fmt(journey.mandiDetails.minPrice)} />
+                      <DetailRow icon="📈" label="Maximum Price" value={fmt(journey.mandiDetails.maxPrice)} />
                       <DetailRow icon="📅" label="Date" value={journey.mandiDetails.date} />
-                      <DetailRow icon="🌐" label="Source" value={journey.mandiDetails.source} />
-                      <DetailRow icon="🔗" label="Transaction ID" value={journey.mandiDetails.txId} highlight />
+                      <DetailRow icon="🌐" label="Data Source" value={journey.mandiDetails.source} />
+                      <DetailRow icon="🔗" label="Transaction/Record ID" value={journey.mandiDetails.txId} highlight />
                     </>
-                  ) : (
+                  )}
+                  {activeStage === 'farmer' && (
                     <>
-                      <DetailRow icon="📍" label="Location" value={activeStageData?.location} />
-                      <DetailRow icon="📦" label="Quantity" value={activeStageData?.quantity} />
-                      <DetailRow icon="💰" label="Price (₹/q)" value={fmt(activeStageData?.price)} />
-                      <DetailRow icon="📅" label="Date" value={activeStageData?.date} />
-                      <DetailRow icon="📊" label="Status" value={activeStageData?.status === 'completed' ? '✓ Completed' : '⏳ Current Stage'} />
+                      <DetailRow icon="📍" label="Location" value={journey.stages.farmer.location} />
+                      <DetailRow icon="📦" label="Quantity" value={journey.stages.farmer.quantity} />
+                      <DetailRow icon="💰" label="Price Received" value={fmt(journey.stages.farmer.price)} />
+                      <DetailRow icon="📅" label="Date" value={journey.stages.farmer.date} />
+                    </>
+                  )}
+                  {activeStage === 'wholesaler' && (
+                    <>
+                      <DetailRow icon="👤" label="Buyer Name" value="Shiv Traders" />
+                      <DetailRow icon="📍" label="Location" value={journey.stages.wholesaler.location} />
+                      <DetailRow icon="📦" label="Quantity" value={journey.stages.wholesaler.quantity} />
+                      <DetailRow icon="💰" label="Purchase Price" value={fmt(journey.stages.wholesaler.price)} />
+                      <DetailRow icon="📅" label="Date" value={journey.stages.wholesaler.date} />
+                    </>
+                  )}
+                  {activeStage === 'distributor' && (
+                    <>
+                      <DetailRow icon="📍" label="Location" value={journey.stages.distributor.location} />
+                      <DetailRow icon="📦" label="Quantity" value={journey.stages.distributor.quantity} />
+                      <DetailRow icon="🚚" label="Transport Cost" value={fmt(journey.costs.transport)} />
+                      <DetailRow icon="📅" label="Date" value={journey.stages.distributor.date} />
+                    </>
+                  )}
+                  {activeStage === 'retailer' && (
+                    <>
+                      <DetailRow icon="🏪" label="Retailer Name" value="Kashi Kirana Store" />
+                      <DetailRow icon="📍" label="Location" value={journey.stages.retailer.location} />
+                      <DetailRow icon="📦" label="Quantity" value={journey.stages.retailer.quantity} />
+                      <DetailRow icon="💰" label="Retail Price" value={fmt(journey.stages.retailer.price)} />
+                      <DetailRow icon="📅" label="Date" value={journey.stages.retailer.date} />
+                    </>
+                  )}
+                  {activeStage === 'consumer' && (
+                    <>
+                      <DetailRow icon="💰" label="Estimated Consumer Price" value={fmt(journey.stages.consumer.price)} />
+                      <DetailRow icon="📦" label="Quantity" value={journey.stages.consumer.quantity} />
+                      <DetailRow icon="📅" label="Date" value={journey.stages.consumer.date} />
                     </>
                   )}
                 </div>
