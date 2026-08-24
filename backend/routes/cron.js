@@ -3,12 +3,13 @@ const router = express.Router();
 const mandiService = require('../services/mandiService');
 
 // Middleware to verify Vercel Cron requests
+// Vercel sends: Authorization: Bearer <CRON_SECRET> (requires CRON_SECRET env var)
 const verifyVercelCron = (req, res, next) => {
-  // Check either the built-in Vercel cron header or an Authorization bearer token
   const authHeader = req.headers.authorization;
   const cronSecret = process.env.CRON_SECRET;
   
-  if (req.headers['x-vercel-cron'] || (authHeader && authHeader === `Bearer ${cronSecret}`)) {
+  // Verify the Bearer token matches the CRON_SECRET environment variable
+  if (cronSecret && authHeader && authHeader === `Bearer ${cronSecret}`) {
     return next();
   }
   
