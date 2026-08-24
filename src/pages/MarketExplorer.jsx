@@ -187,16 +187,16 @@ export default function MarketExplorer() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 overflow-x-auto">
               <div className="flex items-center min-w-max px-2">
                 {[
-                  { num: 1, name: 'Farmer', loc: 'Chandauli, UP', active: false, icon: '👨‍🌾' },
-                  { num: 2, name: 'Mandi', loc: 'Chakia, UP', active: false, icon: '🏛️' },
-                  { num: 3, name: 'Wholesaler', loc: 'Varanasi, UP', active: false, icon: '🏪' },
-                  { num: 4, name: 'Distributor', loc: 'Varanasi, UP', active: false, icon: '🚚' },
-                  { num: 5, name: 'Retailer', loc: 'Varanasi, UP', active: false, icon: '🏬' },
-                  { num: 6, name: 'Consumer', loc: 'End Customer', active: true, icon: '👨‍👩‍👧‍👦' },
+                  { num: 1, name: 'Farmer', loc: 'Chandauli, UP', active: false, imgUrl: 'https://images.unsplash.com/photo-1589923188900-85dae523342b?auto=format&fit=crop&q=80&w=150&h=150' },
+                  { num: 2, name: 'Mandi', loc: 'Chakia, UP', active: false, imgUrl: 'https://images.unsplash.com/photo-1596422846543-75c6fc198f07?auto=format&fit=crop&q=80&w=150&h=150' },
+                  { num: 3, name: 'Wholesaler', loc: 'Varanasi, UP', active: false, imgUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=150&h=150' },
+                  { num: 4, name: 'Distributor', loc: 'Varanasi, UP', active: false, imgUrl: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=150&h=150' },
+                  { num: 5, name: 'Retailer', loc: 'Varanasi, UP', active: false, imgUrl: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&q=80&w=150&h=150' },
+                  { num: 6, name: 'Consumer', loc: 'End Customer', active: true, imgUrl: 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&q=80&w=150&h=150' },
                 ].map((step, idx) => (
                   <React.Fragment key={step.name}>
-                    <div className={`relative px-4 py-2 rounded-lg flex items-center gap-3 w-[170px] shrink-0 ${step.active ? 'border border-[#10B981] bg-[#ECFDF5]/30' : 'border border-transparent hover:bg-gray-50'}`}>
-                      <div className="text-2xl shrink-0">{step.icon}</div>
+                    <div className={`relative px-4 py-2 rounded-lg flex items-center gap-3 w-[190px] shrink-0 ${step.active ? 'border border-[#10B981] bg-[#ECFDF5]/30' : 'border border-transparent hover:bg-gray-50'}`}>
+                      <img src={step.imgUrl} alt={step.name} className="w-12 h-12 rounded object-cover shadow-sm shrink-0" />
                       <div className="flex flex-col min-w-0">
                         <div className="flex items-center gap-1.5">
                           <span className={`text-[10px] font-bold h-3.5 w-3.5 rounded-full flex items-center justify-center shrink-0 ${step.active ? 'bg-[#10B981] text-white' : 'bg-gray-100 text-gray-500'}`}>{step.num}</span>
