@@ -1,810 +1,452 @@
-import { useRef, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useUser } from '../context/UserContext';
-import { useLocationContext } from '../context/LocationContext';
-import { mockSupplyChain } from '../utils/mockData';
-import { getStates, getDistricts, getBlocks, getMandis, CROP_LIST } from '../utils/indiaLocations';
+import React, { useState } from 'react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceDot,
+} from 'recharts';
+import {
+  Leaf,
+  Shield,
+  CheckCircle2,
+  ChevronDown,
+  X,
+  MapPin,
+  Lock,
+  ArrowRight,
+  TrendingUp
+} from 'lucide-react';
 
-// ─── Helpers ───────────────────────────────────────────────────────
-const fmt = (v) => `₹${Number(v).toLocaleString('en-IN')}`;
-const dateFmt = () => {
-  const d = new Date();
-  return `${d.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${d.getFullYear()}`;
+// Recharts Custom Marker
+const CustomizedDot = (props) => {
+  const { cx, cy } = props;
+  return (
+    <circle cx={cx} cy={cy} r={5} fill="#fff" stroke="#10B981" strokeWidth={3} />
+  );
 };
 
-const STAGE_KEYS = ['farmer', 'mandi', 'wholesaler', 'distributor', 'retailer', 'consumer'];
-const STAGE_META = {
-  farmer:      { icon: '👨‍🌾', label: 'Farmer',      color: '#16a34a', bg: 'bg-emerald-50',  border: 'border-emerald-500', ring: 'ring-emerald-200' },
-  mandi:       { icon: '🏛️',  label: 'Mandi',       color: '#d97706', bg: 'bg-amber-50',    border: 'border-amber-500',   ring: 'ring-amber-200'   },
-  wholesaler:  { icon: '🏪',  label: 'Wholesaler',  color: '#2563eb', bg: 'bg-blue-50',     border: 'border-blue-500',    ring: 'ring-blue-200'    },
-  distributor: { icon: '🚚',  label: 'Distributor', color: '#7c3aed', bg: 'bg-violet-50',   border: 'border-violet-500',  ring: 'ring-violet-200'  },
-  retailer:    { icon: '🛒',  label: 'Retailer',    color: '#e11d48', bg: 'bg-rose-50',     border: 'border-rose-500',    ring: 'ring-rose-200'    },
-  consumer:    { icon: '👤',  label: 'Consumer',    color: '#475569', bg: 'bg-slate-50',    border: 'border-slate-500',   ring: 'ring-slate-200'   },
+const CustomizedLabel = (props) => {
+  const { x, y, value } = props;
+  return (
+    <text x={x} y={y - 15} fill="#111827" fontSize={12} fontWeight="bold" textAnchor="middle">
+      {`₹${value.toLocaleString('en-IN')}`}
+    </text>
+  );
 };
 
-// Mock journey data generator for any crop + location
-function generateJourney(crop, state, district, block, mandi) {
-  // Use user-requested standard mock base values
-  // Farmer: 2350, Mandi: 2400, Wholesaler: 2550, Distributor: 2750, Retailer: 3000, Consumer: 3000
-  // Apply a small deterministic variance based on crop name length to keep it dynamic per crop selection
-  const cropOffset = (crop.length % 5) * 50 - 100; // -100 to +100
-  const farmerPrice = 2350 + cropOffset;
-  const mandiPrice = 2400 + cropOffset;
-  const wholesalerPrice = 2550 + cropOffset;
-  const distributorPrice = 2750 + cropOffset;
-  const retailerPrice = 3000 + cropOffset;
-  const consumerPrice = 3000 + cropOffset;
-
-  const loc = block || district;
-  const mandiName = mandi || `${district} Mandi`;
-  return {
-    cropName: crop,
-    stages: {
-      farmer:      { price: farmerPrice,      location: `${loc}, ${state}`,       quantity: `${80 + Math.floor(Math.random()*40)} Quintal`, date: dateFmt(), status: 'completed' },
-      mandi:       { price: mandiPrice,       location: mandiName + ', ' + district,    quantity: `${800 + Math.floor(Math.random()*600)} Quintal`, date: dateFmt(), status: 'completed' },
-      wholesaler:  { price: wholesalerPrice,  location: `${district}, ${state}`,       quantity: `${80 + Math.floor(Math.random()*40)} Quintal`, date: dateFmt(), status: 'completed' },
-      distributor: { price: distributorPrice, location: `${district}, ${state}`,       quantity: `${70 + Math.floor(Math.random()*30)} Quintal`, date: dateFmt(), status: 'completed' },
-      retailer:    { price: retailerPrice,    location: `${district}, ${state}`,       quantity: `${60 + Math.floor(Math.random()*40)} Quintal`, date: dateFmt(), status: 'completed' },
-      consumer:    { price: consumerPrice,    location: 'End Customer',                quantity: `${60 + Math.floor(Math.random()*40)} Quintal`, date: dateFmt(), status: 'current'   },
-    },
-    costs: {
-      transport: 50 + (crop.length % 3) * 10,
-      storage:   150 + (crop.length % 2) * 20,
-      handling:  200 + (crop.length % 4) * 15,
-      marketCharges: 250 + (crop.length % 5) * 25,
-      margin:    Math.max(50, totalIncreaseDifference(farmerPrice, consumerPrice) - (850)),
-    },
-    mandiDetails: {
-      name: mandiName,
-      location: `${block || district}, ${district}, ${state}`,
-      arrivalQty: `${1240} Quintal`,
-      modalPrice: mandiPrice,
-      minPrice:   mandiPrice - 150,
-      maxPrice:   mandiPrice + 150,
-      date: dateFmt(),
-      source: 'data.gov.in (AGMARKNET)',
-      txId: `MANDI-${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}-${String(Math.floor(10000+Math.random()*90000))}`,
-    },
-    transparencyScore: 92,
-  };
-}
-
-function totalIncreaseDifference(farmer, consumer) {
-  return consumer - farmer;
-}
-
-// ─── SVG Price Chart ───────────────────────────────────────────────
-function PriceChart({ journey }) {
-  if (!journey) return null;
-  const prices = STAGE_KEYS.map(k => journey.stages[k].price);
-  const minP = Math.min(...prices) - 200;
-  const maxP = Math.max(...prices) + 200;
-  const W = 560, H = 220, padX = 50, padY = 30;
-  const chartW = W - padX * 2, chartH = H - padY * 2;
-
-  const points = prices.map((p, i) => ({
-    x: padX + (i / (prices.length - 1)) * chartW,
-    y: padY + chartH - ((p - minP) / (maxP - minP)) * chartH,
-    price: p,
-    label: STAGE_META[STAGE_KEYS[i]].label,
-  }));
-
-  const linePath = points.map((pt, i) => `${i === 0 ? 'M' : 'L'}${pt.x},${pt.y}`).join(' ');
-  const areaPath = linePath + ` L${points[points.length-1].x},${padY+chartH} L${points[0].x},${padY+chartH} Z`;
-
-  // Grid lines
-  const gridCount = 4;
-  const gridLines = Array.from({ length: gridCount + 1 }, (_, i) => {
-    const val = minP + ((maxP - minP) / gridCount) * i;
-    const y = padY + chartH - ((val - minP) / (maxP - minP)) * chartH;
-    return { y, label: `₹${Math.round(val).toLocaleString('en-IN')}` };
-  });
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
-      {/* Grid */}
-      {gridLines.map((g, i) => (
-        <g key={i}>
-          <line x1={padX} y1={g.y} x2={W - padX} y2={g.y} stroke="#e2e8f0" strokeWidth="1" strokeDasharray="4,4" />
-          <text x={padX - 6} y={g.y + 4} textAnchor="end" fill="#94a3b8" fontSize="9" fontFamily="sans-serif">{g.label}</text>
-        </g>
-      ))}
-      {/* Area fill */}
-      <defs>
-        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#16a34a" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="#16a34a" stopOpacity="0.02" />
-        </linearGradient>
-      </defs>
-      <path d={areaPath} fill="url(#areaGrad)" />
-      {/* Line */}
-      <path d={linePath} fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      {/* Points & labels */}
-      {points.map((pt, i) => (
-        <g key={i}>
-          <circle cx={pt.x} cy={pt.y} r="5" fill="white" stroke="#16a34a" strokeWidth="2.5" />
-          <text x={pt.x} y={pt.y - 12} textAnchor="middle" fill="#1e293b" fontSize="10" fontWeight="700" fontFamily="sans-serif">
-            {fmt(pt.price)}
-          </text>
-          {i < points.length - 1 && (
-            <text
-              x={(pt.x + points[i+1].x) / 2}
-              y={Math.min(pt.y, points[i+1].y) - 2}
-              textAnchor="middle" fill="#16a34a" fontSize="8" fontWeight="600" fontFamily="sans-serif"
-            >
-              +₹{points[i+1].price - pt.price}
-            </text>
-          )}
-          <text x={pt.x} y={padY + chartH + 16} textAnchor="middle" fill="#64748b" fontSize="8" fontFamily="sans-serif">{pt.label}</text>
-        </g>
-      ))}
-    </svg>
-  );
-}
-
-// ─── Sub-components ────────────────────────────────────────────────
-function FilterSelect({ label, value, onChange, options, placeholder, disabled, required }) {
-  return (
-    <div className="flex-1 min-w-[140px]">
-      <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">
-        {label} {required && <span className="text-red-400">*</span>}
-      </label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32]/30 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400 transition appearance-none"
-      >
-        <option value="">{placeholder}</option>
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
-      </select>
-    </div>
-  );
-}
-
-function StageCard({ stageKey, stage, idx, isActive, isLast, onClick }) {
-  const meta = STAGE_META[stageKey];
-  const isCurrent = stage.status === 'current';
-  const isCompleted = stage.status === 'completed';
-  return (
-    <div className="flex items-center">
-      <button
-        onClick={() => onClick(stageKey)}
-        className={`
-          relative flex flex-col items-center rounded-2xl border-2 px-4 py-3 min-w-[120px] transition-all duration-200 cursor-pointer
-          ${isActive ? `${meta.border} ${meta.bg} shadow-md ring-2 ${meta.ring}` : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'}
-          ${isCurrent ? 'border-amber-400 ring-2 ring-amber-100' : ''}
-        `}
-      >
-        <span className="absolute -top-2.5 -left-1 flex h-5 w-5 items-center justify-center rounded-full bg-white border border-slate-200 text-[10px] font-extrabold text-slate-600 shadow-sm">
-          {idx + 1}
-        </span>
-        <span className="text-2xl mb-1">{meta.icon}</span>
-        <span className="text-xs font-bold text-slate-800">{meta.label}</span>
-        <span className="text-[10px] text-slate-500 mt-0.5 max-w-[100px] truncate">{stage.location?.split(',')[0]}</span>
-        <span className="text-[11px] font-bold text-[#2E7D32] mt-1">{fmt(stage.price)}</span>
-        {isCompleted && (
-          <span className="mt-1 inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-            ✓ Completed
-          </span>
-        )}
-        {isCurrent && (
-          <span className="mt-1 inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-            Current Stage
-          </span>
-        )}
-        <span className="mt-2 text-[9px] font-extrabold text-[#2E7D32] hover:underline uppercase tracking-wider">
-          View Details
-        </span>
-      </button>
-      {!isLast && (
-        <div className="flex items-center mx-1">
-          <div className="w-6 h-0.5 bg-slate-300" />
-          <svg className="w-2.5 h-2.5 text-slate-400 -ml-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function FlowCard({ stageKey, stage, cropName, isLast, isCurrent }) {
-  const meta = STAGE_META[stageKey];
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="flex items-start shrink-0">
-      <div className={`rounded-2xl border-2 ${isCurrent ? 'border-amber-400' : 'border-slate-200'} bg-white p-4 min-w-[180px] max-w-[200px] shadow-sm`}>
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xl">{meta.icon}</span>
-          <span className="font-bold text-sm" style={{ color: meta.color }}>{meta.label}</span>
-        </div>
-        <div className="space-y-1.5 text-[11px]">
-          <div className="flex justify-between"><span className="text-slate-500">Location</span><span className="text-slate-800 font-medium text-right max-w-[100px] truncate">{stage.location?.split(',')[0]}</span></div>
-          <div className="flex justify-between"><span className="text-slate-500">Quantity</span><span className="text-slate-800 font-medium">{stage.quantity}</span></div>
-          <div className="flex justify-between">
-            <span className="text-slate-500">{stageKey === 'consumer' ? 'Estimated Price' : 'Price'}</span>
-            <span className={`font-bold ${isCurrent ? 'text-red-600' : 'text-[#2E7D32]'}`}>{fmt(stage.price)}/q</span>
-          </div>
-          <div className="flex justify-between"><span className="text-slate-500">Date</span><span className={`text-slate-800 font-medium ${isCurrent ? 'text-red-500' : ''}`}>{stage.date}</span></div>
-        </div>
-        {open && (
-          <div className="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-600">
-            <p>Crop: {cropName}</p>
-            <p>Status: {isCurrent ? 'In Transit' : 'Completed'}</p>
-          </div>
-        )}
-        <button onClick={() => setOpen(!open)} className="mt-3 flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-[#2E7D32] transition">
-          {open ? 'Hide' : 'View'} Details
-          <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </button>
-      </div>
-      {!isLast && (
-        <div className="flex items-center mx-2 mt-10 shrink-0">
-          <div className="w-6 h-0.5 bg-slate-300" />
-          <svg className="w-2.5 h-2.5 text-slate-400 -ml-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Main Component ────────────────────────────────────────────────
 export default function MarketExplorer() {
-  const { t } = useUser();
-  const navigate = useNavigate();
-
-  // Filter state
-  const [selState, setSelState] = useState('');
-  const [selDistrict, setSelDistrict] = useState('');
-  const [selBlock, setSelBlock] = useState('');
-  const [selMandi, setSelMandi] = useState('');
-  const [cropQuery, setCropQuery] = useState('');
-  const [showCropSuggestions, setShowCropSuggestions] = useState(false);
-  const [selectedCrop, setSelectedCrop] = useState('');
-  const cropInputRef = useRef(null);
-
-  // Journey state
-  const [journey, setJourney] = useState(null);
-  const [activeStage, setActiveStage] = useState('mandi');
-  const [loading, setLoading] = useState(false);
-  const [breadcrumb, setBreadcrumb] = useState(null);
-
-  // Discrepancy tags
-  const [selectedTags, setSelectedTags] = useState([]);
-  const discrepancyTags = ['Price Different', 'Quantity Different', 'Weighing Problem', 'Unauthorized Deduction', 'Transaction Missing', 'Other Issue'];
-
-  // Derived filter options
-  const states = useMemo(() => getStates(), []);
-  const districts = useMemo(() => getDistricts(selState), [selState]);
-  const blocks = useMemo(() => getBlocks(selState, selDistrict), [selState, selDistrict]);
-  const mandis = useMemo(() => getMandis(selState, selDistrict, selBlock), [selState, selDistrict, selBlock]);
-
-  // Crop suggestions
-  const cropSuggestions = useMemo(() => {
-    if (!cropQuery.trim()) return [];
-    const q = cropQuery.toLowerCase();
-    return CROP_LIST.filter(c =>
-      c.name.toLowerCase().includes(q) ||
-      (c.nameHi && c.nameHi.includes(cropQuery)) ||
-      c.category.toLowerCase().includes(q)
-    ).slice(0, 8);
-  }, [cropQuery]);
-
-  // Filter handlers
-  const handleStateChange = (v) => { setSelState(v); setSelDistrict(''); setSelBlock(''); setSelMandi(''); setJourney(null); };
-  const handleDistrictChange = (v) => { setSelDistrict(v); setSelBlock(''); setSelMandi(''); setJourney(null); };
-  const handleBlockChange = (v) => { setSelBlock(v); setSelMandi(''); };
-  const handleMandiChange = (v) => { setSelMandi(v); };
-
-  const selectCrop = (crop) => {
-    setSelectedCrop(crop.name);
-    setCropQuery(crop.name);
-    setShowCropSuggestions(false);
-  };
-
-  const canSearch = selState && selDistrict && selectedCrop;
-
-  const viewJourney = () => {
-    if (!canSearch) return;
-    setLoading(true);
-    // Simulate API delay
-    setTimeout(() => {
-      const j = generateJourney(selectedCrop, selState, selDistrict, selBlock, selMandi);
-      setJourney(j);
-      setActiveStage('mandi');
-      setBreadcrumb({
-        state: selState,
-        district: selDistrict,
-        block: selBlock,
-        mandi: selMandi || `${selDistrict} Mandi`,
-        crop: selectedCrop,
-      });
-      setLoading(false);
-    }, 600);
-  };
-
-  const activeStageData = journey ? journey.stages[activeStage] : null;
-  const totalIncrease = journey
-    ? journey.stages.consumer.price - journey.stages.farmer.price
-    : 0;
+  const priceData = [
+    { name: 'Farmer', price: 2350, increase: null },
+    { name: 'Mandi', price: 2400, increase: 50 },
+    { name: 'Wholesaler', price: 2550, increase: 150 },
+    { name: 'Distributor', price: 2750, increase: 200 },
+    { name: 'Retailer', price: 3000, increase: 250 },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#fcfbf8] font-sans">
-      <div className="mx-auto max-w-7xl px-4 pt-24 sm:px-6 lg:pt-28 pb-12 text-slate-900">
+    <div className="min-h-screen bg-[#F9FAFB] font-sans pb-12 pt-20 text-[#111827]">
+      
+      {/* Top Header Background Wrapper */}
+      <div className="absolute top-16 inset-x-0 h-[280px] bg-gradient-to-r from-[#FDFCF8] via-[#F6F4ED] to-[#FDFCF8] border-b border-[#E5E7EB] z-0" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/cream-paper.png")' }}></div>
 
-        {/* ─── Header Area ─── */}
-        <div className="mb-6">
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-          {/* Title */}
-          <div>
-            <h1 className="text-3xl font-extrabold text-slate-950 flex items-center gap-2">
-              <span className="text-emerald-700">🌿</span> Crop Journey
-            </h1>
-            <p className="mt-1 text-sm text-slate-600 font-medium max-w-lg">
-              Track your crop from farm to consumer — every step, every price
-            </p>
-          </div>
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        
+        {/* Brick 2 & 3: Header and Top Metrics */}
+        <div className="flex flex-col lg:flex-row justify-between gap-6 mb-6">
+          
+          {/* Left: Title & Filters */}
+          <div className="flex-1">
+            <div className="mb-4">
+              <h1 className="text-3xl font-bold flex items-center gap-2 text-[#111827]">
+                <Leaf className="text-[#10B981]" fill="#10B981" />
+                Crop Journey
+              </h1>
+              <p className="text-sm font-medium text-[#6B7280] mt-1">
+                Track your crop from farm to consumer — every step, every price
+              </p>
+            </div>
 
-          {/* Transparency + Last Updated cards (only shown when journey active) */}
-          {journey && (
-            <div className="flex flex-col sm:flex-row gap-3">
-              {/* Transparency Score */}
-              <div className="rounded-2xl bg-white border border-slate-100 px-5 py-4 shadow-sm flex items-center gap-4 min-w-[260px]">
-                <div className="relative flex items-center justify-center">
-                  <svg width="64" height="64" viewBox="0 0 64 64">
-                    <circle cx="32" cy="32" r="28" fill="none" stroke="#e2e8f0" strokeWidth="5" />
-                    <circle cx="32" cy="32" r="28" fill="none" stroke="#16a34a" strokeWidth="5"
-                      strokeDasharray={`${(journey.transparencyScore / 100) * 176} 176`}
-                      strokeLinecap="round" transform="rotate(-90 32 32)" />
-                  </svg>
-                  <span className="absolute text-lg font-extrabold text-[#2E7D32]">{journey.transparencyScore}</span>
-                </div>
+            {/* Filter Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                {/* State */}
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Transparency Score</p>
-                  <p className="text-sm font-extrabold text-[#2E7D32]">{journey.transparencyScore}/100</p>
-                  <p className="text-[10px] text-emerald-600 font-semibold">Highly Transparent</p>
-                  <div className="mt-1.5 space-y-0.5">
-                    {['Government Data', 'Buyer Verified', 'Digital Records', 'Location Information'].map(item => (
-                      <div key={item} className="flex items-center gap-1.5 text-[10px]">
-                        <span className="text-emerald-500">✓</span>
-                        <span className="text-slate-600">{item}</span>
-                        <span className="ml-auto text-slate-400 font-medium">Yes</span>
-                      </div>
-                    ))}
+                  <label className="block text-xs font-medium text-gray-500 mb-1">State</label>
+                  <div className="relative">
+                    <select className="w-full appearance-none rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981]">
+                      <option>Uttar Pradesh</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
                   </div>
                 </div>
-              </div>
-
-              {/* Last Updated */}
-              <div className="rounded-2xl bg-white border border-slate-100 px-5 py-4 shadow-sm min-w-[200px]">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Last Updated</span>
-                </div>
-                <p className="text-sm font-extrabold text-slate-900">{dateFmt()}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
-                <div className="mt-2.5 pt-2 border-t border-slate-100">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Data Source</p>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs font-bold text-[#2E7D32]">data.gov.in / AGMARKNET</span>
-                    <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">e-NAM</span>
+                {/* District */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">District</label>
+                  <div className="relative">
+                    <select className="w-full appearance-none rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981]">
+                      <option>Chandauli</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
                   </div>
-                  <div className="flex items-center gap-1 mt-1">
-                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">Government Data</span>
-                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">Verified Source</span>
+                </div>
+                {/* Block */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Block / Tehsil (Optional)</label>
+                  <div className="relative">
+                    <select className="w-full appearance-none rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981]">
+                      <option>Chakia</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+                {/* Market */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Market / Mandi (Optional)</label>
+                  <div className="relative">
+                    <select className="w-full appearance-none rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981]">
+                      <option>Chakia Mandi</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+                {/* Crop */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Crop / Commodity</label>
+                  <div className="relative">
+                    <select className="w-full appearance-none rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981]">
+                      <option>Wheat</option>
+                    </select>
+                    <X className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" />
                   </div>
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* ─── Filter Section ─────────────────────────────────────── */}
-      <div className="rounded-2xl bg-white border border-slate-100 p-5 shadow-sm mb-4">
-        <div className="flex flex-col md:flex-row gap-3 items-end">
-          <FilterSelect label="State" value={selState} onChange={handleStateChange}
-            options={states} placeholder="Select State" required />
-          <FilterSelect label="District" value={selDistrict} onChange={handleDistrictChange}
-            options={districts} placeholder="Select District" disabled={!selState} required />
-          <FilterSelect label="Block / Tehsil (Optional)" value={selBlock} onChange={handleBlockChange}
-            options={blocks} placeholder="Select Block" disabled={!selDistrict} />
-          <FilterSelect label="Market / Mandi (Optional)" value={selMandi} onChange={handleMandiChange}
-            options={mandis} placeholder="Select Mandi" disabled={!selDistrict} />
-
-          {/* Crop Search */}
-          <div className="flex-1 min-w-[160px] relative">
-            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">
-              Crop / Commodity <span className="text-red-400">*</span>
-            </label>
-            <div className="relative">
-              <input
-                ref={cropInputRef}
-                type="text"
-                value={cropQuery}
-                onChange={(e) => { setCropQuery(e.target.value); setSelectedCrop(''); setShowCropSuggestions(true); }}
-                onFocus={() => { if (cropQuery) setShowCropSuggestions(true); }}
-                placeholder="Search crop..."
-                className="w-full rounded-lg border border-slate-200 bg-white pl-3 pr-8 py-2 text-sm text-slate-800 shadow-sm focus:border-[#2E7D32] focus:ring-1 focus:ring-[#2E7D32]/30 focus:outline-none transition"
-              />
-              {cropQuery && (
-                <button
-                  onClick={() => { setCropQuery(''); setSelectedCrop(''); setShowCropSuggestions(false); }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-lg leading-none"
-                >×</button>
-              )}
+            
+            {/* Breadcrumb */}
+            <div className="mt-3 text-xs font-medium text-[#6B7280] flex items-center gap-1.5">
+              <MapPin className="h-3 w-3 text-amber-500" />
+              Showing data for: <span className="font-semibold text-gray-800">Uttar Pradesh {'>'} Chandauli {'>'} Chakia {'>'} Chakia Mandi {'>'} Wheat</span>
             </div>
-            {/* Suggestions dropdown */}
-            {showCropSuggestions && cropSuggestions.length > 0 && (
-              <div className="absolute z-50 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg max-h-52 overflow-y-auto">
-                {cropSuggestions.map(c => (
-                  <button key={c.name}
-                    onClick={() => selectCrop(c)}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-emerald-50 transition"
-                  >
-                    <span className="text-base">{c.icon}</span>
-                    <span className="font-semibold text-slate-800">{c.name}</span>
-                    {c.nameHi && <span className="text-slate-400 text-xs">({c.nameHi})</span>}
-                    <span className="ml-auto text-[10px] rounded-full bg-slate-100 px-2 py-0.5 text-slate-500 font-medium">{c.category}</span>
-                  </button>
-                ))}
+          </div>
+
+          {/* Right: Metrics */}
+          <div className="flex gap-4 shrink-0">
+            {/* Transparency Score */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 w-[200px] flex flex-col justify-center">
+              <div className="flex items-center gap-2 mb-2 text-[#111827] font-semibold text-sm">
+                <Shield className="h-5 w-5 text-gray-700" />
+                Transparency Score
               </div>
-            )}
-          </div>
+              <div className="text-4xl font-bold text-[#10B981] mt-1 flex items-baseline gap-1">
+                92<span className="text-xl text-gray-400 font-medium">/100</span>
+              </div>
+              <div className="text-xs font-semibold text-[#10B981] mt-1">Highly Transparent</div>
+            </div>
 
-          {/* View Journey Button */}
-          <div className="flex gap-2 shrink-0">
-            <button
-              onClick={viewJourney}
-              disabled={!canSearch || loading}
-              className={`
-                rounded-xl px-6 py-2.5 text-sm font-bold shadow-sm transition-all duration-200
-                ${canSearch && !loading
-                  ? 'bg-[#2E7D32] text-white hover:bg-[#256c29] active:scale-[0.97]'
-                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'}
-              `}
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="31.4 31.4" strokeLinecap="round"/></svg>
-                  Loading…
-                </span>
-              ) : 'View Journey'}
-            </button>
-            {(selState || selDistrict || selectedCrop || cropQuery) && (
-              <button
-                onClick={() => {
-                  setSelState('');
-                  setSelDistrict('');
-                  setSelBlock('');
-                  setSelMandi('');
-                  setCropQuery('');
-                  setSelectedCrop('');
-                  setJourney(null);
-                  setBreadcrumb(null);
-                }}
-                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 transition active:scale-[0.97]"
-              >
-                Reset
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Breadcrumb */}
-        {breadcrumb && (
-          <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-            <span className="text-slate-400">📍</span>
-            <span>Showing data for:</span>
-            <span className="text-slate-700 font-semibold">{breadcrumb.state}</span>
-            <span className="text-slate-300">›</span>
-            <span className="text-slate-700 font-semibold">{breadcrumb.district}</span>
-            {breadcrumb.block && <>
-              <span className="text-slate-300">›</span>
-              <span className="text-slate-700 font-semibold">{breadcrumb.block}</span>
-            </>}
-            <span className="text-slate-300">›</span>
-            <span className="text-slate-700 font-semibold">{breadcrumb.mandi}</span>
-            <span className="text-slate-300">›</span>
-            <span className="text-[#2E7D32] font-bold">{breadcrumb.crop}</span>
-          </div>
-        )}
-      </div>
-
-      {/* ─── Empty state ────────────────────────────────────────── */}
-      {!journey && !loading && (
-        <div className="rounded-2xl bg-white border border-slate-100 p-12 shadow-sm text-center">
-          <div className="text-6xl mb-4">🌾</div>
-          <h2 className="text-xl font-extrabold text-slate-800 mb-2">Start Your Crop Journey</h2>
-          <p className="text-sm text-slate-500 max-w-md mx-auto">
-            Select a <strong>State</strong>, <strong>District</strong>, and <strong>Crop</strong> above, then click <strong>"View Journey"</strong> to track your crop's path from farm to consumer with real-time price data.
-          </p>
-          <div className="mt-6 flex items-center justify-center gap-6 text-slate-400 text-sm">
-            <div className="flex items-center gap-1.5"><span>👨‍🌾</span> Farmer</div>
-            <span>→</span>
-            <div className="flex items-center gap-1.5"><span>🏛️</span> Mandi</div>
-            <span>→</span>
-            <div className="flex items-center gap-1.5"><span>🏪</span> Wholesaler</div>
-            <span>→</span>
-            <div className="flex items-center gap-1.5"><span>🚚</span> Distributor</div>
-            <span>→</span>
-            <div className="flex items-center gap-1.5"><span>🛒</span> Retailer</div>
-            <span>→</span>
-            <div className="flex items-center gap-1.5"><span>👤</span> Consumer</div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Loading skeleton ───────────────────────────────────── */}
-      {loading && (
-        <div className="rounded-2xl bg-white border border-slate-100 p-8 shadow-sm">
-          <div className="flex gap-4 overflow-hidden">
-            {STAGE_KEYS.map((_, i) => (
-              <div key={i} className="flex items-center">
-                <div className="rounded-2xl border-2 border-slate-100 p-4 min-w-[120px] animate-pulse">
-                  <div className="h-8 w-8 rounded-full bg-slate-200 mx-auto mb-2" />
-                  <div className="h-3 w-16 rounded bg-slate-200 mx-auto mb-1" />
-                  <div className="h-2 w-12 rounded bg-slate-100 mx-auto" />
+            {/* Verification Checklist & Last Updated */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 w-[280px] flex flex-col justify-between">
+              <div className="grid grid-cols-1 gap-1.5 text-[11px] font-medium text-gray-600">
+                <div className="flex items-center justify-between"><span className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3 text-[#10B981]"/> Government Data</span> <span className="text-gray-400">Verified</span></div>
+                <div className="flex items-center justify-between"><span className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3 text-[#10B981]"/> Buyer Verified</span> <span className="text-gray-400">Yes</span></div>
+                <div className="flex items-center justify-between"><span className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3 text-[#10B981]"/> Digital Records</span> <span className="text-gray-400">Yes</span></div>
+                <div className="flex items-center justify-between"><span className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3 text-[#10B981]"/> Secure Records</span> <span className="text-gray-400">Yes</span></div>
+                <div className="flex items-center justify-between"><span className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3 text-[#10B981]"/> Location Tracking</span> <span className="text-gray-400">Yes</span></div>
+              </div>
+              
+              <div className="mt-3 pt-3 border-t border-gray-100 flex items-start justify-between">
+                <div>
+                  <div className="text-[10px] text-gray-500 font-semibold mb-0.5 uppercase tracking-wider flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-gray-300"></span> Last Updated
+                  </div>
+                  <div className="text-xs font-bold text-gray-800">24 Aug 2026, 11:30 AM</div>
                 </div>
-                {i < 5 && <div className="w-8 h-0.5 bg-slate-100 mx-1" />}
+                <div className="text-right">
+                   <div className="text-[10px] text-gray-500 font-semibold mb-1 uppercase tracking-wider">Data Source</div>
+                   <div className="flex gap-1">
+                     <div className="bg-blue-50 text-blue-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-blue-100">data.gov.in</div>
+                     <div className="bg-[#10B981] text-white text-[9px] font-bold px-1.5 py-0.5 rounded">e-NAM</div>
+                   </div>
+                </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Brick 4: Progress Stepper */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6 overflow-x-auto">
+          <div className="flex items-center min-w-max">
+            {[
+              { num: 1, name: 'Farmer', loc: 'Chandauli, UP', status: 'Completed', active: false, avatar: '👨‍🌾' },
+              { num: 2, name: 'Mandi', loc: 'Chakia Mandi', status: 'Completed', active: false, avatar: '🏛️' },
+              { num: 3, name: 'Wholesaler', loc: 'Varanasi, UP', status: 'Completed', active: false, avatar: '🏪' },
+              { num: 4, name: 'Distributor', loc: 'Varanasi, UP', status: 'Completed', active: false, avatar: '🚚' },
+              { num: 5, name: 'Retailer', loc: 'Varanasi, UP', status: 'Completed', active: false, avatar: '🏬' },
+              { num: 6, name: 'Consumer', loc: 'End Customer', status: 'Current Stage', active: true, avatar: '👨‍👩‍👧‍👦' },
+            ].map((step, idx) => (
+              <React.Fragment key={step.name}>
+                <div className={`relative px-4 py-2 w-48 rounded-lg flex flex-col items-center text-center ${step.active ? 'border-2 border-[#10B981] bg-[#ECFDF5]/50' : 'border border-transparent'}`}>
+                  <div className={`absolute top-2 left-2 text-[10px] font-bold h-5 w-5 rounded-full flex items-center justify-center ${step.active ? 'bg-[#10B981] text-white' : 'bg-[#ECFDF5] text-[#10B981]'}`}>{step.num}</div>
+                  <div className="text-3xl mb-1 mt-1">{step.avatar}</div>
+                  <div className="font-bold text-sm text-[#111827]">{step.name}</div>
+                  <div className="text-xs text-gray-500 font-medium">{step.loc}</div>
+                  {step.active ? (
+                    <div className="mt-2 text-[10px] font-bold text-white bg-[#10B981] px-2 py-0.5 rounded-full">Current Stage</div>
+                  ) : (
+                    <div className="mt-2 text-[10px] font-bold text-[#10B981] flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3" /> Completed</div>
+                  )}
+                </div>
+                {idx < 5 && <ArrowRight className="h-5 w-5 text-gray-300 mx-2 shrink-0" />}
+              </React.Fragment>
             ))}
           </div>
-          <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2 h-60 rounded-2xl bg-slate-100 animate-pulse" />
-            <div className="h-60 rounded-2xl bg-slate-100 animate-pulse" />
-          </div>
         </div>
-      )}
 
-      {/* ─── Journey Content ────────────────────────────────────── */}
-      {journey && !loading && (
-        <>
-          {/* Timeline */}
-          <div className="rounded-2xl bg-white border border-slate-100 p-5 shadow-sm mb-4 overflow-x-auto">
-            <div className="flex items-center gap-0 min-w-max">
-              {STAGE_KEYS.map((key, i) => (
-                <StageCard
-                  key={key}
-                  stageKey={key}
-                  stage={journey.stages[key]}
-                  idx={i}
-                  isActive={activeStage === key}
-                  isLast={i === STAGE_KEYS.length - 1}
-                  onClick={setActiveStage}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-            {/* Left Column: Price Chart + Why Price Changed */}
-            <div className="lg:col-span-2 space-y-4">
-              {/* Price Journey Chart */}
-              <div className="rounded-2xl bg-white border border-slate-100 p-5 shadow-sm">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-extrabold text-slate-800">Price Journey</h3>
-                  <span className="text-[10px] rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-500">₹ per Quintal</span>
+        {/* Main Content Area */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+          
+          {/* Bricks 5: Left Content - Chart & Why Price Changed */}
+          <div className="xl:col-span-2 flex flex-col gap-6">
+            
+            <div className="flex flex-col md:flex-row gap-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              
+              {/* Price Chart */}
+              <div className="flex-1">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-bold text-[#111827]">Price Journey <span className="text-sm font-medium text-gray-500 font-normal">(₹ per Quintal)</span></h3>
+                  <div className="relative">
+                    <select className="appearance-none rounded-lg border border-gray-300 bg-white py-1.5 pl-3 pr-8 text-xs font-semibold text-gray-700 focus:outline-none">
+                      <option>Price per Quintal</option>
+                    </select>
+                    <ChevronDown className="absolute right-2 top-2 h-4 w-4 text-gray-500 pointer-events-none" />
+                  </div>
                 </div>
-                <PriceChart journey={journey} />
+                
+                <div className="h-64 w-full relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={priceData} margin={{ top: 20, right: 20, left: -20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 600 }} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 500 }} domain={[1800, 3400]} ticks={[1800, 2200, 2600, 3000, 3400]} tickFormatter={(val) => `₹${val.toLocaleString('en-IN')}`} />
+                      <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} cursor={{ stroke: '#E5E7EB', strokeWidth: 2, strokeDasharray: '3 3' }} />
+                      <Line 
+                        type="monotone" 
+                        dataKey="price" 
+                        stroke="#10B981" 
+                        strokeWidth={3} 
+                        dot={<CustomizedDot />} 
+                        label={<CustomizedLabel />}
+                        activeDot={{ r: 6, fill: '#10B981', stroke: '#fff', strokeWidth: 2 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                  
+                  {/* Plus Labels */}
+                  <div className="absolute left-[30%] top-[70%] text-xs font-bold text-[#10B981]">+₹50</div>
+                  <div className="absolute left-[48%] top-[60%] text-xs font-bold text-[#10B981]">+₹150</div>
+                  <div className="absolute left-[68%] top-[50%] text-xs font-bold text-[#10B981]">+₹200</div>
+                  <div className="absolute left-[88%] top-[40%] text-xs font-bold text-[#10B981]">+₹250</div>
+                </div>
               </div>
 
-              {/* Why Price Changed */}
-              <div className="rounded-2xl bg-white border border-slate-100 p-5 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-extrabold text-slate-800">Why Price Changed?</h3>
-                  <span className="text-[10px] text-slate-400 font-semibold italic">Estimated Values</span>
+              {/* Why Price Changed? */}
+              <div className="w-full md:w-64 flex flex-col justify-between pt-1 md:pt-0">
+                <div>
+                  <h3 className="text-lg font-bold text-[#111827] mb-6">Why Price Changed?</h3>
+                  <ul className="space-y-4">
+                    <li className="flex justify-between items-center text-sm font-medium text-[#4B5563]">
+                      <span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-gray-400"></span>Transport Cost</span>
+                      <span className="font-bold text-[#111827]">+₹120</span>
+                    </li>
+                    <li className="flex justify-between items-center text-sm font-medium text-[#4B5563]">
+                      <span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-gray-400"></span>Storage Cost</span>
+                      <span className="font-bold text-[#111827]">+₹80</span>
+                    </li>
+                    <li className="flex justify-between items-center text-sm font-medium text-[#4B5563]">
+                      <span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-gray-400"></span>Handling Cost</span>
+                      <span className="font-bold text-[#111827]">+₹140</span>
+                    </li>
+                    <li className="flex justify-between items-center text-sm font-medium text-[#4B5563]">
+                      <span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-gray-400"></span>Market Charges & Taxes</span>
+                      <span className="font-bold text-[#111827]">+₹60</span>
+                    </li>
+                    <li className="flex justify-between items-center text-sm font-medium text-[#4B5563]">
+                      <span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-gray-400"></span>Estimated Margin</span>
+                      <span className="font-bold text-[#111827]">+₹350</span>
+                    </li>
+                  </ul>
                 </div>
-                <div className="space-y-3">
-                  {[
-                    { label: 'Transport Cost (Estimated)', value: journey.costs.transport },
-                    { label: 'Storage Cost (Estimated)', value: journey.costs.storage },
-                    { label: 'Handling Cost (Estimated)', value: journey.costs.handling },
-                    { label: 'Market Charges / Taxes (Estimated)', value: journey.costs.marketCharges },
-                    { label: 'Estimated Margin', value: journey.costs.margin },
-                  ].map(item => (
-                    <div key={item.label} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
-                      <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                        <span className="text-sm text-slate-700">{item.label}</span>
+                
+                <div className="mt-6 pt-4 border-t-2 border-gray-100 flex justify-between items-center">
+                  <span className="font-bold text-[#10B981]">Total Increase</span>
+                  <span className="text-lg font-bold text-[#10B981]">+₹650</span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Brick 7: Detailed Information Grid */}
+            <div className="bg-[#F9FAFB]">
+              <h3 className="text-lg font-bold text-[#111827] mb-4">Journey Flow — Detailed Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {[
+                  { title: 'Farmer', icon: '👨‍🌾', color: 'text-amber-500', data: [['Location', 'Chandauli, UP'], ['Quantity', '100 Quintal'], ['Price Received', '₹2,350 /q'], ['Date', '24 Aug 2026']] },
+                  { title: 'Mandi', icon: '🏛️', color: 'text-amber-500', data: [['Market', 'Chakia Mandi'], ['Quantity', '1,240 Quintal'], ['Modal Price', '₹2,400 /q'], ['Date', '24 Aug 2026']] },
+                  { title: 'Wholesaler', icon: '🏪', color: 'text-blue-500', data: [['Buyer Name', 'Shiv Traders'], ['Quantity', '100 Quintal'], ['Purchase Price', '₹2,550 /q'], ['Date', '25 Aug 2026']] },
+                  { title: 'Distributor', icon: '🚚', color: 'text-emerald-600', data: [['Location', 'Varanasi, UP'], ['Quantity', '98 Quintal'], ['Transport Cost', '₹120 /q'], ['Date', '26 Aug 2026']] },
+                  { title: 'Retailer', icon: '🏬', color: 'text-red-500', data: [['Retailer Name', 'Kashi Store'], ['Quantity', '98 Quintal'], ['Retail Price', '₹3,000 /q'], ['Date', '27 Aug 2026']] },
+                  { title: 'Consumer', icon: '👨‍👩‍👧‍👦', color: 'text-blue-600', data: [['Estimated Price', '₹3,000 /q'], ['Quantity', '98 Quintal'], ['Date', '27 Aug 2026\n(Estimated)']] },
+                ].map((item, idx) => (
+                  <div key={item.title} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col justify-between relative group hover:border-[#10B981]/30 transition-colors">
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="text-lg">{item.icon}</span>
+                        <h4 className={`font-bold text-sm ${item.color}`}>{item.title}</h4>
                       </div>
-                      <span className="text-sm font-bold text-amber-600">+₹{item.value}</span>
+                      <div className="space-y-3">
+                        {item.data.map(([label, val]) => (
+                          <div key={label} className="grid grid-cols-2 gap-1 text-[11px]">
+                            <span className="text-gray-500">{label}</span>
+                            <span className="font-semibold text-gray-800 text-right break-words whitespace-pre-line">{val}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
-                <div className="mt-4 pt-3 border-t-2 border-slate-200 flex items-center justify-between">
-                  <span className="text-sm font-extrabold text-slate-800">Total Increase (Estimated)</span>
-                  <span className="text-base font-extrabold text-red-600">+₹{totalIncrease}</span>
-                </div>
+                    <button className="mt-5 w-full text-[11px] font-bold text-gray-600 border border-gray-200 rounded-lg py-1.5 hover:bg-gray-50 transition">View Details ∨</button>
+                    {idx < 5 && <ArrowRight className="hidden lg:block absolute -right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 z-10 bg-[#F9FAFB]" />}
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Right Column: Stage Details + Report */}
-            <div className="space-y-4">
-              {/* Stage Details */}
-              <div className="rounded-2xl bg-white border border-slate-100 p-5 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-extrabold text-slate-800">Stage Details</h3>
-                  <span className="text-[10px] rounded-full bg-emerald-100 px-2 py-0.5 font-bold text-emerald-700">
-                    Stage {STAGE_KEYS.indexOf(activeStage) + 1} of {STAGE_KEYS.length}
-                  </span>
-                </div>
-                <h4 className="text-lg font-extrabold text-slate-900 mb-2 flex items-center gap-2">
-                  <span>{STAGE_META[activeStage].icon}</span>
-                  <span>{STAGE_META[activeStage].label}</span>
-                </h4>
-                {/* Meta Verification Badges */}
-                <div className="mb-4">
-                  {activeStage === 'mandi' && (
-                    <div className="flex flex-wrap gap-1">
-                      <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">Government Data</span>
-                      <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold text-blue-700">Verified Source</span>
-                    </div>
-                  )}
-                  {activeStage === 'farmer' && (
-                    <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[9px] font-bold text-purple-700">SAATHI Recorded</span>
-                  )}
-                  {(activeStage === 'wholesaler' || activeStage === 'distributor' || activeStage === 'retailer') && (
-                    <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[9px] font-bold text-purple-700">SAATHI Recorded</span>
-                  )}
-                  {activeStage === 'consumer' && (
-                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">Estimated</span>
-                  )}
-                </div>
-                <div className="space-y-3">
-                  {activeStage === 'mandi' && (
-                    <>
-                      <DetailRow icon="🏛" label="Market Name" value={journey.mandiDetails.name} />
-                      <DetailRow icon="📍" label="Location" value={journey.mandiDetails.location} />
-                      <DetailRow icon="📦" label="Arrival Quantity" value={journey.mandiDetails.arrivalQty} />
-                      <DetailRow icon="💰" label="Modal Price" value={fmt(journey.mandiDetails.modalPrice)} />
-                      <DetailRow icon="📉" label="Minimum Price" value={fmt(journey.mandiDetails.minPrice)} />
-                      <DetailRow icon="📈" label="Maximum Price" value={fmt(journey.mandiDetails.maxPrice)} />
-                      <DetailRow icon="📅" label="Date" value={journey.mandiDetails.date} />
-                      <DetailRow icon="🌐" label="Data Source" value={journey.mandiDetails.source} />
-                      <DetailRow icon="🔗" label="Transaction/Record ID" value={journey.mandiDetails.txId} highlight />
-                    </>
-                  )}
-                  {activeStage === 'farmer' && (
-                    <>
-                      <DetailRow icon="📍" label="Location" value={journey.stages.farmer.location} />
-                      <DetailRow icon="📦" label="Quantity" value={journey.stages.farmer.quantity} />
-                      <DetailRow icon="💰" label="Price Received" value={fmt(journey.stages.farmer.price)} />
-                      <DetailRow icon="📅" label="Date" value={journey.stages.farmer.date} />
-                    </>
-                  )}
-                  {activeStage === 'wholesaler' && (
-                    <>
-                      <DetailRow icon="👤" label="Buyer Name" value="Shiv Traders" />
-                      <DetailRow icon="📍" label="Location" value={journey.stages.wholesaler.location} />
-                      <DetailRow icon="📦" label="Quantity" value={journey.stages.wholesaler.quantity} />
-                      <DetailRow icon="💰" label="Purchase Price" value={fmt(journey.stages.wholesaler.price)} />
-                      <DetailRow icon="📅" label="Date" value={journey.stages.wholesaler.date} />
-                    </>
-                  )}
-                  {activeStage === 'distributor' && (
-                    <>
-                      <DetailRow icon="📍" label="Location" value={journey.stages.distributor.location} />
-                      <DetailRow icon="📦" label="Quantity" value={journey.stages.distributor.quantity} />
-                      <DetailRow icon="🚚" label="Transport Cost" value={fmt(journey.costs.transport)} />
-                      <DetailRow icon="📅" label="Date" value={journey.stages.distributor.date} />
-                    </>
-                  )}
-                  {activeStage === 'retailer' && (
-                    <>
-                      <DetailRow icon="🏪" label="Retailer Name" value="Kashi Kirana Store" />
-                      <DetailRow icon="📍" label="Location" value={journey.stages.retailer.location} />
-                      <DetailRow icon="📦" label="Quantity" value={journey.stages.retailer.quantity} />
-                      <DetailRow icon="💰" label="Retail Price" value={fmt(journey.stages.retailer.price)} />
-                      <DetailRow icon="📅" label="Date" value={journey.stages.retailer.date} />
-                    </>
-                  )}
-                  {activeStage === 'consumer' && (
-                    <>
-                      <DetailRow icon="💰" label="Estimated Consumer Price" value={fmt(journey.stages.consumer.price)} />
-                      <DetailRow icon="📦" label="Quantity" value={journey.stages.consumer.quantity} />
-                      <DetailRow icon="📅" label="Date" value={journey.stages.consumer.date} />
-                    </>
-                  )}
-                </div>
-                <a
-                  href="https://agmarknet.gov.in/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-4 flex items-center justify-center gap-2 w-full rounded-xl bg-[#2E7D32] py-2.5 text-sm font-bold text-white hover:bg-[#256c29] transition shadow-sm"
-                >
-                  View Source <span className="text-xs">↗</span>
-                </a>
-              </div>
-
-              {/* Mandi/Agmarknet external link box (only shown when mandi stage selected) */}
-              {activeStage === 'mandi' && (
-                <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 shadow-sm">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Government Data Verification</p>
-                  <p className="text-xs text-slate-600 mb-3">Government data verifies market-level details on data.gov.in. Downstream stages represent SAATHI records.</p>
-                  <a
-                    href="https://agmarknet.gov.in/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full rounded-xl bg-[#2E7D32] py-2 text-xs font-bold text-white hover:bg-[#256c29] transition shadow-sm"
-                  >
-                    View Agmarknet Portal <span className="text-xs">↗</span>
-                  </a>
-                </div>
-              )}
-            </div>
           </div>
 
-          {/* Bottom Section: Journey Flow + Discrepancy Panel */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
-            {/* Journey Flow — Detailed Information */}
-            <div className="lg:col-span-3 rounded-2xl bg-white border border-slate-100 p-5 shadow-sm">
-              <h3 className="text-sm font-extrabold text-slate-800 mb-4">Journey Flow — Detailed Information</h3>
-              <div className="flex items-start gap-0 overflow-x-auto pb-2">
-                {STAGE_KEYS.map((key, i) => (
-                  <FlowCard
-                    key={key}
-                    stageKey={key}
-                    stage={journey.stages[key]}
-                    cropName={journey.cropName}
-                    isLast={i === STAGE_KEYS.length - 1}
-                    isCurrent={journey.stages[key].status === 'current'}
-                  />
-                ))}
+          {/* Bricks 6: Right Content - Stage Details & Report */}
+          <div className="flex flex-col gap-6">
+            
+            {/* Stage Details Panel */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+                 <h3 className="font-bold text-gray-800">Stage Details</h3>
+                 <X className="h-4 w-4 text-gray-400 cursor-pointer" />
+              </div>
+              <div className="p-5">
+                <div className="inline-flex items-center gap-1 bg-[#ECFDF5] text-[#10B981] border border-[#10B981]/20 px-2 py-0.5 rounded-full text-[10px] font-bold mb-3">
+                  <CheckCircle2 className="h-3 w-3" /> Stage 2 of 6
+                </div>
+                <h4 className="text-xl font-bold text-[#111827] mb-5">Mandi</h4>
+                
+                <div className="space-y-3 mb-6">
+                  <div className="flex items-start gap-3">
+                    <span className="text-gray-400">🏛️</span>
+                    <div className="flex-1 border-b border-gray-100 pb-2 flex justify-between items-start">
+                      <span className="text-[11px] text-gray-500 mt-0.5">Market Name</span>
+                      <span className="text-sm font-semibold text-gray-800 text-right">Chakia Mandi</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <MapPin className="h-4 w-4 text-gray-400 mt-0.5" />
+                    <div className="flex-1 border-b border-gray-100 pb-2 flex justify-between items-start">
+                      <span className="text-[11px] text-gray-500 mt-0.5">Location</span>
+                      <span className="text-sm font-semibold text-gray-800 text-right">Chakia, Chandauli, UP</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-gray-400 mt-0.5">📦</span>
+                    <div className="flex-1 border-b border-gray-100 pb-2 flex justify-between items-start">
+                      <span className="text-[11px] text-gray-500 mt-0.5">Arrival Quantity</span>
+                      <span className="text-sm font-semibold text-gray-800 text-right">1,240 Quintal</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <TrendingUp className="h-4 w-4 text-gray-400 mt-0.5" />
+                    <div className="flex-1 border-b border-gray-100 pb-2 flex justify-between items-start">
+                      <span className="text-[11px] text-gray-500 mt-0.5">Modal Price (₹/q)</span>
+                      <span className="text-sm font-semibold text-gray-800 text-right">₹2,400</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <TrendingUp className="h-4 w-4 text-gray-400 mt-0.5 rotate-180" />
+                    <div className="flex-1 border-b border-gray-100 pb-2 flex justify-between items-start">
+                      <span className="text-[11px] text-gray-500 mt-0.5">Min Price (₹/q)</span>
+                      <span className="text-sm font-semibold text-gray-800 text-right">₹2,250</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <TrendingUp className="h-4 w-4 text-gray-400 mt-0.5" />
+                    <div className="flex-1 border-b border-gray-100 pb-2 flex justify-between items-start">
+                      <span className="text-[11px] text-gray-500 mt-0.5">Max Price (₹/q)</span>
+                      <span className="text-sm font-semibold text-gray-800 text-right">₹2,550</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-gray-400 mt-0.5">📅</span>
+                    <div className="flex-1 border-b border-gray-100 pb-2 flex justify-between items-start">
+                      <span className="text-[11px] text-gray-500 mt-0.5">Date</span>
+                      <span className="text-sm font-semibold text-gray-800 text-right">24 Aug 2026</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-gray-400 mt-0.5">🌐</span>
+                    <div className="flex-1 border-b border-gray-100 pb-2 flex justify-between items-start">
+                      <span className="text-[11px] text-gray-500 mt-0.5">Source</span>
+                      <div className="text-right">
+                        <span className="text-[11px] font-semibold text-gray-800 block">data.gov.in (AGMARKNET)</span>
+                        <span className="text-[9px] text-[#10B981] font-bold inline-flex items-center gap-0.5"><CheckCircle2 className="h-3 w-3" /> Verified</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="text-gray-400 mt-0.5">🔗</span>
+                    <div className="flex-1 flex justify-between items-start">
+                      <span className="text-[11px] text-gray-500 mt-0.5">Transaction ID</span>
+                      <span className="text-[11px] font-mono font-semibold text-gray-800 text-right bg-gray-50 px-1 py-0.5 rounded">MANDI-2026-08-24-00123</span>
+                    </div>
+                  </div>
+                </div>
+
+                <button className="w-full bg-[#1B4D3E] hover:bg-[#0C3B2E] text-white font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 transition text-sm shadow-sm">
+                  View Source <ArrowRight className="h-4 w-4 -rotate-45" />
+                </button>
               </div>
             </div>
 
             {/* Report a Discrepancy */}
-            <div className="rounded-2xl bg-white border border-slate-100 p-5 shadow-sm flex flex-col">
-              <h3 className="text-sm font-extrabold text-slate-800 mb-2 flex items-center gap-2">
-                <span className="text-red-500">⚠️</span> Report a Discrepancy
+            <div className="bg-[#FEF2F2] rounded-xl shadow-sm border border-red-100 p-5">
+              <h3 className="font-bold text-[#DC2626] mb-4 flex items-center gap-2">
+                <span className="border border-red-200 rounded text-[10px] px-1 font-mono">⚠️</span> Report a Discrepancy
               </h3>
-              <p className="text-xs text-slate-500 mb-4">
-                Notice an issue with the prices or locations shown in this journey?
-              </p>
-              <div className="space-y-2 mb-4">
-                <button className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50 rounded-lg border border-slate-100 hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition">
-                  Price too high
-                </button>
-                <button className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50 rounded-lg border border-slate-100 hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition">
-                  Wrong Location
-                </button>
-                <button className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50 rounded-lg border border-slate-100 hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition">
-                  Missing Stage
-                </button>
+              
+              <div className="flex flex-wrap gap-2 mb-6">
+                {['Price Different', 'Quantity Different', 'Weighing Problem', 'Unauthorized Deduction', 'Transaction Missing', 'Other Issue'].map(tag => (
+                  <button key={tag} className="bg-white border border-red-100 text-gray-600 hover:border-red-300 hover:text-red-700 hover:bg-red-50 text-[11px] font-semibold py-1.5 px-3 rounded-full transition-colors">
+                    {tag}
+                  </button>
+                ))}
               </div>
-              <div className="mt-auto">
-                <button className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2.5 rounded-xl text-sm transition shadow-sm border border-red-100">
-                  Report Now
-                </button>
-              </div>
+
+              <button className="w-full bg-[#DC2626] hover:bg-red-700 text-white font-bold py-2.5 rounded-lg transition text-sm shadow-sm">
+                Report Now
+              </button>
             </div>
+            
           </div>
+        </div>
 
-          {/* Footer Note */}
-          <div className="rounded-2xl bg-emerald-50 border border-emerald-100 px-5 py-3 flex items-start gap-2.5 shadow-sm">
-            <span className="text-emerald-600 mt-0.5 text-sm">ℹ️</span>
-            <p className="text-xs text-emerald-800 font-medium">
-              Government data verifies market-level information; downstream transaction details are shown only when recorded/verified through SAATHI.
-            </p>
+        {/* Footer Alert */}
+        <div className="bg-[#ECFDF5] border border-[#10B981]/20 rounded-xl p-4 flex items-center gap-3 mt-8">
+          <div className="bg-white rounded-full p-1.5 shrink-0 shadow-sm border border-[#10B981]/10">
+            <Lock className="h-4 w-4 text-[#10B981]" />
           </div>
-        </>
-      )}
-      </div>
-    </div>
-  );
-}
+          <p className="text-xs font-semibold text-[#064E3B]">
+            Government data verifies market-level information; downstream transaction details are shown only when recorded/verified through SAATHI.
+          </p>
+        </div>
 
-// ─── Detail Row helper ─────────────────────────────────────────────
-function DetailRow({ icon, label, value, highlight }) {
-  return (
-    <div className="flex items-start gap-2 py-1.5 border-b border-slate-50 last:border-0">
-      <span className="text-xs mt-0.5">{icon}</span>
-      <div className="flex-1 min-w-0">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
-        <p className={`text-sm font-semibold ${highlight ? 'text-[#2E7D32]' : 'text-slate-800'} break-all`}>{value}</p>
       </div>
-      {highlight && <span className="text-emerald-500 text-xs mt-1">Verified ✓</span>}
     </div>
   );
 }

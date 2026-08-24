@@ -7,6 +7,7 @@ import {
   MapIcon,
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
+import { ChevronDown } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 
 const getLanguageCode = (language, supportedLanguages = []) => (
@@ -25,7 +26,7 @@ export default function PlatformTopNav({ preferredLanguage, user, onLanguageChan
   ];
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 bg-[#071f17]/95 text-white backdrop-blur-xl shadow-[0_10px_28px_rgba(0,0,0,0.35)] border-b border-emerald-900/60">
+    <header className="fixed inset-x-0 top-0 z-50 bg-[#0C3B2E] text-white shadow-sm border-b border-emerald-900/20">
       <div className="mx-auto flex max-w-[1500px] flex-col gap-2 px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
 
         <div className="flex items-center justify-between gap-2 sm:gap-4 lg:justify-start">
@@ -69,44 +70,33 @@ export default function PlatformTopNav({ preferredLanguage, user, onLanguageChan
           <button
             type="button"
             onClick={onVoiceStart}
-            className="hidden h-9 shrink-0 items-center gap-2 rounded-full border border-emerald-500/40 bg-[#061e17]/90 px-3.5 text-xs font-bold text-emerald-100 transition hover:bg-emerald-900/80 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 sm:inline-flex shadow-sm"
+            className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-white px-3 font-bold text-[#0C3B2E] shadow-sm transition hover:bg-slate-100 hover:scale-105 active:scale-95"
           >
-            <img
-              src="/saathi-mic-logo.png"
-              alt="SAATHI AI"
-              className="h-5 w-5 rounded-full bg-[#fdfbf7] object-contain p-0.5 shadow-sm"
-            />
-            <span>{t('nav.askSaathi')}</span>
+            <span className="flex items-center justify-center rounded-full bg-[#0C3B2E] p-1 text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3">
+                <path d="M8.25 4.5a3.75 3.75 0 117.5 0v8.25a3.75 3.75 0 11-7.5 0V4.5z" />
+                <path d="M6 10.5a.75.75 0 01.75.75v1.5a5.25 5.25 0 1010.5 0v-1.5a.75.75 0 011.5 0v1.5a6.751 6.751 0 01-6 6.709v2.291h3a.75.75 0 010 1.5h-7.5a.75.75 0 010-1.5h3v-2.291a6.751 6.751 0 01-6-6.709v-1.5A.75.75 0 016 10.5z" />
+              </svg>
+            </span>
+            <span className="text-xs">Ask SAATHI</span>
           </button>
 
-          <Link
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-500/30 bg-[#061e17]/80 text-emerald-100 transition hover:bg-emerald-900/60 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-            to="/notifications"
-            aria-label={t('nav.notifications')}
-          >
-            <BellIcon className="h-4.5 w-4.5" />
-          </Link>
+          <button className="relative ml-1 flex h-9 w-9 items-center justify-center rounded-full text-white hover:bg-[#1B4D3E] transition">
+            <BellIcon className="h-5 w-5" />
+            <span className="absolute top-2 right-2.5 h-1.5 w-1.5 rounded-full bg-red-500 ring-2 ring-[#0C3B2E]"></span>
+          </button>
 
-          <Link
-            className="flex h-9 shrink-0 items-center gap-2 rounded-full border border-emerald-500/30 bg-[#061e17]/80 px-2.5 py-1 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-900/60 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-            to="/profile"
-            aria-label={t('nav.profile')}
-          >
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-700 text-white font-bold text-[10px]">
-              {user?.name ? user.name[0] : 'R'}
-            </div>
-            <span className="hidden text-xs font-semibold sm:inline">{user?.name || 'Ramesh Kumar'}</span>
-            <span className="text-[10px] text-emerald-300">?</span>
-          </Link>
+          <div className="ml-1 h-6 w-px bg-white/20 hidden sm:block"></div>
 
           <button
-            type="button"
             onClick={onLogout}
-            aria-label={t('nav.logout')}
-            title={t('nav.logout')}
-            className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-500/30 bg-[#061e17]/80 text-emerald-200 transition hover:bg-emerald-900/60 hover:text-white sm:flex"
+            className="flex shrink-0 items-center gap-2 rounded-full px-2 py-1 transition hover:bg-[#1B4D3E]"
           >
-            <ArrowRightOnRectangleIcon className="h-4 w-4" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#10B981] text-xs font-bold text-[#0C3B2E] shadow-sm ring-2 ring-white/10">
+              R
+            </div>
+            <span className="hidden text-xs font-semibold text-white sm:block">Ramesh Kumar</span>
+            <ChevronDown className="h-3 w-3 text-white/70" />
           </button>
         </div>
       </div>
@@ -122,10 +112,10 @@ function TopNavItem({ item }) {
       to={item.path}
       end={item.path === '/'}
       className={({ isActive }) =>
-        `flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition whitespace-nowrap ${
+        `flex items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-xs transition whitespace-nowrap ${
           isActive
-            ? 'bg-emerald-600 text-white border border-emerald-400 font-bold shadow-md'
-            : 'text-white font-semibold border border-white/25 bg-white/10 hover:bg-white/20 hover:border-white/50 hover:text-white'
+            ? 'bg-[#1B4D3E] text-white font-medium shadow-sm'
+            : 'text-white/80 font-medium hover:bg-[#1B4D3E]/50 hover:text-white'
         }`
       }
     >
