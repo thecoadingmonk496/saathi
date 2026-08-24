@@ -300,27 +300,32 @@ export default function MarketExplorer() {
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 {[
-                  { title: 'Farmer', icon: '👨‍🌾', data: [['Location', 'Chandauli, UP'], ['Quantity', '100 Quintal'], ['Price Received', '₹2,350 /q'], ['Date', '24 Aug 2026']] },
-                  { title: 'Mandi', icon: '🏛️', data: [['Market', 'Chakia Mandi'], ['Quantity', '1,240 Quintal'], ['Modal Price', '₹2,400 /q'], ['Date', '24 Aug 2026']] },
-                  { title: 'Wholesaler', icon: '🏪', data: [['Buyer Name', 'Shiv Traders'], ['Quantity', '100 Quintal'], ['Purchase Price', '₹2,550 /q'], ['Date', '25 Aug 2026']] },
-                  { title: 'Distributor', icon: '🚚', data: [['Location', 'Varanasi, UP'], ['Quantity', '98 Quintal'], ['Transport Cost', '₹120 /q'], ['Date', '26 Aug 2026']] },
-                  { title: 'Retailer', icon: '🏬', data: [['Retailer Name', 'Kashi Store'], ['Quantity', '98 Quintal'], ['Retail Price', '₹3,000 /q'], ['Date', '27 Aug 2026']] },
-                  { title: 'Consumer', icon: '👨‍👩‍👧‍👦', data: [['Estimated Price', '₹3,000 /q'], ['Quantity', '98 Quintal'], ['Date', '27 Aug 2026']] },
+                  { title: 'Farmer', imgUrl: '/images/journey/farmer.jpg', data: [['Location', 'Chandauli, UP'], ['Quantity', '100 Quintal'], ['Price Received', '₹2,350 /q'], ['Date', '24 Aug 2026']] },
+                  { title: 'Mandi', imgUrl: '/images/journey/mandi.jpg', data: [['Market', 'Chakia Mandi'], ['Quantity', '1,240 Quintal'], ['Modal Price', '₹2,400 /q'], ['Date', '24 Aug 2026']] },
+                  { title: 'Wholesaler', imgUrl: '/images/journey/wholesaler.jpg', data: [['Buyer Name', 'Shiv Traders'], ['Quantity', '100 Quintal'], ['Purchase Price', '₹2,550 /q'], ['Date', '25 Aug 2026']] },
+                  { title: 'Distributor', imgUrl: '/images/journey/distributor.jpg', data: [['Location', 'Varanasi, UP'], ['Quantity', '98 Quintal'], ['Transport Cost', '₹120 /q'], ['Date', '26 Aug 2026']] },
+                  { title: 'Retailer', imgUrl: '/images/journey/retailer.jpg', data: [['Retailer Name', 'Kashi Store'], ['Quantity', '98 Quintal'], ['Retail Price', '₹3,000 /q'], ['Date', '27 Aug 2026']] },
+                  { title: 'Consumer', imgUrl: '/images/journey/consumer.jpg', data: [['Estimated Price', '₹3,000 /q'], ['Quantity', '98 Quintal'], ['Date', '27 Aug 2026']] },
                 ].map((item, idx) => (
-                  <div key={item.title} className="bg-white rounded-xl shadow-sm border border-gray-200 p-3.5 flex flex-col relative group hover:border-[#10B981]/40 transition-all h-full">
+                  <div key={item.title} className="bg-white rounded-xl shadow-sm border border-gray-200 p-3.5 flex flex-col relative group hover:border-[#10B981]/40 transition-all h-full overflow-hidden">
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-base leading-none">{item.icon}</span>
+                      <img src={item.imgUrl} alt={item.title} className="w-5 h-5 rounded-sm object-cover" />
                       <h4 className="font-bold text-[13px] text-gray-800">{item.title}</h4>
                     </div>
-                    <div className="flex-1 space-y-2 mb-4">
-                      {item.data.map(([label, val]) => (
-                        <div key={label} className="grid grid-cols-1 gap-0.5 text-[10px]">
-                          <span className="text-gray-400 font-semibold">{label}</span>
-                          <span className="font-bold text-gray-700 leading-tight">{val}</span>
-                        </div>
-                      ))}
+                    <div className="flex-1 relative mb-4">
+                      <div className="space-y-2 relative z-10">
+                        {item.data.map(([label, val]) => (
+                          <div key={label} className="grid grid-cols-1 gap-0.5 text-[10px]">
+                            <span className="text-gray-400 font-semibold">{label}</span>
+                            <span className="font-bold text-gray-700 leading-tight bg-white/70 inline-block px-1 -mx-1 rounded">{val}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="absolute -bottom-2 -right-2 w-20 h-20 opacity-90 z-0">
+                        <img src={item.imgUrl} alt={item.title} className="w-full h-full object-contain drop-shadow-md rounded-lg" style={{ maskImage: 'linear-gradient(to top, rgba(0,0,0,1) 50%, rgba(0,0,0,0.2) 100%)', WebkitMaskImage: 'linear-gradient(to top, rgba(0,0,0,1) 50%, rgba(0,0,0,0.2) 100%)' }} />
+                      </div>
                     </div>
-                    <button className="w-full text-[10px] font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded py-1.5 hover:bg-gray-100 transition mt-auto">View Details ∨</button>
+                    <button className="w-full relative z-10 text-[10px] font-bold text-gray-600 bg-white border border-gray-200 rounded py-1.5 hover:bg-gray-50 transition mt-auto shadow-sm">View Details ∨</button>
                     {idx < 5 && <ArrowRight className="hidden lg:block absolute -right-2 top-[30%] h-3 w-3 text-gray-300 z-10 bg-[#F9FAFB]" />}
                   </div>
                 ))}
