@@ -328,72 +328,74 @@ export default function MarketExplorer() {
     : 0;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pt-24 sm:px-6 lg:pt-28 pb-12">
+    <div className="mx-auto max-w-7xl px-4 pt-24 sm:px-6 lg:pt-28 pb-12 text-slate-900">
 
-      {/* ─── Header Row ─────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
-        {/* Title */}
-        <div>
-          <h1 className="text-3xl font-extrabold text-white drop-shadow-md flex items-center gap-2">
-            🌾 Crop Journey
-          </h1>
-          <p className="mt-1 text-sm text-white/80 font-medium">
-            Track your crop from farm to consumer — every step, every price
-          </p>
-        </div>
-
-        {/* Transparency + Last Updated cards (only shown when journey active) */}
-        {journey && (
-          <div className="flex flex-col sm:flex-row gap-3">
-            {/* Transparency Score */}
-            <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 px-5 py-4 shadow-sm flex items-center gap-4 min-w-[260px]">
-              <div className="relative flex items-center justify-center">
-                <svg width="64" height="64" viewBox="0 0 64 64">
-                  <circle cx="32" cy="32" r="28" fill="none" stroke="#e2e8f0" strokeWidth="5" />
-                  <circle cx="32" cy="32" r="28" fill="none" stroke="#16a34a" strokeWidth="5"
-                    strokeDasharray={`${(journey.transparencyScore / 100) * 176} 176`}
-                    strokeLinecap="round" transform="rotate(-90 32 32)" />
-                </svg>
-                <span className="absolute text-lg font-extrabold text-[#2E7D32]">{journey.transparencyScore}</span>
-              </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Transparency Score</p>
-                <p className="text-sm font-extrabold text-[#2E7D32]">{journey.transparencyScore}/100</p>
-                <p className="text-[10px] text-emerald-600 font-semibold">Highly Transparent</p>
-                <div className="mt-1.5 space-y-0.5">
-                  {['Government Data', 'Buyer Verified', 'Digital Records', 'Location Information'].map(item => (
-                    <div key={item} className="flex items-center gap-1.5 text-[10px]">
-                      <span className="text-emerald-500">✓</span>
-                      <span className="text-slate-600">{item}</span>
-                      <span className="ml-auto text-slate-400 font-medium">Yes</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Last Updated */}
-            <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 px-5 py-4 shadow-sm min-w-[200px]">
-              <div className="flex items-center gap-1.5 mb-2">
-                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Last Updated</span>
-              </div>
-              <p className="text-sm font-extrabold text-slate-900">{dateFmt()}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
-              <div className="mt-2.5 pt-2 border-t border-slate-100">
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Data Source</p>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-xs font-bold text-[#2E7D32]">data.gov.in / AGMARKNET</span>
-                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">e-NAM</span>
-                </div>
-                <div className="flex items-center gap-1 mt-1">
-                  <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">Government Data</span>
-                  <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">Verified Source</span>
-                </div>
-              </div>
-            </div>
+      {/* ─── Header Area / Beige Backdrop Wrapper ─── */}
+      <div className="rounded-3xl bg-[#fbf9f4] border border-slate-200/60 p-6 sm:p-8 shadow-md mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+          {/* Title */}
+          <div>
+            <h1 className="text-3xl font-extrabold text-slate-950 flex items-center gap-2">
+              <span className="text-emerald-700">🌱</span> Crop Journey
+            </h1>
+            <p className="mt-1 text-sm text-slate-600 font-medium">
+              Track your crop from farm to consumer — every step, every price
+            </p>
           </div>
-        )}
+
+          {/* Transparency + Last Updated cards (only shown when journey active) */}
+          {journey && (
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* Transparency Score */}
+              <div className="rounded-2xl bg-white border border-slate-100 px-5 py-4 shadow-sm flex items-center gap-4 min-w-[260px]">
+                <div className="relative flex items-center justify-center">
+                  <svg width="64" height="64" viewBox="0 0 64 64">
+                    <circle cx="32" cy="32" r="28" fill="none" stroke="#e2e8f0" strokeWidth="5" />
+                    <circle cx="32" cy="32" r="28" fill="none" stroke="#16a34a" strokeWidth="5"
+                      strokeDasharray={`${(journey.transparencyScore / 100) * 176} 176`}
+                      strokeLinecap="round" transform="rotate(-90 32 32)" />
+                  </svg>
+                  <span className="absolute text-lg font-extrabold text-[#2E7D32]">{journey.transparencyScore}</span>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Transparency Score</p>
+                  <p className="text-sm font-extrabold text-[#2E7D32]">{journey.transparencyScore}/100</p>
+                  <p className="text-[10px] text-emerald-600 font-semibold">Highly Transparent</p>
+                  <div className="mt-1.5 space-y-0.5">
+                    {['Government Data', 'Buyer Verified', 'Digital Records', 'Location Information'].map(item => (
+                      <div key={item} className="flex items-center gap-1.5 text-[10px]">
+                        <span className="text-emerald-500">✓</span>
+                        <span className="text-slate-600">{item}</span>
+                        <span className="ml-auto text-slate-400 font-medium">Yes</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Last Updated */}
+              <div className="rounded-2xl bg-white border border-slate-100 px-5 py-4 shadow-sm min-w-[200px]">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Last Updated</span>
+                </div>
+                <p className="text-sm font-extrabold text-slate-900">{dateFmt()}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
+                <div className="mt-2.5 pt-2 border-t border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Data Source</p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs font-bold text-[#2E7D32]">data.gov.in / AGMARKNET</span>
+                    <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">e-NAM</span>
+                  </div>
+                  <div className="flex items-center gap-1 mt-1">
+                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">Government Data</span>
+                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">Verified Source</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ─── Filter Section ─────────────────────────────────────── */}
