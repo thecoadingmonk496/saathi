@@ -328,17 +328,18 @@ export default function MarketExplorer() {
     : 0;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pt-24 sm:px-6 lg:pt-28 pb-12 text-slate-900">
+    <div className="min-h-screen bg-[#fcfbf8] font-sans">
+      <div className="mx-auto max-w-7xl px-4 pt-24 sm:px-6 lg:pt-28 pb-12 text-slate-900">
 
-      {/* ─── Header Area / Beige Backdrop Wrapper ─── */}
-      <div className="rounded-3xl bg-[#fbf9f4] border border-slate-200/60 p-6 sm:p-8 shadow-md mb-6">
+        {/* ─── Header Area ─── */}
+        <div className="mb-6">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
           {/* Title */}
           <div>
             <h1 className="text-3xl font-extrabold text-slate-950 flex items-center gap-2">
-              <span className="text-emerald-700">🌱</span> Crop Journey
+              <span className="text-emerald-700">🌿</span> Crop Journey
             </h1>
-            <p className="mt-1 text-sm text-slate-600 font-medium">
+            <p className="mt-1 text-sm text-slate-600 font-medium max-w-lg">
               Track your crop from farm to consumer — every step, every price
             </p>
           </div>
@@ -399,7 +400,7 @@ export default function MarketExplorer() {
       </div>
 
       {/* ─── Filter Section ─────────────────────────────────────── */}
-      <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-5 shadow-sm mb-4">
+      <div className="rounded-2xl bg-white border border-slate-100 p-5 shadow-sm mb-4">
         <div className="flex flex-col md:flex-row gap-3 items-end">
           <FilterSelect label="State" value={selState} onChange={handleStateChange}
             options={states} placeholder="Select State" required />
@@ -511,7 +512,7 @@ export default function MarketExplorer() {
 
       {/* ─── Empty state ────────────────────────────────────────── */}
       {!journey && !loading && (
-        <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-12 shadow-sm text-center">
+        <div className="rounded-2xl bg-white border border-slate-100 p-12 shadow-sm text-center">
           <div className="text-6xl mb-4">🌾</div>
           <h2 className="text-xl font-extrabold text-slate-800 mb-2">Start Your Crop Journey</h2>
           <p className="text-sm text-slate-500 max-w-md mx-auto">
@@ -535,7 +536,7 @@ export default function MarketExplorer() {
 
       {/* ─── Loading skeleton ───────────────────────────────────── */}
       {loading && (
-        <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-8 shadow-sm">
+        <div className="rounded-2xl bg-white border border-slate-100 p-8 shadow-sm">
           <div className="flex gap-4 overflow-hidden">
             {STAGE_KEYS.map((_, i) => (
               <div key={i} className="flex items-center">
@@ -559,7 +560,7 @@ export default function MarketExplorer() {
       {journey && !loading && (
         <>
           {/* Timeline */}
-          <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-5 shadow-sm mb-4 overflow-x-auto">
+          <div className="rounded-2xl bg-white border border-slate-100 p-5 shadow-sm mb-4 overflow-x-auto">
             <div className="flex items-center gap-0 min-w-max">
               {STAGE_KEYS.map((key, i) => (
                 <StageCard
@@ -580,7 +581,7 @@ export default function MarketExplorer() {
             {/* Left Column: Price Chart + Why Price Changed */}
             <div className="lg:col-span-2 space-y-4">
               {/* Price Journey Chart */}
-              <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-5 shadow-sm">
+              <div className="rounded-2xl bg-white border border-slate-100 p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-extrabold text-slate-800">Price Journey</h3>
                   <span className="text-[10px] rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-500">₹ per Quintal</span>
@@ -589,7 +590,7 @@ export default function MarketExplorer() {
               </div>
 
               {/* Why Price Changed */}
-              <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-5 shadow-sm">
+              <div className="rounded-2xl bg-white border border-slate-100 p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-extrabold text-slate-800">Why Price Changed?</h3>
                   <span className="text-[10px] text-slate-400 font-semibold italic">Estimated Values</span>
@@ -621,7 +622,7 @@ export default function MarketExplorer() {
             {/* Right Column: Stage Details + Report */}
             <div className="space-y-4">
               {/* Stage Details */}
-              <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-5 shadow-sm">
+              <div className="rounded-2xl bg-white border border-slate-100 p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-extrabold text-slate-800">Stage Details</h3>
                   <span className="text-[10px] rounded-full bg-emerald-100 px-2 py-0.5 font-bold text-emerald-700">
@@ -734,25 +735,54 @@ export default function MarketExplorer() {
             </div>
           </div>
 
-          {/* Journey Flow — Detailed Information */}
-          <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-5 shadow-sm mb-4">
-            <h3 className="text-sm font-extrabold text-slate-800 mb-4">Journey Flow — Detailed Information</h3>
-            <div className="flex items-start gap-0 overflow-x-auto pb-2">
-              {STAGE_KEYS.map((key, i) => (
-                <FlowCard
-                  key={key}
-                  stageKey={key}
-                  stage={journey.stages[key]}
-                  cropName={journey.cropName}
-                  isLast={i === STAGE_KEYS.length - 1}
-                  isCurrent={journey.stages[key].status === 'current'}
-                />
-              ))}
+          {/* Bottom Section: Journey Flow + Discrepancy Panel */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
+            {/* Journey Flow — Detailed Information */}
+            <div className="lg:col-span-3 rounded-2xl bg-white border border-slate-100 p-5 shadow-sm">
+              <h3 className="text-sm font-extrabold text-slate-800 mb-4">Journey Flow — Detailed Information</h3>
+              <div className="flex items-start gap-0 overflow-x-auto pb-2">
+                {STAGE_KEYS.map((key, i) => (
+                  <FlowCard
+                    key={key}
+                    stageKey={key}
+                    stage={journey.stages[key]}
+                    cropName={journey.cropName}
+                    isLast={i === STAGE_KEYS.length - 1}
+                    isCurrent={journey.stages[key].status === 'current'}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Report a Discrepancy */}
+            <div className="rounded-2xl bg-white border border-slate-100 p-5 shadow-sm flex flex-col">
+              <h3 className="text-sm font-extrabold text-slate-800 mb-2 flex items-center gap-2">
+                <span className="text-red-500">⚠️</span> Report a Discrepancy
+              </h3>
+              <p className="text-xs text-slate-500 mb-4">
+                Notice an issue with the prices or locations shown in this journey?
+              </p>
+              <div className="space-y-2 mb-4">
+                <button className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50 rounded-lg border border-slate-100 hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition">
+                  Price too high
+                </button>
+                <button className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50 rounded-lg border border-slate-100 hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition">
+                  Wrong Location
+                </button>
+                <button className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50 rounded-lg border border-slate-100 hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition">
+                  Missing Stage
+                </button>
+              </div>
+              <div className="mt-auto">
+                <button className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2.5 rounded-xl text-sm transition shadow-sm border border-red-100">
+                  Report Now
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Footer Note */}
-          <div className="rounded-2xl bg-emerald-50/80 backdrop-blur-sm border border-emerald-200 px-5 py-3 flex items-start gap-2.5">
+          <div className="rounded-2xl bg-emerald-50 border border-emerald-100 px-5 py-3 flex items-start gap-2.5 shadow-sm">
             <span className="text-emerald-600 mt-0.5 text-sm">ℹ️</span>
             <p className="text-xs text-emerald-800 font-medium">
               Government data verifies market-level information; downstream transaction details are shown only when recorded/verified through SAATHI.
@@ -760,6 +790,7 @@ export default function MarketExplorer() {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }
