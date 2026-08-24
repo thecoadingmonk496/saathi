@@ -14,10 +14,6 @@ SARVAM_API_KEY = os.getenv("SARVAM_API_KEY", "")
 SARVAM_STT_URL = "https://api.sarvam.ai/speech-to-text"
 SARVAM_TTS_URL = "https://api.sarvam.ai/text-to-speech"
 
-# Fallback base64 silent WAV header chunk for dev/testing when API key is missing
-DUMMY_AUDIO_BASE64 = (
-    "UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="
-)
 
 def is_valid_sarvam_key() -> bool:
     """Checks if a non-placeholder Sarvam API Key is present in the environment."""
@@ -107,11 +103,11 @@ def text_to_speech(
     """
     if not text or not text.strip():
         logger.warning("Empty text passed to TTS.")
-        return DUMMY_AUDIO_BASE64
+        return ""
 
     if not is_valid_sarvam_key():
-        logger.info("SARVAM_API_KEY is not configured. Returning simulated TTS audio string for testing.")
-        return DUMMY_AUDIO_BASE64
+        logger.info("SARVAM_API_KEY is not configured. Returning empty string to trigger fallback.")
+        return ""
 
     headers = {
         "api-subscription-key": SARVAM_API_KEY.strip(),
@@ -145,14 +141,14 @@ def text_to_speech(
                 logger.info("Sarvam TTS synthesized audio successfully.")
                 return audios[0]
             logger.warning("Sarvam TTS returned empty audios array.")
-            return DUMMY_AUDIO_BASE64
+            return ""
         else:
             logger.error(f"Sarvam TTS API error [{response.status_code}]: {response.text}")
-            return DUMMY_AUDIO_BASE64
+            return ""
 
     except Exception as e:
         logger.error(f"Failed to communicate with Sarvam TTS API: {e}")
-        return DUMMY_AUDIO_BASE64
+        return ""
 
 
 if __name__ == "__main__":
@@ -163,10 +159,9 @@ if __name__ == "__main__":
     sample_hindi_text = "नमस्ते किसान भाई, गेहूं का मंडी भाव ₹2450 प्रति क्विंटल है।"
     print(f"\n📝 Text to Synthesize: {sample_hindi_text}")
     audio_b64 = text_to_speech(sample_hindi_text)
-    print(f"🔊 Generated Base64 Audio (Length): {len(audio_b64)} chars")
-
-    dummy_wav_bytes = base64.b64decode(DUMMY_AUDIO_BASE64)
-    stt_result = speech_to_text(dummy_wav_bytes)
-    print(f"🗣️ Transcribed Text from Audio: {stt_result}")
+    if audio_b64:
+        print(f"🔊 Generated Base64 Audio (Length): {len(audio_b64)} chars")
+    else:
+        print("🔊 Generated Base64 Audio: None (Fallback mode active)")
 
     print("\n" + "="*50 + "\n")

@@ -13,3 +13,5 @@ fasttext-langdetect>=1.0.5
 tenacity>=8.2.0
 python-json-logger>=2.0.7
 gunicorn>=21.2.0
+google-cloud-texttospeech>=2.16.0
+edge-tts>=6.1.0

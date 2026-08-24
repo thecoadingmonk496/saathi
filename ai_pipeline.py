@@ -15,9 +15,7 @@ load_dotenv(override=True)
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_google_genai import ChatGoogleGenerativeAI
 import google.api_core.exceptions
 
@@ -77,7 +75,38 @@ MANDI_PRICE_DATABASE: Dict[str, Dict[str, int]] = {
 }
 
 
-@tool
+KNOWN_LOCATIONS = [
+    'gorakhpur', 'lucknow', 'prayagraj', 'varanasi', 'kanpur', 'agra', 'meerut',
+    'punjab', 'amritsar', 'ludhiana', 'patiala', 'jalandhar',
+    'tamil nadu', 'chennai', 'coimbatore', 'madurai',
+    'karnataka', 'bangalore', 'mysore', 'hubli',
+    'maharashtra', 'mumbai', 'pune', 'nagpur', 'nashik',
+    'gujarat', 'ahmedabad', 'surat', 'vadodara', 'rajkot',
+    'haryana', 'gurugram', 'faridabad', 'panipat',
+    'madhya pradesh', 'bhopal', 'indore', 'gwalior', 'jabalpur',
+    'rajasthan', 'jaipur', 'jodhpur', 'udaipur', 'kota',
+    'bihar', 'patna', 'gaya', 'muzaffarpur',
+    'west bengal', 'kolkata', 'howrah', 'darjeeling',
+    'uttar pradesh', 'andhra pradesh', 'telangana', 'hyderabad'
+]
+
+def extract_location_from_message(message: str) -> Optional[str]:
+    """Extract location mentioned in user message."""
+    msg_lower = message.lower()
+    for loc in KNOWN_LOCATIONS:
+        if loc in msg_lower:
+            return loc
+    return None
+
+def extract_crop_from_message(message: str) -> Optional[str]:
+    """Extract crop mentioned in user message."""
+    msg_lower = message.lower()
+    for crop in MANDI_PRICE_DATABASE.keys():
+        if crop in msg_lower:
+            # Map Hindi/Tamil names to canonical English for internal use, or just return the key
+            return crop
+    return None
+
 def get_mandi_price(crop_name: str, state: str) -> str:
     """
     Fetches agricultural Mandi market rates for a crop in an Indian state.
@@ -116,8 +145,6 @@ def get_mandi_price(crop_name: str, state: str) -> str:
         )
 
 
-tools = [get_mandi_price]
-
 # ---------------------------------------------------------------------------
 # LLM initialisation
 # ---------------------------------------------------------------------------
@@ -142,18 +169,6 @@ llm = ChatGoogleGenerativeAI(
     timeout=60.0,
     max_retries=0,      # Application-level retry loop handles this
 )
-
-# ---------------------------------------------------------------------------
-# Prompt template (agent uses {language} placeholder for language policy)
-# ---------------------------------------------------------------------------
-_AGENT_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", "{language_policy}"),
-    ("human", "{input}"),
-    ("placeholder", "{agent_scratchpad}"),
-])
-
-agent          = create_tool_calling_agent(llm, tools, _AGENT_PROMPT)
-agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=False)
 
 # ---------------------------------------------------------------------------
 # BCP-47 → verbose name (used when detected_language is not passed)
@@ -202,40 +217,104 @@ _FALLBACK: dict[str, str] = {
 # ---------------------------------------------------------------------------
 # Dynamic language policy builder
 # ---------------------------------------------------------------------------
-def _build_language_policy(lang_name: str, lang_code: str, confidence: float) -> str:
+import json
+
+def _build_language_policy() -> str:
     """
     Returns the highest-priority language policy block for the system prompt.
-    This is inserted BEFORE all other instructions so Gemini always obeys it.
     """
-    if confidence < 0.5:
-        # Low confidence → English fallback with a note
-        lang_name = "English"
-        lang_code = "en"
+    return """LANGUAGE POLICY (MANDATORY – HIGHEST PRIORITY):
 
-    return f"""LANGUAGE POLICY (MANDATORY – HIGHEST PRIORITY):
-- The user's latest message is in {lang_name} (code: {lang_code}).
-- Your entire response MUST be ONLY in {lang_name}.
-- NEVER combine two languages in the same response.
-- If the user typed in Romanized script, convert your response to the native script of {lang_name}.
-- Translate any data from tools (Mandi, weather, etc.) into {lang_name} before replying.
-- This policy overrides all other instructions."""
+You are an empathetic, highly adaptable conversational assistant.
+Your CORE INSTRUCTION is to LISTEN to the user's input, IDENTIFY the exact
+language, dialect, or mix of languages they use, and RESPOND BACK fluently
+and accurately in the VERY SAME language and tone.
+
+LANGUAGE MIRRORING RULES (non-negotiable):
+1. The language of the user's CURRENT message has ABSOLUTE priority.
+   Ignore history language, UI language, and profile language if they differ.
+2. If the user writes in English → respond entirely in English.
+3. If the user writes in Hindi (Devanagari) → respond entirely in Hindi (Devanagari).
+4. If the user writes in Romanized Hindi / Hinglish (e.g. "gehu ka bhav kya hai",
+   "meri fasal mein keede lag gaye") → understand it as Hindi and respond in
+   Hindi using Devanagari script, since that is what TTS can pronounce correctly.
+5. If the user writes in Tamil, Telugu, Bengali, Marathi, Gujarati, Kannada,
+   Malayalam, Punjabi, Odia, Urdu, Assamese, or any other Indian language →
+   respond in THAT language using its NATIVE SCRIPT.
+6. Apply the same Romanized logic to all Indian languages:
+   Roman Tamil → Tamil script, Roman Bengali → Bengali script, etc.
+7. If the user code-switches (mixes Hindi and English in one sentence) →
+   respond in the same natural mix, using Devanagari for Hindi words and
+   Latin for English words, matching their exact style.
+8. NEVER translate the user's question into a different language.
+9. NEVER add unnecessary English translations in parentheses after non-English text.
+
+TONE MIRRORING RULES:
+1. Match the user's emotional energy. If they sound worried → be reassuring.
+   If they sound casual → be warm and casual. If they sound urgent → be prompt and direct.
+2. Use natural, flowing language — as if speaking to a friend, not reading from a textbook.
+3. Avoid rigid, formulaic greetings in every response. Do NOT start every reply with
+   "नमस्ते किसान भाई!" or "बिल्कुल!" — use them only when genuinely appropriate.
+4. If the user expresses frustration or distress about crop damage, weather, or prices,
+   acknowledge their feelings FIRST before offering advice. Example:
+   Bad:  "आपको यह दवाई छिड़कनी चाहिए।"
+   Good: "अरे, यह तो चिंता की बात है। देखिए, इसके लिए..."
+
+OUTPUT FORMAT (strict):
+You must output your final response strictly as a JSON object:
+{
+    "language_code": "ISO 639-1 code (e.g., 'hi', 'en', 'ta', 'mr')",
+    "bcp47_code": "BCP-47 code (e.g., 'hi-IN', 'en-IN', 'ta-IN', 'mr-IN')",
+    "language_name": "Human readable name (e.g., 'Hindi', 'English', 'Tamil')",
+    "response": "Your conversational response in the detected language"
+}
+Output ONLY the JSON object. No markdown fences, no preamble, no explanation outside the JSON."""
 
 
-def _build_full_system_prompt(
-    lang_name: str,
-    lang_code: str,
-    confidence: float,
-    profile_context: str,
-) -> str:
+def _build_full_system_prompt(profile_context: str) -> str:
     """Assembles the complete system prompt: language policy first, then role + profile."""
-    language_policy = _build_language_policy(lang_name, lang_code, confidence)
+    language_policy = _build_language_policy()
 
     role_instructions = f"""
-You are Saathi (साथी), a trusted AI agricultural assistant for Indian farmers.
-- Answer ONLY farming, crop health, weather, soil, and Mandi price questions in under 3 sentences.
-- For off-topic queries (politics, celebrities, general knowledge), politely decline in {lang_name}.
-- Always be respectful, simple, and practical — your audience is rural farmers.
-- When quoting Mandi prices, always specify the state and unit (₹ per quintal).
+
+IDENTITY:
+You are Saathi (साथी) — a warm, wise, and deeply empathetic AI agricultural
+companion for Indian farmers. You are NOT a generic chatbot. You are a trusted
+friend who has spent years understanding farming, weather, soil, crops, and
+the real struggles of Indian agriculture.
+
+PERSONALITY:
+- Warm, mature, calm, and trustworthy — like a knowledgeable elder in the village.
+- Deeply practical — you give actionable advice, not textbook theory.
+- Emotionally intelligent — you sense when a farmer is worried, frustrated, or
+  confused, and you respond with genuine care before jumping to solutions.
+- Conversational and natural — you speak like a real person, not a machine.
+  Your Hindi should sound like natural spoken Hindi, not formal written Hindi.
+- Humble — you say "yeh try karke dekhiye" not "aapko yeh karna chahiye".
+- Never patronizing, never robotic, never over-enthusiastic.
+
+CONVERSATIONAL GUIDELINES:
+- Answer DIRECTLY and CONCISELY (2-5 sentences) when sufficient information exists.
+- If information is uncertain, handle it gracefully:
+  "Yeh depend karega mitti ke type par..." rather than "I don't have enough info."
+- Do NOT sound like a form or survey. Never say "As an AI language model..."
+- Do NOT ask for information (State, Crop, etc.) if it is ALREADY in the
+  user query, conversation history, or farmer profile.
+- When quoting Mandi prices, weave them into natural conversation:
+  Good: "अभी गेहूं करीब ₹2,450 प्रति क्विंटल चल रहा है आपके इलाके में।"
+  Bad:  "गेहूं का मंडी भाव: ₹2,450/क्विंटल, राज्य: उत्तर प्रदेश।"
+- NEVER invent or hallucinate market prices. Use only MANDI_DATA if provided.
+
+CRITICAL — USER QUERY PRIORITY:
+1. The user's LATEST message is your PRIMARY source of truth.
+2. If the user mentions a SPECIFIC location → use THAT location (not the profile's).
+3. If the user mentions a SPECIFIC crop → use THAT crop (not the profile's).
+4. The farmer profile is ONLY a fallback when the user omits location/crop.
+
+MANDI PRICE INSTRUCTION:
+- If the user asks about price, use the MANDI_DATA injected below.
+- If no location is specified, fall back to the profile's state.
+- If no crop is specified, fall back to the profile's primary crop.
 {profile_context}"""
 
     return language_policy + "\n" + role_instructions
@@ -247,7 +326,7 @@ You are Saathi (साथी), a trusted AI agricultural assistant for Indian fa
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=10),
-    retry=retry_if_exception_type((google.api_core.exceptions.ResourceExhausted, Exception)),
+    retry=retry_if_exception_type((google.api_core.exceptions.ResourceExhausted, google.api_core.exceptions.TooManyRequests, Exception)),
     reraise=True
 )
 def call_gemini_agent(inputs):
@@ -256,70 +335,49 @@ def call_gemini_agent(inputs):
 
 def run_ai_pipeline(
     query: str,
-    language: str = "hi-IN",
     history: list = None,
     profile: dict = None,
-    detected_language: dict = None,
-) -> str:
+) -> dict:
     """
     Executes the Saathi AI Reasoning pipeline for a given user query.
 
     Args:
         query (str): User's message text.
-        language (str): BCP-47 code (e.g. 'hi-IN'). Used as fallback if
-                        detected_language is not provided.
         history (list): Previous turns [{'role': 'user'|'assistant', 'content': '...'}]
         profile (dict): Farmer profile {'state', 'district', 'soilType', 'crop'}
-        detected_language (dict): Output of language_utils.detect_language() —
-                        {'language_name', 'language_code', 'bcp47_code',
-                         'confidence', 'is_supported', 'source'}
 
     Returns:
-        str: AI response in the detected language.
+        dict: Parsed JSON from the LLM containing:
+              {'language_code', 'bcp47_code', 'language_name', 'response'}
     """
     if not query or not query.strip():
         raise ValueError("Empty query — please provide a valid input.")
 
-    # ── Resolve effective language ─────────────────────────────────────────────
-    if detected_language and isinstance(detected_language, dict):
-        lang_name  = detected_language.get("language_name", "Hindi")
-        lang_code  = detected_language.get("language_code", "hi")
-        bcp47_code = detected_language.get("bcp47_code", "hi-IN")
-        confidence = float(detected_language.get("confidence", 1.0))
-        supported  = detected_language.get("is_supported", True)
+    user_location = extract_location_from_message(query)
+    user_crop = extract_crop_from_message(query)
 
-        # Unsupported language → English fallback (Option 2)
-        if not supported:
-            lang_name  = "English"
-            lang_code  = "en"
-            bcp47_code = "en-IN"
-            confidence = 1.0
-            logger.info("[Gemini] Unsupported language detected — falling back to English.")
-    else:
-        # No detection info → use BCP-47 from request
-        lang_name  = _BCP47_TO_NAME.get(language, "Hindi (Devanagari script)")
-        lang_code  = language.split("-")[0]
-        bcp47_code = language
-        confidence = 1.0
+    effective_profile = (profile or {}).copy()
+    if user_location:
+        effective_profile['state'] = user_location
+    if user_crop:
+        effective_profile['crop'] = user_crop
 
     # ── Farmer profile context ─────────────────────────────────────────────────
     profile_context = ""
-    if profile and isinstance(profile, dict):
+    if effective_profile:
         parts = []
-        if profile.get("state"):     parts.append(f"State: {profile['state']}")
-        if profile.get("district"):  parts.append(f"District: {profile['district']}")
-        if profile.get("soilType"):  parts.append(f"Soil: {profile['soilType']}")
-        if profile.get("crop"):      parts.append(f"Primary Crop: {profile['crop']}")
+        if effective_profile.get("state"):     parts.append(f"State: {effective_profile['state']}")
+        if effective_profile.get("district"):  parts.append(f"District: {effective_profile['district']}")
+        if effective_profile.get("soilType"):  parts.append(f"Soil: {effective_profile['soilType']}")
+        if effective_profile.get("crop"):      parts.append(f"Primary Crop: {effective_profile['crop']}")
         if parts:
             profile_context = (
-                f"\nFARMER PROFILE: {', '.join(parts)}. "
+                f"\\nFARMER PROFILE: {', '.join(parts)}. "
                 f"Tailor all advice to these specific conditions."
             )
 
     # ── Build dynamic system prompt ────────────────────────────────────────────
-    system_prompt_text = _build_full_system_prompt(
-        lang_name, lang_code, confidence, profile_context
-    )
+    system_prompt_text = _build_full_system_prompt(profile_context)
 
     # ── Parse conversation history ─────────────────────────────────────────────
     history_messages: list = []
@@ -330,111 +388,79 @@ def run_ai_pipeline(
             if role == "user" and content:
                 history_messages.append(HumanMessage(content=content))
             elif role == "assistant" and content:
+                # Store the assistant content as a normal string, even though the latest will be JSON
                 history_messages.append(AIMessage(content=content))
 
-    # ── Transient error keywords (warrant a retry) ─────────────────────────────
-    TRANSIENT_ERRORS = (
-        "client closed connection", "broken pipe", "remoteprotocolerror",
-        "connection reset", "connection aborted", "connection error",
-        "server disconnected", "eof occurred", "ssl eof", "httpcore",
-        "h2.", "timed out", "timeout", "resource_exhausted", "quota",
-    )
-
-    MAX_ATTEMPTS = 2
-    RETRY_DELAY  = 1.0
-    last_error: Exception = Exception("Unknown error")
-    start_time: float     = time.time()
+    start_time: float = time.time()
 
     logger.info(
-        f"[Gemini] Pipeline start | lang={lang_name}({lang_code}) conf={confidence:.2f} "
-        f"| history={len(history_messages)} | profile={bool(profile_context)} | query='{query[:60]}'"
+        f"[AI] pipeline started | history={len(history_messages)} | profile={bool(profile_context)} | query='{query[:60]}'"
     )
 
-    for attempt in range(1, MAX_ATTEMPTS + 1):
-        try:
-            # ── Attempt: Tool-calling agent ──────────────────────────────────
-            result = call_gemini_agent({
-                "input": query,
-                "language_policy": system_prompt_text,
-                "chat_history": history_messages,
-            })
-
-            duration = time.time() - start_time
-            logger.info(f"[Gemini] Agent succeeded in {duration:.2f}s (attempt {attempt}/{MAX_ATTEMPTS})")
-
-            output = result.get("output", "").strip()
-            if output:
-                return output
-
-            logger.warning(f"[Gemini] Empty agent response on attempt {attempt}, retrying…")
-            last_error = ValueError("AI returned an empty response.")
-            if attempt < MAX_ATTEMPTS:
-                time.sleep(RETRY_DELAY)
-            continue
-
-        except Exception as e:
-            last_error    = e
-            duration      = time.time() - start_time
-            err_combined  = f"{type(e).__name__} {str(e)}".lower()
-
-            # ── Immediate fallback: thought_signature / bad-request errors ──────
-            # Gemini 3.x thinking models require thought_signature when the agent
-            # echoes tool calls. Fall back to a direct LLM chain instead.
-            if ("thought_signature" in err_combined
-                    or "badrequest" in err_combined
-                    or "attributeerror" in err_combined):
-                logger.info(
-                    f"[Gemini] Agent limitation ({type(e).__name__}); "
-                    f"switching to direct LLM chain."
-                )
-                try:
-                    # Pre-fetch Mandi data if the query contains a known crop keyword
-                    q_lower   = query.lower()
-                    mandi_ctx = ""
-                    for crop_key in MANDI_PRICE_DATABASE:
-                        if crop_key in q_lower:
-                            state_hint = (profile or {}).get("state", "default")
-                            mandi_ctx  = get_mandi_price.invoke(
-                                {"crop_name": crop_key, "state": state_hint}
-                            )
-                            break
-
-                    direct_system = SystemMessage(content=(
-                        system_prompt_text
-                        + (f"\n\nMandi Tool Context: {mandi_ctx}" if mandi_ctx else "")
-                    ))
-                    messages_seq = [direct_system] + history_messages + [HumanMessage(content=query)]
-                    direct_res   = llm.invoke(messages_seq)
-                    if direct_res and direct_res.content:
-                        return direct_res.content.strip()
-                except Exception as fallback_err:
-                    logger.error(f"[Gemini] Direct chain fallback failed: {fallback_err}")
-                break
-
-            # ── Transient error → retry ────────────────────────────────────────
-            is_transient = any(kw in err_combined for kw in TRANSIENT_ERRORS)
-            if is_transient and attempt < MAX_ATTEMPTS:
-                logger.warning(
-                    f"[Gemini] Transient error on attempt {attempt}/{MAX_ATTEMPTS} "
-                    f"— {type(e).__name__}: {str(e)[:200]}. Retrying in {RETRY_DELAY}s…"
-                )
-                time.sleep(RETRY_DELAY)
-                continue
-
-            # ── Non-transient / final attempt ──────────────────────────────────
-            import traceback; traceback.print_exc()
-            logger.error(
-                f"[Gemini] Non-transient failure on attempt {attempt}/{MAX_ATTEMPTS} "
-                f"after {duration:.2f}s | {type(e).__name__}: {e}"
-            )
+    q_lower = query.lower()
+    mandi_ctx = ""
+    for crop_key in MANDI_PRICE_DATABASE:
+        if crop_key in q_lower:
+            logger.info(f"[MANDI] tool started for '{crop_key}'")
+            tool_start = time.time()
+            state_hint = effective_profile.get("state", "Uttar Pradesh")
+            mandi_ctx = get_mandi_price(crop_key, state_hint)
+            logger.info(f"[MANDI] tool completed in {time.time() - tool_start:.2f}s")
             break
 
-    # ── All attempts exhausted — return polite fallback in user's language ──────
-    logger.error(
-        f"[Gemini] All {MAX_ATTEMPTS} attempts failed | "
-        f"last={type(last_error).__name__}: {last_error}"
+    if mandi_ctx:
+        system_prompt_text += f"\\n\\n{mandi_ctx}"
+
+    direct_system = SystemMessage(content=system_prompt_text)
+    messages_seq = [direct_system] + history_messages + [HumanMessage(content=query)]
+    
+    @retry(
+        stop=stop_after_attempt(2),
+        wait=wait_exponential(multiplier=1, min=1, max=3),
+        retry=retry_if_exception_type((google.api_core.exceptions.ResourceExhausted, google.api_core.exceptions.TooManyRequests)),
+        reraise=True
     )
-    return _FALLBACK.get(bcp47_code, _FALLBACK["en-IN"])
+    def _invoke_llm():
+        logger.info("[AI] Gemini request started")
+        return llm.invoke(messages_seq)
+        
+    try:
+        res = _invoke_llm()
+        if res and res.content:
+            duration = time.time() - start_time
+            logger.info(f"[AI] final response generated in {duration:.2f}s")
+            raw_text = res.content.strip()
+            # Remove markdown JSON wrappers if present
+            if raw_text.startswith("```json"):
+                raw_text = raw_text[7:]
+            if raw_text.startswith("```"):
+                raw_text = raw_text[3:]
+            if raw_text.endswith("```"):
+                raw_text = raw_text[:-3]
+            raw_text = raw_text.strip()
+            
+            try:
+                parsed_json = json.loads(raw_text)
+                return parsed_json
+            except json.JSONDecodeError as e:
+                logger.error(f"[Gemini] Failed to parse JSON response: {e}\\nRaw: {raw_text}")
+                # Fallback structure
+                return {
+                    "language_code": "en",
+                    "bcp47_code": "en-IN",
+                    "language_name": "English",
+                    "response": raw_text
+                }
+    except Exception as e:
+        logger.error(f"[Gemini] Non-transient failure after {time.time() - start_time:.2f}s | {type(e).__name__}: {e}")
+
+    logger.error("[Gemini] Returning fallback message")
+    return {
+        "language_code": "en",
+        "bcp47_code": "en-IN",
+        "language_name": "English",
+        "response": _FALLBACK["en-IN"]
+    }
 
 
 # ---------------------------------------------------------------------------

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import logging
 import base64
+import time
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
 
@@ -21,8 +22,75 @@ import asyncio
 
 # Import local modules
 from ai_pipeline import run_ai_pipeline
-from language_utils import detect_language
-from sarvam_service import speech_to_text, text_to_speech, is_valid_sarvam_key
+from sarvam_service import speech_to_text, text_to_speech as sarvam_tts, is_valid_sarvam_key
+from google_tts_service import (
+    is_google_tts_available,
+    text_to_speech_google_base64 as google_tts,
+    VOICE_MAP as GOOGLE_VOICE_MAP,
+)
+from edge_tts_service import (
+    text_to_speech_edge_sync as edge_tts,
+    get_edge_voice,
+    EDGE_VOICE_MAP,
+)
+
+# ── TTS provider selection ──────────────────────────────────────────────────
+# TTS_ENGINE controls which TTS provider is tried first.
+#   "edge"   (default) — free Microsoft Edge Neural TTS, no API key needed
+#   "google" — Google Cloud Neural2 TTS (requires GOOGLE_APPLICATION_CREDENTIALS)
+#   "sarvam" — Sarvam AI bulbul:v3 (requires SARVAM_API_KEY)
+# Fallback chain: edge → google → sarvam → empty
+_TTS_ENGINE = os.getenv("TTS_ENGINE", "edge").lower()
+_TTS_ENABLED = os.getenv("TTS_ENABLED", "true").lower() == "true"
+
+
+def synthesise_speech(text: str, language_code: str = "hi-IN") -> tuple[str, str, str]:
+    """
+    Unified TTS entry point.
+    Returns (base64_audio, mime_type, voice_name).
+    Priority: Edge TTS → Google Neural2 → Sarvam bulbul:v3 → ("", "", "").
+    """
+    if not _TTS_ENABLED:
+        logger.info("[TTS] TTS_ENABLED=false — skipping synthesis")
+        return "", "", ""
+
+    if not text or not text.strip():
+        return "", "", ""
+
+    # ── Edge TTS (primary — free, fast, no API key) ───────────────────
+    if _TTS_ENGINE != "sarvam" and _TTS_ENGINE != "google":
+        try:
+            b64, mime, voice = edge_tts(text, language_code)
+            if b64:
+                logger.info(f"[TTS] Edge TTS synthesised {len(b64)} b64 chars, voice={voice}")
+                return b64, mime, voice
+            logger.warning("[TTS] Edge TTS returned empty — falling through")
+        except Exception as exc:
+            logger.warning(f"[TTS] Edge TTS failed ({exc}) — falling through")
+
+    # ── Google Neural2 (secondary) ────────────────────────────────────
+    if _TTS_ENGINE != "sarvam" and is_google_tts_available():
+        try:
+            b64, mime = google_tts(text, language_code)
+            if b64:
+                logger.info(f"[TTS] Google Neural2 synthesised {len(b64)} b64 chars ({mime})")
+                return b64, mime, "google-neural2"
+            logger.warning("[TTS] Google TTS returned empty — falling through")
+        except Exception as exc:
+            logger.warning(f"[TTS] Google TTS failed ({exc}) — falling through")
+
+    # ── Sarvam bulbul:v3 (tertiary) ───────────────────────────────────
+    if is_valid_sarvam_key():
+        try:
+            b64 = sarvam_tts(text=text, target_language_code=language_code, speaker="shubh")
+            if b64:
+                logger.info(f"[TTS] Sarvam synthesised {len(b64)} b64 chars (audio/wav)")
+                return b64, "audio/wav", "sarvam-shubh"
+        except Exception as exc:
+            logger.warning(f"[TTS] Sarvam TTS failed: {exc}")
+
+    logger.error("[TTS] All TTS providers failed — returning empty")
+    return "", "", ""
 
 from pythonjsonlogger import jsonlogger
 
@@ -71,21 +139,13 @@ app.mount("/static", StaticFiles(directory=_FRONTEND_DIR), name="static")
 # Request and Response Models
 class ChatRequest(BaseModel):
     message: str = Field(..., example="उत्तर प्रदेश में गेहूं का भाव क्या है?")
-    language: Optional[str] = Field(
-        default=None,
-        description="BCP-47 language code hint (e.g., hi-IN). If omitted, language is auto-detected."
-    )
-    generate_audio: bool = Field(default=True, description="Set True to generate Sarvam TTS audio.")
-    speaker: Optional[str] = Field(default="shubh", description="Sarvam TTS speaker voice ID.")
     history: list[dict] = Field(default_factory=list, description="List of previous conversation turns [{'role': 'user'|'assistant', 'content': '...'}]")
     profile: dict = Field(default_factory=dict, description="Farmer profile metadata {'state': '...', 'district': '...', 'soilType': '...', 'crop': '...'}")
-
 
 class ChatResponse(BaseModel):
     status: str = "success"
     user_message: str
     ai_response: str
-    audio_base64: Optional[str] = None
     detected_language: Optional[str] = Field(
         default=None, description="Human-readable detected language, e.g. 'Hindi'"
     )
@@ -95,9 +155,18 @@ class ChatResponse(BaseModel):
     detected_language_bcp47: Optional[str] = Field(
         default=None, description="BCP-47 code used for AI/TTS, e.g. 'hi-IN'"
     )
-    detection_confidence: Optional[float] = Field(
-        default=None, description="Confidence score 0.0-1.0 from language detector"
-    )
+
+class TTSRequest(BaseModel):
+    text: str = Field(..., description="Text to synthesize")
+    language_code: str = Field(default="hi-IN", description="Target language BCP-47 or ISO 639-1 code")
+    speaker: Optional[str] = Field(default=None, description="Voice override (ignored when using Edge TTS)")
+
+class TTSResponse(BaseModel):
+    status: str = "success"
+    audio_base64: str
+    mime_type: str = Field(default="audio/mpeg", description="MIME type of the audio")
+    voice: Optional[str] = Field(default=None, description="Voice name used for synthesis")
+    format: str = Field(default="mp3", description="Audio format")
 
 
 class VoiceBase64Request(BaseModel):
@@ -128,66 +197,75 @@ def health_check():
     return {"status": "ok", "message": "Saathi Backend is running"}
 
 
+# TTS Endpoint
+@app.post("/tts", response_model=TTSResponse, tags=["Voice"])
+async def tts_endpoint(request: TTSRequest) -> Optional[TTSResponse]:
+    """
+    TTS endpoint.  Tries Edge TTS → Google Neural2 → Sarvam.
+    """
+    try:
+        logger.info(f"[TTS] preparing speech: lang={request.language_code} text_len={len(request.text)}")
+        audio_b64, mime_type, voice = await run_in_threadpool(
+            synthesise_speech,
+            text=request.text,
+            language_code=request.language_code,
+        )
+
+        if not audio_b64:
+            raise HTTPException(status_code=500, detail="All TTS providers returned empty audio")
+
+        audio_fmt = "mp3" if "mpeg" in mime_type else "wav"
+        logger.info(f"[TTS] sending audio to frontend: voice={voice} format={audio_fmt}")
+
+        return TTSResponse(
+            status="success",
+            audio_base64=audio_b64,
+            mime_type=mime_type,
+            voice=voice,
+            format=audio_fmt,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[TTS ERROR] {e}")
+        raise HTTPException(status_code=500, detail=f"TTS generation failed: {str(e)}")
+
+
 # Text Chat Endpoint
 @app.post("/chat", response_model=ChatResponse, tags=["Chat"])
 async def text_chat(request: ChatRequest) -> Optional[ChatResponse]:
     """
     Text-based query endpoint.
-    Auto-detects the language of the user's message (fasttext → langdetect fallback),
-    then processes it via the Gemini LangChain Agent.
-    Optionally synthesizes Sarvam TTS audio for the response.
+    Processes the query via the Gemini LangChain Agent. Language detection is integrated into the AI pipeline.
     """
     try:
         if not request.message or not request.message.strip():
             raise HTTPException(status_code=400, detail="Message input cannot be empty.")
 
-        logger.info(f"Received text query: '{request.message}'")
-
-        # ── Language detection ─────────────────────────────────────────────
-        # Run in threadpool because fasttext is a blocking C-extension call.
-        lang_info = await run_in_threadpool(detect_language, request.message)
-
-        # Always use the auto-detected language, ignoring any client-provided language hint.
-        effective_language = lang_info["bcp47_code"]
-
-        logger.info(
-            f"Language: {lang_info['language_name']} ({lang_info['language_code']}) "
-            f"conf={lang_info['confidence']:.2f} source={lang_info['source']} "
-            f"effective_bcp47={effective_language}"
-        )
+        logger.info(f"[CHAT] Received text query: '{request.message}'")
+        start_time = time.time()
 
         # ── Gemini AI Pipeline ─────────────────────────────────────────────
         try:
-            ai_reply = await asyncio.wait_for(
-                run_in_threadpool(
-                    run_ai_pipeline,
-                    request.message,
-                    effective_language,
-                    history=request.history,
-                    profile=request.profile,
-                    detected_language=lang_info
-                ),
-                timeout=20.0
+            ai_result = await run_in_threadpool(
+                run_ai_pipeline,
+                request.message,
+                history=request.history,
+                profile=request.profile,
             )
-        except asyncio.TimeoutError:
-            logger.error("Gemini AI pipeline timed out after 20 seconds.")
-            raise HTTPException(status_code=504, detail="AI processing timed out. Please try again.")
+        except Exception as e:
+            logger.error(f"Gemini AI pipeline failed: {e}")
+            raise HTTPException(status_code=500, detail="AI processing failed. Please try again.")
 
-        # ── Optional TTS audio synthesis ───────────────────────────────────
-        audio_b64 = None
-        if request.generate_audio:
-            speaker_id = request.speaker if request.speaker else "shubh"
-            audio_b64 = text_to_speech(ai_reply, speaker=speaker_id)
+        logger.info(f"[CHAT] Total text query processing time: {time.time() - start_time:.2f}s")
 
         return ChatResponse(
             status="success",
             user_message=request.message,
-            ai_response=ai_reply,
-            audio_base64=audio_b64,
-            detected_language=lang_info["language_name"],
-            detected_language_code=lang_info["language_code"],
-            detected_language_bcp47=lang_info["bcp47_code"],
-            detection_confidence=lang_info["confidence"],
+            ai_response=ai_result.get("response", ""),
+            detected_language=ai_result.get("language_name", "English"),
+            detected_language_code=ai_result.get("language_code", "en"),
+            detected_language_bcp47=ai_result.get("bcp47_code", "en-IN")
         )
     except HTTPException:
         raise
@@ -216,34 +294,35 @@ async def voice_chat(
             raise HTTPException(status_code=400, detail="Uploaded audio file is empty.")
 
         filename = file.filename or "recording.wav"
-        logger.info(f"Processing uploaded audio file '{filename}' ({len(audio_bytes)} bytes)")
+        logger.info(f"[VOICE] Processing uploaded audio file '{filename}' ({len(audio_bytes)} bytes)")
+        start_time = time.time()
 
         # 1. Sarvam Speech to Text
         transcribed_text = speech_to_text(audio_bytes, filename=filename)
-        logger.info(f"Transcribed text: '{transcribed_text}'")
+        logger.info(f"[VOICE] Transcribed text in {time.time() - start_time:.2f}s: '{transcribed_text}'")
 
-        # 2. Language Detection
-        lang_info = await run_in_threadpool(detect_language, transcribed_text)
-        effective_language = lang_info["bcp47_code"]
-
-        # 3. Gemini AI Reasoning Pipeline
+        # 2. Gemini AI Reasoning Pipeline (includes language detection)
         try:
-            ai_reply = await asyncio.wait_for(
-                run_in_threadpool(
-                    run_ai_pipeline, 
-                    transcribed_text, 
-                    effective_language, 
-                    detected_language=lang_info
-                ),
-                timeout=20.0
+            ai_result = await run_in_threadpool(
+                run_ai_pipeline, 
+                transcribed_text
             )
-        except asyncio.TimeoutError:
-            logger.error("Gemini AI pipeline timed out after 20 seconds.")
-            raise HTTPException(status_code=504, detail="AI processing timed out. Please try again.")
+        except Exception as e:
+            logger.error(f"Gemini AI pipeline failed: {e}")
+            raise HTTPException(status_code=500, detail="AI processing failed. Please try again.")
+            
+        ai_reply = ai_result.get("response", "")
         logger.info(f"AI response: '{ai_reply}'")
 
-        # 3. Sarvam Text to Speech
-        audio_b64 = text_to_speech(ai_reply, speaker=speaker or "shubh")
+        # 3. Text to Speech (Edge → Google → Sarvam fallback)
+        tts_lang = ai_result.get("bcp47_code", "hi-IN")
+        audio_b64, _mime, _voice = await run_in_threadpool(
+            synthesise_speech,
+            text=ai_reply,
+            language_code=tts_lang,
+        )
+        
+        logger.info(f"[VOICE] Total voice query processing time: {time.time() - start_time:.2f}s")
 
         return VoiceChatResponse(
             status="success",
@@ -278,27 +357,23 @@ async def voice_chat_base64(request: VoiceBase64Request) -> Optional[VoiceChatRe
         # 1. STT (blocking I/O — run in threadpool)
         transcribed_text = await run_in_threadpool(speech_to_text, audio_bytes, "audio.wav")
 
-        # 2. Language Detection
-        lang_info = await run_in_threadpool(detect_language, transcribed_text)
-        effective_language = lang_info["bcp47_code"]
-
-        # 3. AI Reasoning Pipeline — wrapped with timeout to prevent hanging
+        # 2. AI Reasoning Pipeline
         try:
-            ai_reply = await asyncio.wait_for(
-                run_in_threadpool(
-                    run_ai_pipeline, 
-                    transcribed_text, 
-                    effective_language, 
-                    detected_language=lang_info
-                ),
-                timeout=20.0
+            ai_result = await run_in_threadpool(
+                run_ai_pipeline, 
+                transcribed_text
             )
-        except asyncio.TimeoutError:
-            logger.error("Gemini AI pipeline timed out after 20 seconds (base64 endpoint).")
-            raise HTTPException(status_code=504, detail="AI processing timed out. Please try again.")
+            ai_reply = ai_result.get("response", "")
+        except Exception as e:
+            logger.error(f"Gemini AI pipeline failed (base64 endpoint): {e}")
+            raise HTTPException(status_code=500, detail="AI processing failed. Please try again.")
 
         # 3. TTS (blocking I/O — run in threadpool)
-        audio_b64 = await run_in_threadpool(text_to_speech, ai_reply, request.speaker or "shubh")
+        audio_b64, _mime, _voice = await run_in_threadpool(
+            synthesise_speech,
+            text=ai_reply,
+            language_code=ai_result.get("bcp47_code", "hi-IN"),
+        )
 
         return VoiceChatResponse(
             status="success",
@@ -349,22 +424,17 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                     audio_bytes = base64.b64decode(raw_b64)
                     # STT and AI pipeline: run blocking calls in threadpool
                     transcribed = await run_in_threadpool(speech_to_text, audio_bytes)
-                    lang_info = await run_in_threadpool(detect_language, transcribed)
                     try:
-                        ai_reply = await asyncio.wait_for(
-                            run_in_threadpool(
-                                run_ai_pipeline, 
-                                transcribed, 
-                                lang_info["bcp47_code"], 
-                                detected_language=lang_info
-                            ),
-                            timeout=WS_AI_TIMEOUT
+                        ai_result = await run_in_threadpool(
+                            run_ai_pipeline, 
+                            transcribed
                         )
-                    except asyncio.TimeoutError:
-                        logger.error(f"WebSocket AI pipeline timed out after {WS_AI_TIMEOUT}s")
-                        await websocket.send_json({"status": "error", "message": "AI processing timed out. Please try again."})
+                        ai_reply = ai_result.get("response", "")
+                    except Exception as e:
+                        logger.error(f"WebSocket AI pipeline failed: {e}")
+                        await websocket.send_json({"status": "error", "message": "AI processing failed. Please try again."})
                         continue
-                    tts_audio = await run_in_threadpool(text_to_speech, ai_reply)
+                    tts_audio, _m, _v = await run_in_threadpool(synthesise_speech, ai_reply, ai_result.get("bcp47_code", "hi-IN"))
 
                     await websocket.send_json({
                         "status": "success",
@@ -378,23 +448,18 @@ async def websocket_voice_endpoint(websocket: WebSocket):
 
             else:  # Text action
                 query = data.get("query", "")
-                lang_info = await run_in_threadpool(detect_language, query)
                 try:
-                    ai_reply = await asyncio.wait_for(
-                        run_in_threadpool(
-                            run_ai_pipeline, 
-                            query, 
-                            lang_info["bcp47_code"], 
-                            detected_language=lang_info
-                        ),
-                        timeout=WS_AI_TIMEOUT
+                    ai_result = await run_in_threadpool(
+                        run_ai_pipeline, 
+                        query
                     )
-                except asyncio.TimeoutError:
-                    logger.error(f"WebSocket AI pipeline timed out after {WS_AI_TIMEOUT}s (text action)")
-                    await websocket.send_json({"status": "error", "message": "AI processing timed out. Please try again."})
+                    ai_reply = ai_result.get("response", "")
+                except Exception as e:
+                    logger.error(f"WebSocket AI pipeline failed (text action): {e}")
+                    await websocket.send_json({"status": "error", "message": "AI processing failed. Please try again."})
                     continue
                 generate_tts = data.get("generate_audio", True)
-                tts_audio = await run_in_threadpool(text_to_speech, ai_reply) if generate_tts else None
+                tts_audio, _m, _v = (await run_in_threadpool(synthesise_speech, ai_reply, ai_result.get("bcp47_code", "hi-IN"))) if generate_tts else ("", "", "")
 
                 await websocket.send_json({
                     "status": "success",

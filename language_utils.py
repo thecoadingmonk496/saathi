@@ -33,12 +33,12 @@ _LANG_MAP: dict = {
     "ks":  ("Kashmiri",  "ks-IN"),
     "ne":  ("Nepali",    "ne-IN"),
     "bh":  ("Bhojpuri",  "hi-IN"),
-    "mai": ("Maithili",  "hi-IN"),
-    "doi": ("Dogri",     "hi-IN"),
+    "mai": ("Maithili",  "mai-IN"),
+    "doi": ("Dogri",     "doi-IN"),
     "kok": ("Konkani",   "kok-IN"),
     "mni": ("Manipuri",  "mni-IN"),
     "sat": ("Santali",   "sat-IN"),
-    "bo":  ("Bodo",      "hi-IN"),
+    "brx": ("Bodo",      "brx-IN"),
     "en":  ("English",   "en-IN"),
 }
 
@@ -46,6 +46,87 @@ _MIN_CONFIDENCE = 0.40
 
 
 import os
+import re
+from pydantic import BaseModel, Field
+
+ENGLISH_LOANWORDS = {
+    'what', 'is', 'are', 'was', 'were', 'has', 'have', 'had',
+    'price', 'rate', 'cost', 'market', 'today', 'tomorrow',
+    'wheat', 'rice', 'maize', 'corn', 'tomato', 'onion', 'potato',
+    'crop', 'soil', 'water', 'rain', 'sun', 'weather', 'climate',
+    'fertilizer', 'pesticide', 'insecticide', 'herbicide',
+    'irrigation', 'harvest', 'sowing', 'planting', 'growing',
+    'disease', 'pest', 'weed', 'yield', 'profit', 'loss',
+    'government', 'scheme', 'subsidy', 'loan', 'insurance',
+    'mandi', 'auction', 'trader', 'buyer', 'seller',
+    'the', 'of', 'in', 'on', 'at', 'to', 'for', 'with', 'and'
+}
+
+DEVANAGARI_ENGLISH_LOANWORDS = {
+    'व्हाट', 'इस', 'द', 'प्राइस', 'ऑफ़', 'वीट', 'राइस', 'रेट', 'मार्केट', 'टुडे', 
+    'टुमारो', 'क्रॉप', 'वाटर', 'रेन', 'वेदर', 'मंडी', 'गवर्नमेंट', 'स्कीम', 'लोन', 'सब्सिडी',
+    'सीड', 'फर्टिलाइजर', 'पेस्टिसाइड', 'यील्ड', 'प्रॉफिट', 'लॉस', 'सॉइल', 'क्लाइमेट'
+}
+
+DEVANAGARI_TO_LATIN = {
+    'क':'ka','ख':'kha','ग':'ga','घ':'gha','ङ':'nga',
+    'च':'ca','छ':'cha','ज':'ja','झ':'jha','ञ':'nya',
+    'ट':'ta','ठ':'tha','ड':'da','ढ':'dha','ण':'na',
+    'त':'ta','थ':'tha','द':'da','ध':'dha','न':'na',
+    'प':'pa','फ':'pha','ब':'ba','भ':'bha','म':'ma',
+    'य':'ya','र':'ra','ल':'la','व':'va','श':'sa',
+    'ष':'sa','स':'sa','ह':'ha',
+    'अ':'a','आ':'a','इ':'i','ई':'i','उ':'u','ऊ':'u',
+    'ए':'e','ऐ':'ai','ओ':'o','औ':'au',
+    'ं':'n','ः':'h','्':''
+}
+
+def detect_script(text: str) -> str:
+    """
+    Return: 'devanagari', 'tamil', 'telugu', 'latin', 'unknown'
+    """
+    for char in text:
+        if '\u0900' <= char <= '\u097F':
+            return 'devanagari'
+        if '\u0B80' <= char <= '\u0BFF':
+            return 'tamil'
+        if '\u0C00' <= char <= '\u0C7F':
+            return 'telugu'
+        if '\u0000' <= char <= '\u007F' and char.isalpha():
+            return 'latin'
+    return 'unknown'
+
+def is_likely_english_transliteration(word: str) -> bool:
+    """Check if the Devanagari word is a known English transliteration."""
+    if word in DEVANAGARI_ENGLISH_LOANWORDS:
+        return True
+    
+    # Fallback to simple Latin conversion
+    latin = ''
+    for char in word:
+        if char in DEVANAGARI_TO_LATIN:
+            latin += DEVANAGARI_TO_LATIN[char]
+        else:
+            latin += char
+    return latin in ENGLISH_LOANWORDS
+
+def calculate_english_loanword_ratio(text: str) -> float:
+    """Return ratio of words that are likely English loanwords."""
+    # Extract words (alphanumeric sequences) ignoring punctuation
+    words = re.findall(r'\w+', text.lower())
+    if not words:
+        return 0.0
+    
+    english_count = 0
+    for word in words:
+        # Direct match in loanword set (if Latin script)
+        if word in ENGLISH_LOANWORDS:
+            english_count += 1
+        # Also check if the word (in Devanagari) transliterates to a known English word
+        elif is_likely_english_transliteration(word):
+            english_count += 1
+    return english_count / len(words)
+
 from pydantic import BaseModel, Field
 
 # Lazy initialization of LLM to avoid import errors if not needed
@@ -78,12 +159,29 @@ def detect_language(text: str) -> dict:
     if not text:
         return _make_result("en", 0.0, "fallback")
 
+    script = detect_script(text)
+    
+    # 0. Transliterated English Check
+    if script == 'devanagari':
+        ratio = calculate_english_loanword_ratio(text)
+        if ratio >= 0.6:
+            return {
+                'language_name': 'English',
+                'language_code': 'en',
+                'bcp47_code': 'en-IN',
+                'confidence': 0.85,
+                'is_supported': True,
+                'source': 'transliterated_english'
+            }
+
     # 1. Gemini LLM (primary) for handling Romanized and mixed language robustly
     try:
         from langchain_core.messages import HumanMessage
         detector = _get_llm_detector()
         prompt = f"""Analyze the language of the following text: "{text}"
-If it contains a mix of English and an Indian language (including transliterated/Romanized script like 'gehun ka rate kya hai'), identify the dominant Indian language.
+If it contains a mix of English and an Indian language, identify the overall dominant language of the sentence based on its grammar and syntax.
+If the text consists primarily of English words written in an Indian script (e.g. 'व्हाट इस द प्राइस ऑफ़ वीट' or equivalent in Tamil/Telugu/etc.), identify it as English ('en').
+If it is Romanized Hindi (e.g. 'gehun ka rate kya hai'), identify it as Hindi.
 Respond ONLY with the ISO 639-1 language_code and the language_name.
 """
         res = detector.invoke([HumanMessage(content=prompt)])
