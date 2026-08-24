@@ -24,39 +24,53 @@ const STAGE_META = {
 
 // Mock journey data generator for any crop + location
 function generateJourney(crop, state, district, block, mandi) {
-  const base = 1800 + Math.floor(Math.random() * 800);
+  // Use user-requested standard mock base values
+  // Farmer: 2350, Mandi: 2400, Wholesaler: 2550, Distributor: 2750, Retailer: 3000, Consumer: 3000
+  // Apply a small deterministic variance based on crop name length to keep it dynamic per crop selection
+  const cropOffset = (crop.length % 5) * 50 - 100; // -100 to +100
+  const farmerPrice = 2350 + cropOffset;
+  const mandiPrice = 2400 + cropOffset;
+  const wholesalerPrice = 2550 + cropOffset;
+  const distributorPrice = 2750 + cropOffset;
+  const retailerPrice = 3000 + cropOffset;
+  const consumerPrice = 3000 + cropOffset;
+
   const loc = block || district;
   const mandiName = mandi || `${district} Mandi`;
   return {
     cropName: crop,
     stages: {
-      farmer:      { price: base,              location: `${loc}, ${state}`,       quantity: `${80 + Math.floor(Math.random()*40)} Quintal`, date: dateFmt(), status: 'completed' },
-      mandi:       { price: base + 50 + Math.floor(Math.random()*100), location: mandiName + ', ' + district,    quantity: `${800 + Math.floor(Math.random()*600)} Quintal`, date: dateFmt(), status: 'completed' },
-      wholesaler:  { price: base + 200 + Math.floor(Math.random()*150), location: `${district}, ${state}`,       quantity: `${80 + Math.floor(Math.random()*40)} Quintal`, date: dateFmt(), status: 'completed' },
-      distributor: { price: base + 400 + Math.floor(Math.random()*150), location: `${district}, ${state}`,       quantity: `${70 + Math.floor(Math.random()*30)} Quintal`, date: dateFmt(), status: 'completed' },
-      retailer:    { price: base + 600 + Math.floor(Math.random()*200), location: `${district}, ${state}`,       quantity: `${60 + Math.floor(Math.random()*40)} Quintal`, date: dateFmt(), status: 'completed' },
-      consumer:    { price: base + 800 + Math.floor(Math.random()*200), location: 'End Customer',                quantity: `${60 + Math.floor(Math.random()*40)} Quintal`, date: dateFmt(), status: 'current'   },
+      farmer:      { price: farmerPrice,      location: `${loc}, ${state}`,       quantity: `${80 + Math.floor(Math.random()*40)} Quintal`, date: dateFmt(), status: 'completed' },
+      mandi:       { price: mandiPrice,       location: mandiName + ', ' + district,    quantity: `${800 + Math.floor(Math.random()*600)} Quintal`, date: dateFmt(), status: 'completed' },
+      wholesaler:  { price: wholesalerPrice,  location: `${district}, ${state}`,       quantity: `${80 + Math.floor(Math.random()*40)} Quintal`, date: dateFmt(), status: 'completed' },
+      distributor: { price: distributorPrice, location: `${district}, ${state}`,       quantity: `${70 + Math.floor(Math.random()*30)} Quintal`, date: dateFmt(), status: 'completed' },
+      retailer:    { price: retailerPrice,    location: `${district}, ${state}`,       quantity: `${60 + Math.floor(Math.random()*40)} Quintal`, date: dateFmt(), status: 'completed' },
+      consumer:    { price: consumerPrice,    location: 'End Customer',                quantity: `${60 + Math.floor(Math.random()*40)} Quintal`, date: dateFmt(), status: 'current'   },
     },
     costs: {
-      transport: 80 + Math.floor(Math.random()*60),
-      storage:   40 + Math.floor(Math.random()*50),
-      handling:  20 + Math.floor(Math.random()*30),
-      marketCharges: 40 + Math.floor(Math.random()*30),
-      margin:    200 + Math.floor(Math.random()*200),
+      transport: 50 + (crop.length % 3) * 10,
+      storage:   150 + (crop.length % 2) * 20,
+      handling:  200 + (crop.length % 4) * 15,
+      marketCharges: 250 + (crop.length % 5) * 25,
+      margin:    Math.max(50, totalIncreaseDifference(farmerPrice, consumerPrice) - (850)),
     },
     mandiDetails: {
       name: mandiName,
       location: `${block || district}, ${district}, ${state}`,
-      arrivalQty: `${800 + Math.floor(Math.random()*600)} Quintal`,
-      modalPrice: base + 50 + Math.floor(Math.random()*100),
-      minPrice:   base,
-      maxPrice:   base + 100 + Math.floor(Math.random()*150),
+      arrivalQty: `${1240} Quintal`,
+      modalPrice: mandiPrice,
+      minPrice:   mandiPrice - 150,
+      maxPrice:   mandiPrice + 150,
       date: dateFmt(),
       source: 'data.gov.in (AGMARKNET)',
       txId: `MANDI-${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}-${String(Math.floor(10000+Math.random()*90000))}`,
     },
-    transparencyScore: 85 + Math.floor(Math.random()*13),
+    transparencyScore: 92,
   };
+}
+
+function totalIncreaseDifference(farmer, consumer) {
+  return consumer - farmer;
 }
 
 // ─── SVG Price Chart ───────────────────────────────────────────────
@@ -343,7 +357,7 @@ export default function MarketExplorer() {
                 <p className="text-sm font-extrabold text-[#2E7D32]">{journey.transparencyScore}/100</p>
                 <p className="text-[10px] text-emerald-600 font-semibold">Highly Transparent</p>
                 <div className="mt-1.5 space-y-0.5">
-                  {['Government Data', 'Buyer Verified', 'Digital Records', 'Secure Records', 'Location Tracking'].map(item => (
+                  {['Government Data', 'Buyer Verified', 'Digital Records', 'Location Information'].map(item => (
                     <div key={item} className="flex items-center gap-1.5 text-[10px]">
                       <span className="text-emerald-500">✓</span>
                       <span className="text-slate-600">{item}</span>
@@ -355,18 +369,22 @@ export default function MarketExplorer() {
             </div>
 
             {/* Last Updated */}
-            <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 px-5 py-4 shadow-sm min-w-[180px]">
+            <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 px-5 py-4 shadow-sm min-w-[200px]">
               <div className="flex items-center gap-1.5 mb-2">
                 <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Last Updated</span>
               </div>
               <p className="text-sm font-extrabold text-slate-900">{dateFmt()}</p>
               <p className="text-[10px] text-slate-500 mt-0.5">{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
-              <div className="mt-3">
+              <div className="mt-2.5 pt-2 border-t border-slate-100">
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Data Source</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[#2E7D32]">data.gov.in</span>
-                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">eNAM</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs font-bold text-[#2E7D32]">data.gov.in / AGMARKNET</span>
+                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">e-NAM</span>
+                </div>
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">Government Data</span>
+                  <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">Verified Source</span>
                 </div>
               </div>
             </div>
@@ -539,21 +557,24 @@ export default function MarketExplorer() {
               {/* Price Journey Chart */}
               <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-extrabold text-slate-800">Price Journey (₹ per Quintal)</h3>
-                  <span className="text-[10px] rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-500">Price per Quintal</span>
+                  <h3 className="text-sm font-extrabold text-slate-800">Price Journey</h3>
+                  <span className="text-[10px] rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-500">₹ per Quintal</span>
                 </div>
                 <PriceChart journey={journey} />
               </div>
 
               {/* Why Price Changed */}
               <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-100 p-5 shadow-sm">
-                <h3 className="text-sm font-extrabold text-slate-800 mb-4">Why Price Changed?</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-extrabold text-slate-800">Why Price Changed?</h3>
+                  <span className="text-[10px] text-slate-400 font-semibold italic">Estimated Values</span>
+                </div>
                 <div className="space-y-3">
                   {[
-                    { label: 'Transport Cost', value: journey.costs.transport },
-                    { label: 'Storage Cost', value: journey.costs.storage },
-                    { label: 'Handling Cost', value: journey.costs.handling },
-                    { label: 'Market Charges & Taxes', value: journey.costs.marketCharges },
+                    { label: 'Transport Cost (Estimated)', value: journey.costs.transport },
+                    { label: 'Storage Cost (Estimated)', value: journey.costs.storage },
+                    { label: 'Handling Cost (Estimated)', value: journey.costs.handling },
+                    { label: 'Market Charges / Taxes (Estimated)', value: journey.costs.marketCharges },
                     { label: 'Estimated Margin', value: journey.costs.margin },
                   ].map(item => (
                     <div key={item.label} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
@@ -566,7 +587,7 @@ export default function MarketExplorer() {
                   ))}
                 </div>
                 <div className="mt-4 pt-3 border-t-2 border-slate-200 flex items-center justify-between">
-                  <span className="text-sm font-extrabold text-slate-800">Total Increase</span>
+                  <span className="text-sm font-extrabold text-slate-800">Total Increase (Estimated)</span>
                   <span className="text-base font-extrabold text-red-600">+₹{totalIncrease}</span>
                 </div>
               </div>
