@@ -18,7 +18,14 @@ import {
   Store,
   ShoppingBag,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  BadgeCheck,
+  Thermometer,
+  Route,
+  Ruler,
+  Snowflake,
+  Timer,
+  LineChart
 } from 'lucide-react';
 
 const formatRupees = (price) => {
@@ -403,6 +410,81 @@ export default function CropJourney() {
                   {journeyData.arrivalVolume && (
                      <p>Total Traceable Volume: <span className="font-bold text-gray-900">{journeyData.arrivalVolume.value} {journeyData.arrivalVolume.unit}</span></p>
                   )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Divider */}
+            <hr className="border-gray-100 my-6" />
+
+            {/* Information Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              {/* Quality */}
+              <div className="bg-blue-50/50 rounded-2xl p-5 border border-blue-100 flex flex-col gap-4">
+                <div className="flex items-center gap-2 text-blue-700">
+                  <BadgeCheck className="w-5 h-5" />
+                  <h3 className="text-base font-bold">Quality Profile</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="bg-white border border-blue-200 text-blue-800 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">Grade A</span>
+                  <span className="bg-white border border-blue-200 text-blue-800 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">12% Moisture</span>
+                  <span className="bg-white border border-emerald-200 text-emerald-800 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">
+                    <Sprout className="w-3.5 h-3.5" /> Organic
+                  </span>
+                </div>
+              </div>
+
+              {/* Weather/Storage */}
+              <div className="bg-amber-50/50 rounded-2xl p-5 border border-amber-100 flex flex-col gap-4">
+                <div className="flex items-center gap-2 text-amber-700">
+                  <Thermometer className="w-5 h-5" />
+                  <h3 className="text-base font-bold">Storage Conditions</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="bg-white rounded-xl p-3 border border-amber-100 flex flex-col shadow-sm">
+                    <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider mb-1">Temp</span>
+                    <span className="font-black text-amber-900 text-lg">24°C</span>
+                  </div>
+                  <div className="bg-white rounded-xl p-3 border border-amber-100 flex flex-col shadow-sm">
+                    <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider mb-1">Humidity</span>
+                    <span className="font-black text-amber-900 text-lg">60%</span>
+                  </div>
+                </div>
+                <p className="text-xs text-amber-800 font-medium mt-1">Warehouse Rating: <span className="font-black">A+</span></p>
+              </div>
+
+              {/* Logistics */}
+              <div className="bg-purple-50/50 rounded-2xl p-5 border border-purple-100 flex flex-col gap-4">
+                <div className="flex items-center gap-2 text-purple-700">
+                  <Route className="w-5 h-5" />
+                  <h3 className="text-base font-bold">Logistics Details</h3>
+                </div>
+                <ul className="text-sm text-purple-900 space-y-3 font-semibold">
+                  <li className="flex items-center gap-3"><Ruler className="w-4 h-4 text-purple-500" /> Distance: 350 km</li>
+                  <li className="flex items-center gap-3"><Snowflake className="w-4 h-4 text-purple-500" /> Refrigerated Truck</li>
+                  <li className="flex items-center gap-3"><Timer className="w-4 h-4 text-purple-500" /> Est. Transit: 48 hrs</li>
+                </ul>
+              </div>
+
+              {/* Market */}
+              <div className="bg-emerald-50/50 rounded-2xl p-5 border border-emerald-100 flex flex-col gap-4">
+                <div className="flex items-center gap-2 text-emerald-700">
+                  <LineChart className="w-5 h-5" />
+                  <h3 className="text-base font-bold">Market Insight</h3>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-emerald-100 shadow-sm">
+                    <span className="text-xs text-emerald-800 font-semibold">Demand</span>
+                    <span className="text-xs font-black text-emerald-600 uppercase">High</span>
+                  </div>
+                  <div className="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-emerald-100 shadow-sm">
+                    <span className="text-xs text-emerald-800 font-semibold">Volatility</span>
+                    <span className="text-xs font-black text-orange-600">+2.4%</span>
+                  </div>
+                  <div className="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-emerald-100 shadow-sm">
+                    <span className="text-xs text-emerald-800 font-semibold">Harvest</span>
+                    <span className="text-xs font-black text-emerald-600 uppercase">Peak</span>
+                  </div>
                 </div>
               </div>
             </div>
