@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { MicrophoneIcon, PaperAirplaneIcon, SpeakerWaveIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { processVoiceQuery } from '../utils/voiceEngine';
 import { useUser } from '../context/UserContext';
+
+const API_BASE = import.meta.env.VITE_FASTAPI_URL || 'http://localhost:8000';
+const WS_BASE = import.meta.env.VITE_FASTAPI_WS_URL || API_BASE.replace(/^http/, 'ws') + '/ws/voice';
 
 const languageTagMap = {
   English: 'en-IN',
@@ -29,14 +31,14 @@ function prepareNaturalSpeechText(text, langTag) {
   const isHindi = langTag.startsWith('hi');
   let speechText = text
     .replace(/₹\s*([\d,]+)/g, isHindi ? '$1 रुपये' : '$1 rupees')
-    .replace(/quintal/g, isHindi ? t('explorer.qtl') : 'quintal')
+    .replace(/quintal/g, isHindi ? 'क्विंटल' : 'quintal')
     .replace(/(\d+)\s*km/g, isHindi ? '$1 किलोमीटर' : '$1 kilometers');
   return speechText;
 }
 
 export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 'Hindi', onNavigate }) {
   const { t } = useUser();
-  const [status, setStatus] = useState('listening'); 
+  const [status, setStatus] = useState('idle');
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
   const [responseText, setResponseText] = useState('');
@@ -44,49 +46,166 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
   const [isSupported, setIsSupported] = useState(true);
   const [voices, setVoices] = useState([]);
 
+  const audioPlayerRef = useRef(typeof Audio !== 'undefined' ? new Audio() : null);
+  const audioUrlRef = useRef(null);
   const recognitionRef = useRef(null);
+  const wsRef = useRef(null);
+  const statusRef = useRef(status);
+
+  useEffect(() => { statusRef.current = status; }, [status]);
+
   const langTag = languageTagMap[preferredLanguage] || 'hi-IN';
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-
     const loadVoices = () => {
       const availableVoices = window.speechSynthesis.getVoices();
       if (availableVoices && availableVoices.length > 0) {
         setVoices(availableVoices);
       }
     };
-
     loadVoices();
-
     if (window.speechSynthesis.onvoiceschanged !== undefined) {
       window.speechSynthesis.onvoiceschanged = loadVoices;
     }
   }, []);
 
-  useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const selectVoiceForLanguage = (targetLangTag) => {
+    if (!voices || voices.length === 0) return null;
+    const baseLang = targetLangTag.split('-')[0];
+    const isFemaleVoice = (v) => naturalFemaleVoiceKeywords.some((kw) => v.name.toLowerCase().includes(kw));
 
+    let matched = voices.find((v) => (v.lang === targetLangTag || v.lang.replace('_', '-') === targetLangTag) && isFemaleVoice(v));
+    if (!matched) matched = voices.find((v) => v.lang.startsWith(baseLang) && isFemaleVoice(v));
+    if (!matched) matched = voices.find((v) => v.lang === targetLangTag || v.lang.replace('_', '-') === targetLangTag || v.lang.startsWith(baseLang));
+    if (!matched || !isFemaleVoice(matched)) {
+      const indianFemaleFallback = voices.find((v) => (v.lang.startsWith('hi') || v.lang.includes('IN')) && isFemaleVoice(v));
+      if (indianFemaleFallback) matched = indianFemaleFallback;
+    }
+    if (!matched || !isFemaleVoice(matched)) {
+      const globalFemale = voices.find(isFemaleVoice);
+      if (globalFemale) matched = globalFemale;
+    }
+    return matched || voices[0] || null;
+  };
+
+  const speakTextNativeFallback = (text, fallbackLangTag) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) {
+      setStatus('listening');
+      startRecognition();
+      return;
+    }
+    try {
+      window.speechSynthesis.cancel();
+      const naturalText = prepareNaturalSpeechText(text, fallbackLangTag);
+      const utterance = new SpeechSynthesisUtterance(naturalText);
+      utterance.lang = fallbackLangTag;
+      utterance.rate = 0.88;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      const pleasantVoice = selectVoiceForLanguage(fallbackLangTag);
+      if (pleasantVoice) utterance.voice = pleasantVoice;
+
+      utterance.onstart = () => {
+        setStatus('ai_speaking');
+      };
+      utterance.onend = () => {
+        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+          setStatus('listening');
+          startRecognition();
+        }
+      };
+      utterance.onerror = (err) => {
+        console.warn('Speech synthesis error:', err);
+        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+          setStatus('listening');
+          startRecognition();
+        }
+      };
+
+      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.error('TTS execution error:', e);
+      if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+        setStatus('listening');
+        startRecognition();
+      }
+    }
+  };
+
+  const playBackendTTSData = async (audioBase64, mimeType, aiResponse, fallbackLang) => {
+    try {
+      if (audioPlayerRef.current && !audioPlayerRef.current.paused) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current.currentTime = 0;
+      }
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+
+      setStatus('ai_speaking');
+      const binaryString = atob(audioBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const audioBlob = new Blob([bytes], { type: mimeType || 'audio/wav' });
+      if (audioBlob.size <= 100) throw new Error('Audio blob too small');
+      audioUrlRef.current = URL.createObjectURL(audioBlob);
+      audioPlayerRef.current.src = audioUrlRef.current;
+      audioPlayerRef.current.volume = 1.0;
+
+      audioPlayerRef.current.onended = () => {
+        if (audioUrlRef.current) {
+          URL.revokeObjectURL(audioUrlRef.current);
+          audioUrlRef.current = null;
+        }
+        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+          setStatus('listening');
+          startRecognition();
+        }
+      };
+      await audioPlayerRef.current.play();
+    } catch (err) {
+      console.error('Backend TTS Error, falling back to browser:', err);
+      speakTextNativeFallback(aiResponse, fallbackLang);
+    }
+  };
+
+  const startRecognition = () => {
+    const currentStatus = statusRef.current;
+    if (currentStatus === 'ai_speaking' || currentStatus === 'processing' || currentStatus === 'ended' || currentStatus === 'ending' || currentStatus === 'error') {
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setIsSupported(false);
       setStatus('error');
       return;
     }
-
     try {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch (e) {}
+      }
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = true;
       recognition.lang = langTag;
 
       recognition.onstart = () => {
-        setStatus('listening');
+        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+           setStatus('listening');
+        }
       };
 
       recognition.onresult = (event) => {
+        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+           setStatus('user_speaking');
+        }
         let currentInterim = '';
         let currentFinal = '';
-
         for (let i = event.resultIndex; i < event.results.length; i += 1) {
           const result = event.results[i];
           if (result.isFinal) {
@@ -95,7 +214,6 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             currentInterim += result[0].transcript;
           }
         }
-
         if (currentFinal) {
           setTranscript((prev) => (prev ? `${prev} ${currentFinal}` : currentFinal));
           setInterimTranscript('');
@@ -107,8 +225,10 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
       recognition.onerror = (event) => {
         console.warn('Speech recognition error:', event.error);
-        if (event.error !== 'no-speech') {
-          setStatus('error');
+        if (event.error !== 'no-speech' && event.error !== 'aborted') {
+           if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+              setStatus('error');
+           }
         }
       };
 
@@ -117,7 +237,14 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
           if (prevInterim && !transcript) {
             setTranscript(prevInterim);
             handleFinalSpeech(prevInterim);
+            return '';
           }
+          setTimeout(() => {
+            const st = statusRef.current;
+            if (st === 'listening' || st === 'user_speaking') {
+              startRecognition();
+            }
+          }, 100);
           return '';
         });
       };
@@ -125,143 +252,90 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       recognitionRef.current = recognition;
       recognition.start();
     } catch (err) {
-      console.error('Failed to initialize speech recognition:', err);
-      setIsSupported(false);
+      console.error('Failed to start speech recognition:', err);
+    }
+  };
+
+  useEffect(() => {
+    let ws = null;
+    try {
+      ws = new WebSocket(WS_BASE);
+      ws.onopen = () => {
+        console.log("SAATHI WebSocket connected");
+        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+          setStatus('listening');
+          startRecognition();
+        }
+      };
+      ws.onmessage = async (event) => {
+        if (statusRef.current === 'ended' || statusRef.current === 'ending') return;
+        try {
+          const data = JSON.parse(event.data);
+          if (data.status === 'success') {
+            const aiResponse = data.ai_response || "Sorry, I couldn't understand that.";
+            setResponseText(aiResponse);
+            onResponse?.(aiResponse);
+
+            if (data.audio_base64) {
+              await playBackendTTSData(data.audio_base64, data.mime_type || data.format, aiResponse, langTag);
+            } else {
+              speakTextNativeFallback(aiResponse, langTag);
+            }
+          } else {
+            console.error("WS API Error:", data.message);
+            const errorMsg = t('ai.notSupported') || "I'm having trouble connecting right now.";
+            setResponseText(errorMsg);
+            speakTextNativeFallback(errorMsg, langTag);
+          }
+        } catch (error) {
+          console.error("WS Parse Error:", error);
+        }
+      };
+      ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+           setStatus('error');
+        }
+      };
+      ws.onclose = () => {
+        console.log("SAATHI WebSocket closed");
+        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+           setStatus('error');
+        }
+      };
+      wsRef.current = ws;
+    } catch (err) {
+      console.error("Failed to connect to WS:", err);
       setStatus('error');
     }
 
     return () => {
+      setStatus('ended');
+      if (wsRef.current) wsRef.current.close();
       if (recognitionRef.current) {
-        try {
-          recognitionRef.current.abort();
-        } catch { }
+        try { recognitionRef.current.abort(); } catch (e) {}
       }
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+      if (audioPlayerRef.current && !audioPlayerRef.current.paused) audioPlayerRef.current.pause();
+      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
     };
   }, [langTag]);
 
-  const selectVoiceForLanguage = (targetLangTag) => {
-    if (!voices || voices.length === 0) return null;
-    const baseLang = targetLangTag.split('-')[0];
-
-    const isFemaleVoice = (v) => naturalFemaleVoiceKeywords.some((kw) => v.name.toLowerCase().includes(kw));
-
-    let matched = voices.find((v) => (v.lang === targetLangTag || v.lang.replace('_', '-') === targetLangTag) && isFemaleVoice(v));
-
-    if (!matched) {
-      matched = voices.find((v) => v.lang.startsWith(baseLang) && isFemaleVoice(v));
-    }
-
-    if (!matched) {
-      matched = voices.find((v) => v.lang === targetLangTag || v.lang.replace('_', '-') === targetLangTag || v.lang.startsWith(baseLang));
-    }
-
-    if (!matched || !isFemaleVoice(matched)) {
-      const indianFemaleFallback = voices.find((v) => (v.lang.startsWith('hi') || v.lang.includes('IN')) && isFemaleVoice(v));
-      if (indianFemaleFallback) {
-        matched = indianFemaleFallback;
-      }
-    }
-
-    if (!matched || !isFemaleVoice(matched)) {
-      const globalFemale = voices.find(isFemaleVoice);
-      if (globalFemale) {
-        matched = globalFemale;
-      }
-    }
-
-    return matched || voices[0] || null;
-  };
-
-  const speakText = (text) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) {
-      setStatus('done');
-      return;
-    }
-
-    try {
-      window.speechSynthesis.cancel(); 
-
-      const naturalText = prepareNaturalSpeechText(text, langTag);
-      const utterance = new SpeechSynthesisUtterance(naturalText);
-
-      utterance.lang = langTag;
-      utterance.rate = 0.88; 
-      utterance.pitch = 1.0; 
-      utterance.volume = 1.0;
-
-      const pleasantVoice = selectVoiceForLanguage(langTag);
-      if (pleasantVoice) {
-        utterance.voice = pleasantVoice;
-      }
-
-      utterance.onstart = () => {
-        setStatus('speaking');
-      };
-
-      utterance.onend = () => {
-        setStatus('done');
-      };
-
-      utterance.onerror = (err) => {
-        console.warn('Speech synthesis error:', err);
-        setStatus('done');
-      };
-
-      if (window.speechSynthesis.paused) {
-        window.speechSynthesis.resume();
-      }
-
-      window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      console.error('TTS execution error:', e);
-      setStatus('done');
-    }
-  };
-
   const handleFinalSpeech = (queryText) => {
     if (!queryText.trim()) return;
-
     if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch { }
+      try { recognitionRef.current.abort(); } catch (e) {}
     }
-
-    setStatus('thinking');
-
-    window.setTimeout(() => {
-      const { response, action } = processVoiceQuery(queryText, preferredLanguage);
-      setResponseText(response);
-      onResponse?.(response);
-
-      speakText(response);
-
-      if (action && action.type === 'NAVIGATE' && action.path) {
-        window.setTimeout(() => {
-          onNavigate?.(action.path);
-        }, 1800);
-      }
-    }, 450);
-  };
-
-  const handleRestartListening = () => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    setTranscript('');
-    setInterimTranscript('');
-    setResponseText('');
-
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.start();
-        setStatus('listening');
-      } catch {
-        setStatus('listening');
-      }
+    setStatus('processing');
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+       wsRef.current.send(JSON.stringify({
+          action: "text",
+          query: queryText,
+          generate_audio: true
+       }));
+    } else {
+       console.error("WebSocket is not open");
+       setStatus('error');
     }
   };
 
@@ -273,15 +347,28 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
     setTextInput('');
   };
 
+  const handleEndCall = () => {
+    setStatus('ending');
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch (e) {}
+    }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+    if (audioPlayerRef.current && !audioPlayerRef.current.paused) audioPlayerRef.current.pause();
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setStatus('ended');
+    onClose();
+  };
+
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
+      if (event.key === 'Escape') handleEndCall();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, []);
 
   const displayTranscript = transcript || interimTranscript;
 
@@ -289,7 +376,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
     <div
       className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/60 p-0 backdrop-blur-md sm:items-center sm:p-4"
       role="presentation"
-      onClick={onClose}
+      onClick={handleEndCall}
     >
       <section
         role="dialog"
@@ -304,7 +391,11 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
               className={`flex h-12 w-12 items-center justify-center rounded-full overflow-hidden text-white shadow-lg ${
                 status === 'listening'
                   ? 'animate-pulse bg-[#15803D] shadow-green-900/30 ring-4 ring-green-200'
-                  : status === 'speaking'
+                  : status === 'user_speaking'
+                  ? 'animate-pulse bg-blue-600 shadow-blue-900/30 ring-4 ring-blue-200'
+                  : status === 'processing'
+                  ? 'animate-pulse bg-yellow-500 shadow-yellow-900/30 ring-4 ring-yellow-200'
+                  : status === 'ai_speaking'
                   ? 'bg-emerald-600 shadow-emerald-900/30 ring-4 ring-emerald-200'
                   : 'bg-slate-700 shadow-slate-900/20'
               }`}
@@ -313,11 +404,13 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             </span>
             <div>
               <h2 id="ai-voice-modal-title" className="text-2xl font-extrabold text-slate-900">
+                {status === 'idle' && (t('ai.connecting') || 'Connecting...')}
                 {status === 'listening' && (t('ai.listening') || t('ai.listening'))}
-                {status === 'thinking' && (t('ai.thinking') || t('ai.thinking'))}
-                {status === 'speaking' && (t('ai.speaking') || t('ai.speaking'))}
-                {status === 'done' && (t('ai.responseReady') || t('ai.responseReady'))}
-                {status === 'error' && (t('ai.title') || 'SAATHI AI Assistant')}
+                {status === 'user_speaking' && (t('ai.hearing') || 'Hearing...')}
+                {status === 'processing' && (t('ai.thinking') || t('ai.thinking'))}
+                {status === 'ai_speaking' && (t('ai.speaking') || t('ai.speaking'))}
+                {status === 'error' && (t('ai.error') || 'Connection Error')}
+                {status === 'ended' && 'Call Ended'}
               </h2>
               <p className="mt-0.5 text-xs font-bold text-[#15803D]">
                 {t('ai.languageLabel')}: <span className="underline">{preferredLanguage}</span> ({langTag})
@@ -329,7 +422,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             aria-label="Close voice assistant"
             className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 focus:outline-none focus:ring-4 focus:ring-slate-200"
             type="button"
-            onClick={onClose}
+            onClick={handleEndCall}
           >
             <XMarkIcon className="h-5 w-5" />
           </button>
@@ -341,9 +434,9 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
               <span
                 key={bar}
                 className={`block w-2.5 rounded-full transition-all duration-300 ${
-                  status === 'listening'
+                  status === 'listening' || status === 'user_speaking'
                     ? 'voice-wave-bar bg-[#15803D] shadow-md shadow-green-900/20'
-                    : status === 'speaking'
+                    : status === 'ai_speaking'
                     ? 'animate-pulse bg-emerald-600 shadow-md h-14'
                     : 'h-4 bg-slate-300'
                 }`}
@@ -357,22 +450,12 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
               <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
                 {responseText ? t('ai.answerLabel') : t('ai.queryLabel')}
               </p>
-              {responseText && (
-                <button
-                  type="button"
-                  onClick={() => speakText(responseText)}
-                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-extrabold text-[#065f46] hover:bg-emerald-200 transition hover:scale-105"
-                >
-                  <SpeakerWaveIcon className="h-3.5 w-3.5" />
-                  {t('ai.playVoice') || t('ai.playVoice')}
-                </button>
-              )}
             </div>
 
             <p className="mt-1.5 min-h-12 text-base font-bold leading-7 text-slate-800 sm:text-lg">
               {responseText || displayTranscript || (
                 <span className="italic text-slate-400">
-                  {status === 'listening' ? t('ai.speakPrompt') : t('ai.typePrompt')}
+                  {status === 'listening' || status === 'idle' ? t('ai.speakPrompt') : t('ai.typePrompt')}
                 </span>
               )}
             </p>
@@ -385,11 +468,13 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
             placeholder={t('ai.typePlaceholder') || t('ai.typePlaceholder')}
-            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#15803D] focus:ring-4 focus:ring-green-100"
+            disabled={status === 'processing' || status === 'ai_speaking' || status === 'ended'}
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#15803D] focus:ring-4 focus:ring-green-100 disabled:opacity-50"
           />
           <button
             type="submit"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#15803D] text-white shadow-sm transition hover:bg-[#11632f] focus:outline-none focus:ring-4 focus:ring-green-200"
+            disabled={status === 'processing' || status === 'ai_speaking' || status === 'ended'}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#15803D] text-white shadow-sm transition hover:bg-[#11632f] focus:outline-none focus:ring-4 focus:ring-green-200 disabled:opacity-50"
             aria-label="Send question"
           >
             <PaperAirplaneIcon className="h-4 w-4" />
@@ -403,40 +488,23 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
         )}
 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-          {status === 'listening' ? (
+          {status === 'error' || status === 'ended' ? (
             <button
-              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-200"
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-200"
               type="button"
-              onClick={() => {
-                if (recognitionRef.current) {
-                  try {
-                    recognitionRef.current.stop();
-                  } catch { }
-                }
-                if (transcript) handleFinalSpeech(transcript);
-                else setStatus('done');
-              }}
+              onClick={handleEndCall}
             >
-              {t('ai.stopProcess') || t('ai.stopProcess')}
+              {t('ai.close') || t('ai.close')}
             </button>
           ) : (
             <button
-              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#15803D] px-5 text-sm font-bold text-white transition hover:bg-[#11632f] focus:outline-none focus:ring-4 focus:ring-green-200"
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-200"
               type="button"
-              onClick={handleRestartListening}
+              onClick={handleEndCall}
             >
-              <img src="/saathi-mic-logo.png" alt="SAATHI logo" className="h-5 w-5 rounded-full bg-[#fdfbf7] object-contain p-0.5" />
-              {t('ai.speakAgain') || t('ai.speakAgain')}
+              End Call / Stop Voice Chat
             </button>
           )}
-
-          <button
-            className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-200"
-            type="button"
-            onClick={onClose}
-          >
-            {t('ai.close') || t('ai.close')}
-          </button>
         </div>
       </section>
     </div>
