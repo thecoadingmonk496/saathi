@@ -29,6 +29,7 @@ import RetailerDiscovery from './pages/RetailerDiscovery';
 import RetailerOrders from './pages/RetailerOrders';
 import ConsumerDiscovery from './pages/ConsumerDiscovery';
 import ConsumerOrders from './pages/ConsumerOrders';
+import CropJourney from './pages/CropJourney';
 
 function ProtectedPage({ children }) {
   const { isLoggedIn } = useUser();
@@ -81,6 +82,7 @@ export default function App() {
             <Route path="/consumer/orders" element={<ProtectedPage><ConsumerOrders /></ProtectedPage>} />
             <Route path="/prices" element={<ProtectedPage><MarketPrices /></ProtectedPage>} />
             <Route path="/explorer" element={<ProtectedPage><MarketExplorer /></ProtectedPage>} />
+            <Route path="/crop-journey" element={<ProtectedPage><CropJourney /></ProtectedPage>} />
             <Route path="/government" element={<ProtectedPage><Government /></ProtectedPage>} />
             <Route path="/profile" element={<ProtectedPage><Profile /></ProtectedPage>} />
             <Route path="/ai" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
