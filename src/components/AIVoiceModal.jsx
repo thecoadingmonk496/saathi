@@ -38,6 +38,13 @@ function prepareNaturalSpeechText(text, langTag) {
 
 export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 'Hindi', onNavigate }) {
   const { t } = useUser();
+  
+  // Helper to fallback to English if translation is missing (returns key)
+  const getT = (key, fallback) => {
+    const val = t(key);
+    return (val === key || !val) ? fallback : val;
+  };
+
   const [status, setStatus] = useState('idle');
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
@@ -291,7 +298,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             }
           } else {
             console.error("WS API Error:", data.message);
-            const errorMsg = t('ai.notSupported') || "I'm having trouble connecting right now.";
+            const errorMsg = getT('ai.notSupported', "I'm having trouble connecting right now.");
             setResponseText(errorMsg);
             speakTextNativeFallback(errorMsg, langTag);
           }
@@ -412,16 +419,16 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             </span>
             <div>
               <h2 id="ai-voice-modal-title" className="text-2xl font-extrabold text-slate-900">
-                {status === 'idle' && (t('ai.connecting') || 'Connecting...')}
-                {status === 'listening' && (t('ai.listening') || t('ai.listening'))}
-                {status === 'user_speaking' && (t('ai.hearing') || 'Hearing...')}
-                {status === 'processing' && (t('ai.thinking') || t('ai.thinking'))}
-                {status === 'ai_speaking' && (t('ai.speaking') || t('ai.speaking'))}
-                {status === 'error' && (t('ai.error') || 'Connection Error')}
+                {status === 'idle' && getT('ai.connecting', 'Connecting...')}
+                {status === 'listening' && getT('ai.listening', 'Listening...')}
+                {status === 'user_speaking' && getT('ai.hearing', 'Hearing...')}
+                {status === 'processing' && getT('ai.thinking', 'Thinking...')}
+                {status === 'ai_speaking' && getT('ai.speaking', 'Speaking...')}
+                {status === 'error' && getT('ai.error', 'Connection Error')}
                 {status === 'ended' && 'Call Ended'}
               </h2>
               <p className="mt-0.5 text-xs font-bold text-[#15803D]">
-                {t('ai.languageLabel')}: <span className="underline">{preferredLanguage}</span> ({langTag})
+                {getT('ai.languageLabel', 'Language')}: <span className="underline">{preferredLanguage}</span> ({langTag})
               </p>
             </div>
           </div>
@@ -456,14 +463,14 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
           <div className="mt-4 rounded-xl bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between gap-2">
               <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
-                {responseText ? t('ai.answerLabel') : t('ai.queryLabel')}
+                {responseText ? getT('ai.answerLabel', 'AI Answer') : getT('ai.queryLabel', 'Your Spoken Query')}
               </p>
             </div>
 
             <p className="mt-1.5 min-h-12 text-base font-bold leading-7 text-slate-800 sm:text-lg">
               {responseText || displayTranscript || (
                 <span className="italic text-slate-400">
-                  {status === 'listening' || status === 'idle' ? t('ai.speakPrompt') : t('ai.typePrompt')}
+                  {status === 'listening' || status === 'idle' ? getT('ai.speakPrompt', 'Speak now...') : getT('ai.typePrompt', 'Type a question...')}
                 </span>
               )}
             </p>
@@ -475,7 +482,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             type="text"
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
-            placeholder={t('ai.typePlaceholder') || t('ai.typePlaceholder')}
+            placeholder={getT('ai.typePlaceholder', 'Type or speak a question below.')}
             disabled={status === 'processing' || status === 'ai_speaking' || status === 'ended'}
             className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#15803D] focus:ring-4 focus:ring-green-100 disabled:opacity-50"
           />
@@ -491,7 +498,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
         {!isSupported && (
           <p className="mt-2 text-xs font-semibold text-amber-600">
-            {t('ai.notSupported')}
+            {getT('ai.notSupported', 'Speech recognition is not supported in this browser.')}
           </p>
         )}
 
@@ -502,7 +509,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
               type="button"
               onClick={handleEndCall}
             >
-              {t('ai.close') || t('ai.close')}
+              {getT('ai.close', 'Close')}
             </button>
           ) : (
             <button
