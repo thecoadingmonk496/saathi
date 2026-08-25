@@ -341,10 +341,49 @@ async function confirmVerification(req, res) {
   }
 }
 
+async function getMyJourneys(req, res) {
+  try {
+    const userId = req.user.userId;
+    const transactions = await Transaction.find({
+      $or: [{ sellerId: userId }, { buyerId: userId }],
+      is_quarantined: { $ne: true }
+    })
+    .sort({ transactionDate: -1 })
+    .populate('sellerId', 'firstName lastName')
+    .populate('buyerId', 'firstName lastName')
+    .lean();
+
+    const uniqueJourneysMap = new Map();
+    for (const txn of transactions) {
+      if (!uniqueJourneysMap.has(txn.batchId)) {
+        const sellerName = txn.sellerId ? `${txn.sellerId.firstName} ${txn.sellerId.lastName}` : 'Unknown';
+        uniqueJourneysMap.set(txn.batchId, {
+          batchId: txn.batchId,
+          transactionId: txn.transactionId,
+          product: txn.product,
+          quantity: txn.quantity,
+          unit: txn.unit,
+          stage: txn.stage,
+          date: txn.transactionDate,
+          verificationStatus: txn.verificationStatus,
+          originator: txn.stage === 'FARMER_TO_BUYER' ? sellerName : null
+        });
+      }
+    }
+
+    const recentJourneys = Array.from(uniqueJourneysMap.values());
+    return res.json({ success: true, journeys: recentJourneys });
+  } catch (error) {
+    console.error('[TransactionController] getMyJourneys error:', error.message);
+    return res.status(500).json({ success: false, message: 'Server error fetching user journeys' });
+  }
+}
+
 module.exports = {
   mintTransactionFromOrder,
   getTransaction,
   getCropJourney,
+  getMyJourneys,
   requestVerification,
   confirmVerification,
 };

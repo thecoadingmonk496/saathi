@@ -6,11 +6,13 @@ import {
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts';
+import { useUser } from '../context/UserContext';
 
 export default function CropJourney() {
   const [searchParams] = useSearchParams();
   const batchId = searchParams.get('batchId');
   const navigate = useNavigate();
+  const { token } = useUser();
   
   const [journeyData, setJourneyData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -20,12 +22,35 @@ export default function CropJourney() {
   const [checklist, setChecklist] = useState({
     govData: false, buyerVerified: false, digitalRecords: false, secureRecords: false, locationTracking: false
   });
+  
+  const [myJourneys, setMyJourneys] = useState([]);
+  const [loadingMyJourneys, setLoadingMyJourneys] = useState(false);
+  const [showManualSearch, setShowManualSearch] = useState(false);
 
   useEffect(() => {
     if (batchId) {
       fetchJourney(batchId);
+    } else if (token) {
+      fetchMyJourneys();
     }
-  }, [batchId]);
+  }, [batchId, token]);
+
+  const fetchMyJourneys = async () => {
+    setLoadingMyJourneys(true);
+    try {
+      const res = await fetch(`http://localhost:5001/api/transactions/user/my-journeys`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMyJourneys(data.journeys);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingMyJourneys(false);
+    }
+  };
 
   const fetchJourney = async (id) => {
     setLoading(true);
@@ -74,32 +99,110 @@ export default function CropJourney() {
   };
 
   if (!batchId) {
+    if (loadingMyJourneys) {
+      return <div className="min-h-screen bg-[#FDFCF5] flex items-center justify-center pt-20"><p className="font-bold text-emerald-800">Loading your journeys...</p></div>;
+    }
+
     return (
-      <div className="min-h-screen bg-[#FDFCF5] pt-24 px-4">
-        <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
-          <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <MapPin className="w-8 h-8 text-emerald-500" />
+      <div className="min-h-screen bg-[#FDFCF5] pt-24 px-4 pb-16">
+        <div className="max-w-[1000px] mx-auto">
+          
+          <div className="flex justify-between items-end mb-8">
+            <div>
+              <h1 className="text-3xl font-extrabold text-[#0C3B2E] flex items-center gap-2 mb-2">
+                <Leaf className="w-8 h-8 text-emerald-500" />
+                Your Crop Journeys
+              </h1>
+              <p className="text-gray-600 text-sm font-medium">Select a recent transaction to view its full traceability journey.</p>
+            </div>
+            {!showManualSearch && (
+              <button 
+                onClick={() => setShowManualSearch(true)}
+                className="text-sm font-bold text-emerald-600 hover:text-emerald-700 underline"
+              >
+                Track a specific batch
+              </button>
+            )}
           </div>
-          <h2 className="text-2xl font-extrabold text-[#0C3B2E] mb-2">Track Your Crop</h2>
-          <p className="text-gray-500 mb-8">Enter a Batch ID or Transaction ID to view the complete traceability journey.</p>
-          <form 
-            onSubmit={(e) => {
-              e.preventDefault();
-              const inputVal = e.target.batchInput.value.trim();
-              if (inputVal) navigate(`/crop-journey?batchId=${inputVal}`);
-            }}
-            className="flex flex-col sm:flex-row items-center gap-2 max-w-sm mx-auto"
-          >
-            <input 
-              name="batchInput"
-              type="text" 
-              placeholder="e.g. WS-2026-08..."
-              className="flex-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-800 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
-            />
-            <button type="submit" className="w-full sm:w-auto bg-[#0C3B2E] hover:bg-emerald-900 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition">
-              Search
-            </button>
-          </form>
+
+          {showManualSearch && (
+            <div className="bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 mb-8 flex flex-col sm:flex-row items-center gap-4">
+              <div className="flex-1">
+                <h3 className="font-bold text-[#0C3B2E] text-sm mb-1">Manual Tracking</h3>
+                <p className="text-xs text-gray-500">Enter a Batch ID or Transaction ID directly.</p>
+              </div>
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const inputVal = e.target.batchInput.value.trim();
+                  if (inputVal) navigate(`/crop-journey?batchId=${inputVal}`);
+                }}
+                className="flex w-full sm:w-auto gap-2"
+              >
+                <input 
+                  name="batchInput"
+                  type="text" 
+                  placeholder="e.g. WS-2026-08..."
+                  className="w-full sm:w-64 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-800 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+                />
+                <button type="submit" className="bg-[#0C3B2E] hover:bg-emerald-900 text-white px-5 py-2 rounded-xl font-bold text-sm transition">
+                  Search
+                </button>
+              </form>
+            </div>
+          )}
+
+          {myJourneys.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Activity className="w-8 h-8 text-gray-400" />
+              </div>
+              <h2 className="text-xl font-bold text-[#0C3B2E] mb-2">No crop journeys yet</h2>
+              <p className="text-gray-500 text-sm">You haven't participated in any recorded transactions yet. Once you buy or sell crops on SAATHI, your supply chain journeys will appear here.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {myJourneys.map(journey => (
+                <div key={journey.batchId} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:border-emerald-300 hover:shadow-md transition cursor-pointer group" onClick={() => navigate(`/crop-journey?batchId=${journey.batchId}`)}>
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center">
+                        <Leaf className="w-5 h-5 text-emerald-500" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-[#0C3B2E] capitalize">{journey.product}</h3>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{new Date(journey.date).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-extrabold text-emerald-600">{journey.quantity} {journey.unit}</div>
+                      <div className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded mt-1 inline-block ${journey.verificationStatus === 'VERIFIED' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                        {journey.verificationStatus}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-50 rounded-xl p-3 flex justify-between items-center text-xs">
+                    <div>
+                      <span className="block text-[9px] font-bold text-gray-400 uppercase">Origin Farmer</span>
+                      <span className="font-bold text-gray-700">{journey.originator || 'Unknown'}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="block text-[9px] font-bold text-gray-400 uppercase">Latest Stage</span>
+                      <span className="font-bold text-gray-700">{journey.stage.replace(/_/g, ' ')}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 pt-3 border-t border-gray-50 flex justify-between items-center">
+                    <span className="text-[10px] font-mono text-gray-400 font-bold truncate max-w-[150px]">{journey.batchId}</span>
+                    <span className="text-xs font-bold text-emerald-600 group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                      View Journey <ExternalLink className="w-3 h-3" />
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
