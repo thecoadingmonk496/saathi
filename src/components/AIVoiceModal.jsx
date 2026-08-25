@@ -189,6 +189,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
   const handleFinalSpeech = async (queryText) => {
     if (!queryText.trim()) return;
+    if (status === 'thinking' || status === 'waking' || status === 'speaking') return;
 
     if (recognitionRef.current) {
       try {
@@ -196,10 +197,12 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       } catch { }
     }
 
-    setStatus('thinking');
+    setStatus('waking');
+    const wakeTimer = setTimeout(() => setStatus('thinking'), 3000);
 
     try {
       const { response, action, audioBase64 } = await processVoiceQuery(queryText, preferredLanguage);
+      clearTimeout(wakeTimer);
       setResponseText(response);
       onResponse?.(response);
 
@@ -287,7 +290,8 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             <div>
               <h2 id="ai-voice-modal-title" className="text-2xl font-extrabold text-slate-900">
                 {status === 'listening' && (t('ai.listening') || t('ai.listening'))}
-                {status === 'thinking' && (t('ai.thinking') || t('ai.thinking'))}
+                {status === 'waking' && 'Waking up Saathi AI…'}
+                {status === 'thinking' && 'Saathi is thinking…'}
                 {status === 'speaking' && (t('ai.speaking') || t('ai.speaking'))}
                 {status === 'done' && (t('ai.responseReady') || t('ai.responseReady'))}
                 {status === 'error' && (t('ai.title') || 'SAATHI AI Assistant')}

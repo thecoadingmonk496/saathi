@@ -1,4 +1,4 @@
-const FASTAPI_URL = import.meta.env.VITE_FASTAPI_URL || (import.meta.env.DEV ? 'http://localhost:8001' : 'https://saathi-backend-7f91.onrender.com');
+const FASTAPI_URL = import.meta.env.VITE_FASTAPI_URL || (import.meta.env.DEV ? 'http://localhost:8001' : 'https://saathi-backend-7t91.onrender.com');
 
 export async function processVoiceQuery(transcript, language = 'English') {
   if (!transcript || !transcript.trim()) {
@@ -7,6 +7,9 @@ export async function processVoiceQuery(transcript, language = 'English') {
 
   try {
     // 1. Get AI Text Response
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
     const chatRes = await fetch(`${FASTAPI_URL}/chat`, {
       method: 'POST',
       headers: {
@@ -17,7 +20,10 @@ export async function processVoiceQuery(transcript, language = 'English') {
         history: [],
         profile: {}
       }),
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
 
     if (!chatRes.ok) {
       console.error(`FastAPI /chat error: ${chatRes.status} ${chatRes.statusText}`);
