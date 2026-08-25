@@ -119,9 +119,7 @@ def text_to_speech(
         "target_language_code": target_language_code,
         "speaker": speaker,
         "model": model,
-        "pitch": 0,
         "pace": 1.0,
-        "loudness": 1.5,
         "speech_sample_rate": 8000,
         "enable_preprocessing": True
     }
