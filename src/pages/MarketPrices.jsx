@@ -329,7 +329,7 @@ export default function MarketPrices() {
     return {
       percentText: `${isUp ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}%`,
       isUp,
-      colorClass: isUp ? 'text-[#2E7D32] bg-green-50 border-green-200' : 'text-[#D32F2F] bg-red-50 border-red-200'
+      colorClass: isUp ? 'text-[var(--saathi-primary)] bg-[var(--saathi-surface-alt)] border-[var(--saathi-border)]' : 'text-[#D32F2F] bg-red-50 border-red-200'
     };
   };
 
@@ -392,20 +392,20 @@ export default function MarketPrices() {
   );
 
   return (
-    <section className="mx-auto w-full max-w-6xl pb-10 text-slate-900">
+    <section className="mx-auto w-full max-w-6xl pb-10 text-[var(--saathi-text)]">
       <header className="mb-6">
-        <p className="text-xs font-extrabold uppercase tracking-widest text-[#2E7D32]">{t('prices.tagline')}</p>
+        <p className="text-xs font-extrabold uppercase tracking-widest text-[var(--saathi-primary)]">{t('prices.tagline')}</p>
         <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">{t('prices.title')}</h1>
 
         {/* Location Detection Panel */}
-        <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-white p-4 border border-slate-200 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-white p-4 border border-[var(--saathi-border-light)] shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <span className="text-2xl mt-0.5" role="img" aria-label="Pin">📍</span>
             <div>
-              <p className="text-sm font-bold text-slate-800">
+              <p className="text-sm font-bold text-[var(--saathi-text)]">
                 {address?.formatted || t('location.notSet')}
               </p>
-              <p className="text-xs font-medium text-slate-500 mt-0.5">
+              <p className="text-xs font-medium text-[var(--saathi-text-muted)] mt-0.5">
                 {permissionStatus === 'granted' ? t('prices.autoDetected') : t('location.notSet')}
               </p>
             </div>
@@ -413,7 +413,7 @@ export default function MarketPrices() {
           <button
             type="button"
             onClick={requestLocation}
-            className="rounded-lg px-3 py-2 text-sm font-bold text-[#2E7D32] transition hover:bg-green-50 hover:underline whitespace-nowrap focus:outline-none"
+            className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--saathi-primary)] transition hover:bg-[var(--saathi-surface-alt)] hover:underline whitespace-nowrap focus:outline-none"
           >
             {t('prices.changeLoc')}
           </button>
@@ -421,10 +421,10 @@ export default function MarketPrices() {
 
         {/* Update note */}
         <div className="mt-3 flex items-center gap-2 rounded-xl bg-white/75 px-3 py-2 shadow-sm backdrop-blur-sm">
-          <span className="flex h-2.5 w-2.5 rounded-full bg-green-500"></span>
-          <p className="text-sm font-semibold text-slate-700">{t('prices.marketUpdatedToday')} ({getTodayDateString()})</p>
+          <span className="flex h-2.5 w-2.5 rounded-full bg-[var(--saathi-primary)]"></span>
+          <p className="text-sm font-semibold text-[var(--saathi-text-secondary)]">{t('prices.marketUpdatedToday')} ({getTodayDateString()})</p>
           <span className="mx-2 text-slate-400">•</span>
-          <p className="text-xs font-semibold text-slate-600">{t('prices.dataSource')}</p>
+          <p className="text-xs font-semibold text-[var(--saathi-text-secondary)]">{t('prices.dataSource')}</p>
         </div>
       </header>
 
@@ -445,15 +445,15 @@ export default function MarketPrices() {
                     ? (t('prices.highestRecent') || 'Highest Recent Price')
                     : (t('prices.highestToday') || 'Highest Price Today')}
                 </p>
-                <h2 className="text-2xl font-extrabold text-slate-900 mt-0.5">
+                <h2 className="text-2xl font-extrabold text-[var(--saathi-text)] mt-0.5">
                   {getRegionalCropName(highestPriceRecord.commodity)}
                   {highestPriceRecord.variety && (
-                    <span className="text-sm font-semibold text-slate-500 ml-2">
+                    <span className="text-sm font-semibold text-[var(--saathi-text-muted)] ml-2">
                       ({highestPriceRecord.variety})
                     </span>
                   )}
                 </h2>
-                <p className="text-sm font-medium text-slate-600 mt-1">
+                <p className="text-sm font-medium text-[var(--saathi-text-secondary)] mt-1">
                   {highestPriceRecord.market}, {highestPriceRecord.district}, {highestPriceRecord.state}
                 </p>
               </div>
@@ -463,7 +463,7 @@ export default function MarketPrices() {
             <div className="flex items-center gap-6 self-start sm:self-auto">
               {/* Price Details */}
               <div className="text-right">
-                <p className="text-3xl font-black tracking-tight text-slate-900">
+                <p className="text-3xl font-black tracking-tight text-[var(--saathi-text)]">
                   {formatRupees(highestPriceRecord.modal_price)}
                 </p>
                 <div className="mt-1 flex items-center justify-end gap-1.5">
@@ -474,7 +474,7 @@ export default function MarketPrices() {
                         {trend.percentText}
                       </span>
                     ) : (
-                      <span className="text-xs font-semibold text-slate-500">
+                      <span className="text-xs font-semibold text-[var(--saathi-text-muted)]">
                         {t('prices.buildingHistory') || 'Building history'}
                       </span>
                     );
@@ -484,7 +484,7 @@ export default function MarketPrices() {
               </div>
 
               {/* Sparkline Container */}
-              <div className="flex h-12 items-center border-l border-slate-200 pl-6 min-w-[120px]">
+              <div className="flex h-12 items-center border-l border-[var(--saathi-border-light)] pl-6 min-w-[120px]">
                 {historyLoading ? (
                   <div className="h-4 w-16 animate-pulse rounded bg-slate-200"></div>
                 ) : topRecordHistory && topRecordHistory.length >= 2 ? (
@@ -502,14 +502,14 @@ export default function MarketPrices() {
 
 
       {/* Filter and Search Panel */}
-      <div className="mb-6 rounded-3xl bg-white p-6 border border-slate-200 shadow-sm">
+      <div className="mb-6 rounded-3xl bg-white p-6 border border-[var(--saathi-border-light)] shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h3 className="text-base font-bold text-slate-900">{t('prices.filterTitle') || 'Filter Prices'}</h3>
+          <h3 className="text-base font-bold text-[var(--saathi-text)]">{t('prices.filterTitle') || 'Filter Prices'}</h3>
           {showResetLocation && (
             <button
               type="button"
               onClick={handleUseDetectedLocation}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#2E7D32] hover:underline bg-green-50/50 hover:bg-green-50 px-2.5 py-1 rounded-lg border border-green-200 transition focus:outline-none"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--saathi-primary)] hover:underline bg-[var(--saathi-surface-alt)]/50 hover:bg-[var(--saathi-surface-alt)] px-2.5 py-1 rounded-lg border border-[var(--saathi-border)] transition focus:outline-none"
             >
               <span>📍</span> {t('prices.useDetectedLoc') || 'Use my detected location'}
             </button>
@@ -520,7 +520,7 @@ export default function MarketPrices() {
         <div className="grid gap-4 sm:grid-cols-3">
           {/* Commodity search */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase mb-2">
+            <label className="block text-xs font-bold text-[var(--saathi-text-secondary)] uppercase mb-2">
               {t('prices.cropCol')}
             </label>
             <div className="relative">
@@ -530,21 +530,21 @@ export default function MarketPrices() {
                 value={commoditySearch}
                 onChange={(e) => setCommoditySearch(e.target.value)}
                 placeholder={t('prices.searchPlaceholder')}
-                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-800 outline-none transition focus:border-[#2E7D32]"
+                className="w-full rounded-xl border border-[var(--saathi-border-light)] bg-white py-2.5 pl-9 pr-3 text-sm text-[var(--saathi-text)] outline-none transition focus:border-[#2E7D32]"
               />
             </div>
           </div>
 
           {/* State select */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase mb-2">
+            <label className="block text-xs font-bold text-[var(--saathi-text-secondary)] uppercase mb-2">
               {t('prices.stateCol') || 'State'}
             </label>
             <select
               value={selectedState}
               onChange={handleStateChange}
               disabled={statesLoading}
-              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm text-slate-800 outline-none transition focus:border-[#2E7D32]"
+              className="w-full rounded-xl border border-[var(--saathi-border-light)] bg-white py-2.5 px-3 text-sm text-[var(--saathi-text)] outline-none transition focus:border-[#2E7D32]"
             >
               <option value="">
                 {statesLoading ? 'Loading States...' : (t('prices.selectState') || 'All States')}
@@ -557,14 +557,14 @@ export default function MarketPrices() {
 
           {/* District select */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase mb-2">
+            <label className="block text-xs font-bold text-[var(--saathi-text-secondary)] uppercase mb-2">
               {t('prices.districtCol') || 'District'}
             </label>
             <select
               value={selectedDistrict}
               onChange={handleDistrictChange}
               disabled={!selectedState || districtsLoading}
-              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm text-slate-800 outline-none transition disabled:bg-slate-50 focus:border-[#2E7D32]"
+              className="w-full rounded-xl border border-[var(--saathi-border-light)] bg-white py-2.5 px-3 text-sm text-[var(--saathi-text)] outline-none transition disabled:bg-[var(--saathi-surface-alt)] focus:border-[#2E7D32]"
             >
               <option value="">
                 {!selectedState
@@ -583,7 +583,7 @@ export default function MarketPrices() {
         {/* Clear filters and popular crops */}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="font-bold text-slate-500 uppercase mr-1">{t('buyer.popularCrops') || 'Popular'}:</span>
+            <span className="font-bold text-[var(--saathi-text-muted)] uppercase mr-1">{t('buyer.popularCrops') || 'Popular'}:</span>
             {popularCrops.map(crop => (
               <button
                 key={crop}
@@ -591,8 +591,8 @@ export default function MarketPrices() {
                 onClick={() => setCommoditySearch(crop)}
                 className={`rounded-full px-3 py-1 font-semibold border transition ${
                   commoditySearch.toLowerCase() === crop.toLowerCase()
-                    ? 'bg-green-50 border-[#2E7D32] text-[#2E7D32]'
-                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    ? 'bg-[var(--saathi-surface-alt)] border-[#2E7D32] text-[var(--saathi-primary)]'
+                    : 'bg-[var(--saathi-surface-alt)] border-[var(--saathi-border-light)] text-[var(--saathi-text-secondary)] hover:bg-slate-100'
                 }`}
               >
                 {getRegionalCropName(crop)}
@@ -614,9 +614,9 @@ export default function MarketPrices() {
 
       {/* Main Content Area */}
       {loading ? (
-        <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden p-8 flex flex-col items-center justify-center min-h-[300px]">
-          <div className="animate-spin rounded-full h-10 w-10 border-4 border-green-200 border-t-[#2E7D32]"></div>
-          <p className="mt-4 text-sm font-bold text-slate-500">{t('common.loading')}</p>
+        <div className="rounded-3xl border border-[var(--saathi-border-light)] bg-white shadow-sm overflow-hidden p-8 flex flex-col items-center justify-center min-h-[300px]">
+          <div className="animate-spin rounded-full h-10 w-10 border-4 border-[var(--saathi-border)] border-t-[#2E7D32]"></div>
+          <p className="mt-4 text-sm font-bold text-[var(--saathi-text-muted)]">{t('common.loading')}</p>
         </div>
       ) : errorMsg ? (
         <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-center">
@@ -640,12 +640,12 @@ export default function MarketPrices() {
               </p>
             </div>
           )}
-          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="rounded-3xl border border-[var(--saathi-border-light)] bg-white shadow-sm overflow-hidden">
           {/* Table view for larger screens */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100">
+                <tr className="bg-[var(--saathi-surface-alt)] text-xs font-bold uppercase tracking-wider text-[var(--saathi-text-muted)] border-b border-slate-100">
                   <th className="px-6 py-4">{t('prices.cropCol')}</th>
                   <th className="px-6 py-4">{t('prices.varietyCol') || 'Variety'}</th>
                   <th className="px-6 py-4">{t('prices.marketCol') || 'Market'}</th>
@@ -659,22 +659,22 @@ export default function MarketPrices() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {records.map((record, index) => (
-                  <tr key={index} className="hover:bg-slate-50 transition">
-                    <td className="px-6 py-4 text-base font-bold text-slate-900">
+                  <tr key={index} className="hover:bg-[var(--saathi-surface-alt)] transition">
+                    <td className="px-6 py-4 text-base font-bold text-[var(--saathi-text)]">
                       {getRegionalCropName(record.commodity)}
                     </td>
-                    <td className="px-6 py-4 text-sm font-medium text-slate-700">{record.variety}</td>
-                    <td className="px-6 py-4 text-sm font-semibold text-slate-800">{record.market}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-slate-600">{record.district}</td>
-                    <td className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">{record.state}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-slate-600 text-right">{formatRupees(record.min_price)}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-slate-600 text-right">{formatRupees(record.max_price)}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-[var(--saathi-text-secondary)]">{record.variety}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-[var(--saathi-text)]">{record.market}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-[var(--saathi-text-secondary)]">{record.district}</td>
+                    <td className="px-6 py-4 text-xs font-semibold text-[var(--saathi-text-muted)] uppercase">{record.state}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-[var(--saathi-text-secondary)] text-right">{formatRupees(record.min_price)}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-[var(--saathi-text-secondary)] text-right">{formatRupees(record.max_price)}</td>
                     <td className="px-6 py-4 text-right">
-                      <span className="inline-block rounded-xl px-2.5 py-1 text-sm font-extrabold text-[#2E7D32] bg-green-50 border border-green-200">
+                      <span className="inline-block rounded-xl px-2.5 py-1 text-sm font-extrabold text-[var(--saathi-primary)] bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border)]">
                         {formatRupees(record.modal_price)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-xs font-semibold text-slate-500 text-center">{record.arrival_date}</td>
+                    <td className="px-6 py-4 text-xs font-semibold text-[var(--saathi-text-muted)] text-center">{record.arrival_date}</td>
                   </tr>
                 ))}
               </tbody>
@@ -684,33 +684,33 @@ export default function MarketPrices() {
           {/* Card view for mobile screens */}
           <div className="md:hidden divide-y divide-slate-100">
             {records.map((record, index) => (
-              <div key={index} className="p-5 hover:bg-slate-50 transition">
+              <div key={index} className="p-5 hover:bg-[var(--saathi-surface-alt)] transition">
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <h4 className="text-lg font-extrabold text-slate-900">{getRegionalCropName(record.commodity)}</h4>
-                    <p className="text-xs font-semibold text-slate-500 mt-0.5">{record.variety} · Grade {record.grade || 'FAQ'}</p>
+                    <h4 className="text-lg font-extrabold text-[var(--saathi-text)]">{getRegionalCropName(record.commodity)}</h4>
+                    <p className="text-xs font-semibold text-[var(--saathi-text-muted)] mt-0.5">{record.variety} · Grade {record.grade || 'FAQ'}</p>
                   </div>
-                  <span className="rounded-xl px-3 py-1.5 text-base font-extrabold text-[#2E7D32] bg-green-50 border border-green-200">
+                  <span className="rounded-xl px-3 py-1.5 text-base font-extrabold text-[var(--saathi-primary)] bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border)]">
                     {formatRupees(record.modal_price)}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-slate-600 mt-3 bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-[var(--saathi-text-secondary)] mt-3 bg-[var(--saathi-surface-alt)] rounded-xl p-3 border border-slate-100">
                   <div>
                     <span className="text-[10px] text-slate-400 uppercase block">{t('prices.marketCol') || 'Market'}</span>
-                    <span className="text-slate-800">{record.market}</span>
+                    <span className="text-[var(--saathi-text)]">{record.market}</span>
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-400 uppercase block">{t('prices.districtCol') || 'District'} / {t('prices.stateCol') || 'State'}</span>
-                    <span className="text-slate-800">{record.district}, {record.state}</span>
+                    <span className="text-[var(--saathi-text)]">{record.district}, {record.state}</span>
                   </div>
                   <div className="mt-2">
                     <span className="text-[10px] text-slate-400 uppercase block">{t('prices.minCol') || 'Min'} / {t('prices.maxCol') || 'Max'}</span>
-                    <span className="text-slate-700">{formatRupees(record.min_price)} - {formatRupees(record.max_price)}</span>
+                    <span className="text-[var(--saathi-text-secondary)]">{formatRupees(record.min_price)} - {formatRupees(record.max_price)}</span>
                   </div>
                   <div className="mt-2">
                     <span className="text-[10px] text-slate-400 uppercase block">{t('prices.arrivalDateCol') || 'Arrival Date'}</span>
-                    <span className="text-slate-700">{record.arrival_date}</span>
+                    <span className="text-[var(--saathi-text-secondary)]">{record.arrival_date}</span>
                   </div>
                 </div>
               </div>
@@ -719,17 +719,17 @@ export default function MarketPrices() {
         </div>
         </>
       ) : (
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm text-center">
-          <p className="text-lg font-extrabold text-slate-700 mb-2">
+        <div className="rounded-3xl border border-[var(--saathi-border-light)] bg-white p-8 shadow-sm text-center">
+          <p className="text-lg font-extrabold text-[var(--saathi-text-secondary)] mb-2">
             {t('prices.emptyStateMsg') || 'No price data available for this selection right now'}
           </p>
-          <p className="text-sm font-medium text-slate-500 max-w-md mx-auto">
+          <p className="text-sm font-medium text-[var(--saathi-text-muted)] max-w-md mx-auto">
             {t('prices.trySimilar') || 'Try checking spelling or search for common crops like: Wheat, Paddy, Potato, Tomato, Onion'}
           </p>
           {commoditySearch && (
             <button
               onClick={() => setCommoditySearch('')}
-              className="mt-4 rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 transition"
+              className="mt-4 rounded-xl border border-[var(--saathi-border)] px-4 py-2 text-sm font-bold text-[var(--saathi-text-secondary)] hover:bg-[var(--saathi-surface-alt)] transition"
             >
               Reset Search
             </button>
@@ -739,30 +739,30 @@ export default function MarketPrices() {
 
       {/* Alert Setting and Disclaimer */}
       <div className="grid gap-6 sm:grid-cols-2 mt-8 mb-8">
-        <div className="rounded-3xl bg-green-50 p-6 border border-green-100">
-          <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#2E7D32] flex items-center gap-2">
+        <div className="rounded-3xl bg-[var(--saathi-surface-alt)] p-6 border border-[var(--saathi-border-light)]">
+          <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--saathi-primary)] flex items-center gap-2">
             <span>🧠</span> {t('prices.insightTitle')}
           </h3>
-          <p className="mt-3 text-base font-semibold text-slate-800 leading-relaxed">
+          <p className="mt-3 text-base font-semibold text-[var(--saathi-text)] leading-relaxed">
             {t('prices.dataNote')}
           </p>
-          <a href="/buyers" className="mt-4 inline-block font-bold text-[#2E7D32] hover:underline">
+          <a href="/buyers" className="mt-4 inline-block font-bold text-[var(--saathi-primary)] hover:underline">
             {t('prices.insightCompare')}
           </a>
         </div>
 
-        <div className="rounded-3xl bg-white p-6 border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
+        <div className="rounded-3xl bg-white p-6 border border-[var(--saathi-border-light)]">
+          <h3 className="text-lg font-bold text-[var(--saathi-text)] flex items-center gap-2 mb-4">
             <span>🔔</span> {t('prices.alertTitle')}
           </h3>
-          <p className="text-sm font-medium text-slate-700 mb-3">
+          <p className="text-sm font-medium text-[var(--saathi-text-secondary)] mb-3">
             {t('prices.alertTarget')} {commoditySearch ? getRegionalCropName(commoditySearch) : t('prices.cropCol')}:
           </p>
           <div className="flex gap-2">
             <input 
               type="text" 
               placeholder="₹2,300"
-              className="w-full rounded-xl border border-slate-200 px-4 py-2 font-bold text-slate-800 focus:border-[#2E7D32] outline-none"
+              className="w-full rounded-xl border border-[var(--saathi-border-light)] px-4 py-2 font-bold text-[var(--saathi-text)] focus:border-[#2E7D32] outline-none"
             />
             <button className="shrink-0 rounded-xl bg-slate-900 px-5 py-2 text-sm font-bold text-white hover:bg-slate-800 transition">
               {t('prices.alertSetBtn')}
@@ -771,9 +771,9 @@ export default function MarketPrices() {
         </div>
       </div>
 
-      <footer className="border-t border-slate-200 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left">
-        <p className="text-xs font-semibold text-slate-500">{t('prices.dataNote')}</p>
-        <p className="text-xs font-bold text-emerald-600">SAATHI Market Engine</p>
+      <footer className="border-t border-[var(--saathi-border-light)] pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left">
+        <p className="text-xs font-semibold text-[var(--saathi-text-muted)]">{t('prices.dataNote')}</p>
+        <p className="text-xs font-bold text-[var(--saathi-primary)]">SAATHI Market Engine</p>
       </footer>
     </section>
   );

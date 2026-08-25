@@ -20,22 +20,22 @@ export default function StepIndicator({ currentStep, steps }) {
               {index > 0 && (
                 <span
                   className={`absolute right-1/2 top-4 h-0.5 w-full -translate-y-1/2 ${
-                    isComplete ? 'bg-[#2E7D32]' : 'bg-slate-200'
+                    isComplete ? 'bg-accent' : 'bg-slate-200'
                   }`}
                 />
               )}
               <span
                 className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-bold ${
                   isComplete || isCurrent
-                    ? 'border-[#2E7D32] bg-[#2E7D32] text-white'
-                    : 'border-slate-200 bg-white text-slate-400'
+                    ? 'border-accent-dark bg-accent text-white'
+                    : 'border-[var(--saathi-border-light)] bg-white text-slate-400'
                 }`}
               >
                 {isComplete ? '✓' : stepNumber}
               </span>
               <span
                 className={`mt-2 text-center text-xs font-medium sm:text-sm ${
-                  isCurrent ? 'text-[#2E7D32]' : 'text-slate-500'
+                  isCurrent ? 'text-accent-dark' : 'text-[var(--saathi-text-muted)]'
                 }`}
               >
                 {step}

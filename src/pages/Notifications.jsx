@@ -41,9 +41,9 @@ const notifications = [
 ];
 
 const toneClasses = {
-  amber: 'bg-amber-50 text-amber-700',
-  emerald: 'bg-emerald-50 text-emerald-700',
-  green: 'bg-green-50 text-green-700',
+  amber: 'bg-red-50 text-accent-dark',
+  emerald: 'bg-[var(--saathi-surface-alt)] text-[var(--saathi-text-secondary)]',
+  green: 'bg-red-50 text-red-700',
   sky: 'bg-sky-50 text-sky-700',
 };
 
@@ -52,9 +52,9 @@ export default function Notifications() {
   return (
     <section className="mx-auto w-full max-w-3xl">
       <header className="mb-6">
-        <p className="text-sm font-semibold uppercase tracking-wider text-[#2E7D32]">Alerts</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">{t('nav.notifications')}</h1>
-        <p className="mt-2 text-base text-slate-600">
+        <p className="text-sm font-semibold uppercase tracking-wider text-accent-dark">Alerts</p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--saathi-text)] sm:text-4xl">{t('nav.notifications')}</h1>
+        <p className="mt-2 text-base text-[var(--saathi-text-secondary)]">
           Buyer activity, price signals, and logistics updates that need your attention.
         </p>
       </header>
@@ -77,12 +77,12 @@ export default function Notifications() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                  <h2 className="text-base font-extrabold text-slate-900">{notification.title}</h2>
+                  <h2 className="text-base font-extrabold text-[var(--saathi-text)]">{notification.title}</h2>
                   <span className="shrink-0 text-xs font-bold uppercase tracking-wide text-slate-400">
                     {notification.time}
                   </span>
                 </div>
-                <p className="mt-1 text-sm font-medium leading-6 text-slate-600">{notification.detail}</p>
+                <p className="mt-1 text-sm font-medium leading-6 text-[var(--saathi-text-secondary)]">{notification.detail}</p>
               </div>
             </article>
           );

@@ -124,17 +124,17 @@ export default function Admin() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-white pb-12">
+    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-[var(--saathi-primary)] selection:text-white pb-12">
       {/* Top Navigation Bar */}
       <header className="bg-slate-900/80 border-b border-slate-800 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold shadow-md">
+            <div className="w-9 h-9 rounded-xl bg-[var(--saathi-primary)]/10 border border-[var(--saathi-primary)]/30 flex items-center justify-center text-emerald-400 font-bold shadow-md">
               🛡️
             </div>
             <div>
               <span className="font-extrabold tracking-tight text-white text-base">SAATHI</span>
-              <span className="ml-2 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider border border-emerald-500/30">
+              <span className="ml-2 px-2 py-0.5 rounded-md bg-[var(--saathi-primary)]/20 text-emerald-400 text-xs font-bold uppercase tracking-wider border border-[var(--saathi-primary)]/30">
                 Admin Panel
               </span>
             </div>
@@ -171,7 +171,7 @@ export default function Admin() {
         )}
 
         {successMsg && (
-          <div className="mb-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm font-semibold flex items-center justify-between">
+          <div className="mb-6 p-4 rounded-2xl bg-[var(--saathi-primary)]/10 border border-[var(--saathi-primary)]/30 text-emerald-300 text-sm font-semibold flex items-center justify-between">
             <span className="flex items-center gap-2">
               <span>✓</span>
               <span>{successMsg}</span>
@@ -185,7 +185,7 @@ export default function Admin() {
           <div className="bg-slate-900/70 border border-slate-800/80 p-5 rounded-2xl">
             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Users</div>
             <div className="text-3xl font-black text-white">{users.length}</div>
-            <div className="text-xs text-slate-500 mt-1">Stored directly in MongoDB</div>
+            <div className="text-xs text-[var(--saathi-text-muted)] mt-1">Stored directly in MongoDB</div>
           </div>
 
           <div className="bg-slate-900/70 border border-slate-800/80 p-5 rounded-2xl">
@@ -194,20 +194,20 @@ export default function Admin() {
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block animate-ping" />
               <span>MongoDB Connected</span>
             </div>
-            <div className="text-xs text-slate-500 mt-1">Direct read & delete access</div>
+            <div className="text-xs text-[var(--saathi-text-muted)] mt-1">Direct read & delete access</div>
           </div>
 
           <div className="bg-slate-900/70 border border-slate-800/80 p-5 rounded-2xl">
             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Security Mode</div>
             <div className="text-sm font-bold text-amber-400 mt-2">JWT Admin Protected</div>
-            <div className="text-xs text-slate-500 mt-1">Strict restricted access</div>
+            <div className="text-xs text-[var(--saathi-text-muted)] mt-1">Strict restricted access</div>
           </div>
         </div>
 
         {/* Controls / Search Bar */}
         <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-6">
           <div className="relative flex-1 max-w-md">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 text-sm">
+            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[var(--saathi-text-muted)] text-sm">
               🔍
             </span>
             <input
@@ -215,7 +215,7 @@ export default function Admin() {
               placeholder="Search by name, phone, email, or ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-11 pl-10 pr-4 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm font-medium placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 transition"
+              className="w-full h-11 pl-10 pr-4 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm font-medium placeholder:text-[var(--saathi-text-muted)] focus:outline-none focus:border-[var(--saathi-primary)] transition"
             />
           </div>
 
@@ -232,7 +232,7 @@ export default function Admin() {
         <div className="bg-slate-900/80 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-3">
-              <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-10 h-10 border-3 border-[var(--saathi-primary)] border-t-transparent rounded-full animate-spin" />
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fetching from database...</span>
             </div>
           ) : (
@@ -250,7 +250,7 @@ export default function Admin() {
                 <tbody className="divide-y divide-slate-800/60">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="px-6 py-16 text-center text-slate-500">
+                      <td colSpan="5" className="px-6 py-16 text-center text-[var(--saathi-text-muted)]">
                         <div className="text-4xl mb-2">🧑‍🌾</div>
                         <div className="text-sm font-bold text-slate-400">
                           {searchQuery ? 'No users matching your search' : 'No registered users found in MongoDB'}
@@ -264,12 +264,12 @@ export default function Admin() {
                           <div className="font-bold text-white text-sm">
                             {user.firstName} {user.lastName}
                           </div>
-                          <div className="text-[11px] font-mono text-slate-500 mt-0.5 select-all">
+                          <div className="text-[11px] font-mono text-[var(--saathi-text-muted)] mt-0.5 select-all">
                             ID: {user._id}
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-mono font-bold">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--saathi-primary)]/10 text-emerald-400 border border-[var(--saathi-primary)]/20 text-xs font-mono font-bold">
                             📞 {user.phone}
                           </span>
                         </td>

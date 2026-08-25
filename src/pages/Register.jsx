@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useUser } from '../context/UserContext';
 import heroBg from '../assets/hero-bg.jpg';
+import saathiLogo from '../assets/logo.png';
 
 const initialForm = {
   firstName: '',
@@ -20,23 +21,33 @@ const apiUrl = (path) => `${API_BASE_URL}${path}`;
 
 export default function Register() {
   const navigate = useNavigate();
-  const { login, preferredLanguage, supportedLanguages, setLanguage } = useUser();
+  const { login, user, isLoggedIn } = useUser();
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const selectedLanguageCode = supportedLanguages?.find(
-    (option) => option.code === preferredLanguage || option.name === preferredLanguage,
-  )?.code || 'hi';
-
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
+    if (name === 'phone') {
+      const digitsOnly = value.replace(/\D/g, '').slice(0, 10);
+      setForm((current) => ({ ...current, phone: digitsOnly }));
+    } else {
+      setForm((current) => ({ ...current, [name]: value }));
+    }
     setError('');
   };
 
   const handleRegister = async (event) => {
     event.preventDefault();
+    if (!form.firstName || !form.lastName || !form.phone || !form.password) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+    if (form.phone.length !== 10) {
+      setError('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
     setError('');
     setIsLoading(true);
 
@@ -50,13 +61,13 @@ export default function Register() {
       const data = await response.json();
 
       if (response.ok) {
-        const { token, user } = data;
+        const { token, user: registeredUser } = data;
         if (token) localStorage.setItem('token', token);
-        if (user) {
+        if (registeredUser) {
           login({
-            ...user,
-            name: `${user.firstName} ${user.lastName}`,
-            mobile: user.phone,
+            ...registeredUser,
+            name: `${registeredUser.firstName} ${registeredUser.lastName}`,
+            mobile: registeredUser.phone,
           });
         }
         navigate('/');
@@ -64,81 +75,234 @@ export default function Register() {
         setError(data.message || 'Registration failed. Please try again.');
       }
     } catch (requestError) {
-      setError('Unable to connect to the backend server. Please check your network and make sure the server is running.');
+      setError('Unable to connect to the backend server. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-x-hidden pb-8">
-      <img src={heroBg} alt="Indian agricultural field with farmer" className="fixed inset-0 z-0 h-full w-full object-cover" />
-      <div className="fixed inset-0 z-0 bg-black/30 backdrop-blur-sm" />
+    <div className="relative min-h-screen flex flex-col justify-between overflow-x-hidden font-sans selection:bg-slate-100 selection:text-[var(--saathi-text)]">
+      {/* Background Image */}
+      <img
+        src={heroBg}
+        alt="Indian agricultural field with farmer"
+        className="fixed inset-0 w-full h-full object-cover object-center z-0"
+      />
 
-      <header className="relative z-10 flex items-center justify-between border-b border-white/10 bg-[#064E3B]/95 px-4 py-3.5 text-white shadow-lg sm:px-6">
-        <div className="flex min-w-0 items-center gap-3">
-          <img src="/logo.png" alt="SAATHI Logo" className="h-10 w-10 shrink-0 rounded-full border-2 border-white/80 object-cover shadow-sm" />
-          <div className="min-w-0">
-            <span className="block text-xl font-extrabold tracking-wide">SAATHI</span>
-            <span className="hidden truncate text-xs font-medium text-green-200 sm:block">Get the right price for your crop, from the right buyer</span>
+      {/* Background Dim Overlay */}
+      <div className="fixed inset-0 bg-slate-950/80 z-0 backdrop-blur-[2px]" />
+
+      {/* Header */}
+      <header className="relative z-10 p-4 sm:p-6 flex justify-between items-center max-w-7xl mx-auto w-full">
+        {/* Brand Logo & Name */}
+        <Link
+          to="/"
+          className="flex items-center gap-2.5 group focus:outline-none focus:ring-2 focus:ring-slate-400 rounded-md p-1"
+          title="Return to SAATHI Home"
+        >
+          <img
+            src={saathiLogo}
+            alt="SAATHI Logo"
+            className="w-8 h-8 sm:w-9 sm:h-9 object-contain drop-shadow transition-transform group-hover:scale-105"
+          />
+          <div>
+            <span className="text-base sm:text-lg font-extrabold tracking-wider text-white">
+              SAATHI
+            </span>
+            <span className="hidden sm:block text-[10px] font-bold text-[#52b788] leading-tight">
+              Aapki Aawaz, Aapka Bazaar
+            </span>
           </div>
-        </div>
-        <label className="sr-only" htmlFor="registration-language">Language</label>
-        <select id="registration-language" className="max-w-[9rem] rounded-lg border border-green-500/40 bg-[#0b281f]/80 px-3 py-2 text-xs font-semibold text-emerald-100 outline-none transition hover:bg-green-700 focus:ring-2 focus:ring-green-400 sm:text-sm" value={selectedLanguageCode} onChange={(event) => setLanguage(event.target.value)}>
-          {supportedLanguages?.map((language) => (
-            <option key={language.code} value={language.code} className="bg-slate-900 text-white">🌐 {language.name === 'English' ? 'English' : language.nativeName}</option>
-          ))}
-        </select>
+        </Link>
+
+        {/* Back Button */}
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="inline-flex items-center gap-2 rounded-lg bg-white/10 hover:bg-white/20 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition-all focus:outline-none"
+        >
+          <ArrowLeftIcon className="h-4 w-4" />
+          <span>Back to Portal</span>
+        </button>
       </header>
 
-      <main className="relative z-10 flex flex-1 items-center justify-center p-3 sm:p-6 lg:p-10">
-        <div className="grid w-full max-w-5xl grid-cols-1 overflow-hidden rounded-2xl bg-white shadow-2xl md:grid-cols-12">
-          <aside className="hidden flex-col justify-center bg-[#1b4332] p-8 text-white md:col-span-5 md:flex lg:p-10">
-            <h2 className="text-3xl font-bold">Join SAATHI</h2>
-            <p className="mt-3 text-sm leading-6 text-emerald-50">Register once to access market intelligence and connect with buyers.</p>
-            <div className="mt-8 space-y-5 text-sm font-semibold text-emerald-50">
-              <Benefit icon="📊" text="Get better crop price information" />
-              <Benefit icon="🤝" text="Find nearby buyers" />
-              <Benefit icon="🚜" text="Access market and government information" />
-            </div>
-          </aside>
+      {/* Main Content Area */}
+      <main className="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">
+        <div className="w-full max-w-[460px] bg-white rounded-lg shadow-2xl border border-[var(--saathi-border-light)] p-6 sm:p-8 transition-all">
 
-          <section className="p-6 sm:p-8 md:col-span-7 md:p-10">
-            <h1 className="text-2xl font-bold text-gray-900">Create Your Farmer Account</h1>
-            <p className="mt-2 text-sm font-medium leading-6 text-gray-600">Register to access market intelligence and buyers.</p>
-
-            {error && <p role="alert" className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p>}
-
-            <form onSubmit={handleRegister} className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField label="First Name" name="firstName" placeholder="Enter your first name" value={form.firstName} onChange={handleChange} />
-              <FormField label="Last Name" name="lastName" placeholder="Enter your last name" value={form.lastName} onChange={handleChange} />
-              <FormField label="Email" name="email" type="email" placeholder="Enter your email" value={form.email} onChange={handleChange} />
-              <FormField label="Phone" name="phone" type="tel" placeholder="Enter your phone number" value={form.phone} onChange={handleChange} />
-              <div className="sm:col-span-2">
-                <FormField label="Password" name="password" type="password" placeholder="Create a password" value={form.password} onChange={handleChange} />
+          {/* Already logged in notice if applicable */}
+          {isLoggedIn && (
+            <div className="mb-4 p-3 rounded-md bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] text-xs text-[var(--saathi-text)] flex items-center justify-between">
+              <div>
+                <span className="font-semibold">Signed in as: </span>
+                <strong>{user?.name || 'Farmer'}</strong>
               </div>
-              <button type="submit" disabled={isLoading} className="flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-900 py-3 font-medium text-white shadow transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2">
-                {isLoading ? 'Creating account...' : 'Create Farmer Account →'}
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="font-bold text-[var(--saathi-primary)] hover:underline"
+              >
+                Go to Portal →
               </button>
-            </form>
+            </div>
+          )}
 
-            <button type="button" onClick={() => navigate('/login')} className="mt-6 w-full text-center text-sm font-semibold text-gray-600 underline decoration-gray-300 underline-offset-4 transition hover:text-emerald-900">Already have an account? Login with OTP</button>
-          </section>
+          {/* Logo & Header */}
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center mb-3">
+              <img
+                src={saathiLogo}
+                alt="SAATHI Logo"
+                className="w-16 h-16 object-contain drop-shadow"
+              />
+            </div>
+
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--saathi-text)]">
+              SAATHI
+            </h1>
+
+            <p className="mt-1 text-sm font-extrabold tracking-wide text-[var(--saathi-primary)]">
+              "Aapki Aawaz, Aapka Bazaar"
+            </p>
+
+            <div className="mt-4">
+              <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--saathi-text)]">Create Farmer Account</h2>
+              <p className="text-sm font-medium text-[var(--saathi-text-secondary)] mt-1">
+                Register to access market intelligence and buyers
+              </p>
+            </div>
+          </div>
+
+          {/* Error message */}
+          {error && (
+            <p role="alert" className="mb-4 text-red-700 text-sm font-bold flex items-center gap-1.5 p-3 rounded-lg bg-red-50 border border-red-200">
+              <span>⚠️</span> {error}
+            </p>
+          )}
+
+          {/* Registration Form */}
+          <form onSubmit={handleRegister} className="space-y-4">
+            {/* Name Fields in 2 Columns */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-bold text-[var(--saathi-text)] mb-1.5">
+                  First Name <span className="text-red-600 font-bold ml-0.5">*</span>
+                </label>
+                <input
+                  name="firstName"
+                  type="text"
+                  placeholder="First name"
+                  value={form.firstName}
+                  onChange={handleChange}
+                  required
+                  className="w-full h-12 bg-white border border-[var(--saathi-border)] focus:border-[var(--saathi-accent)] focus:ring-2 focus:ring-red-100 text-[var(--saathi-text)] font-semibold px-3.5 rounded-lg outline-none transition text-base placeholder:text-slate-400 placeholder:font-normal"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-[var(--saathi-text)] mb-1.5">
+                  Last Name <span className="text-red-600 font-bold ml-0.5">*</span>
+                </label>
+                <input
+                  name="lastName"
+                  type="text"
+                  placeholder="Last name"
+                  value={form.lastName}
+                  onChange={handleChange}
+                  required
+                  className="w-full h-12 bg-white border border-[var(--saathi-border)] focus:border-[var(--saathi-accent)] focus:ring-2 focus:ring-red-100 text-[var(--saathi-text)] font-semibold px-3.5 rounded-lg outline-none transition text-base placeholder:text-slate-400 placeholder:font-normal"
+                />
+              </div>
+            </div>
+
+            {/* Mobile Number Field with +91 Country Badge */}
+            <div>
+              <label className="block text-sm font-bold text-[var(--saathi-text)] mb-1.5">
+                Mobile Number <span className="text-red-600 font-bold ml-0.5">*</span>
+              </label>
+              <div className="flex gap-2">
+                <div className="relative">
+                  <div className="h-12 bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border)] text-[var(--saathi-text)] font-extrabold px-3.5 rounded-lg flex items-center gap-1 text-sm sm:text-base">
+                    <span>🇮🇳</span>
+                    <span>+91</span>
+                  </div>
+                </div>
+                <input
+                  name="phone"
+                  type="tel"
+                  placeholder="Enter 10-digit number"
+                  value={form.phone}
+                  onChange={handleChange}
+                  maxLength="10"
+                  required
+                  className="flex-1 h-12 bg-white border border-[var(--saathi-border)] focus:border-[var(--saathi-accent)] focus:ring-2 focus:ring-red-100 text-[var(--saathi-text)] font-semibold px-4 rounded-lg outline-none transition text-base placeholder:text-slate-400 placeholder:font-normal"
+                />
+              </div>
+            </div>
+
+            {/* Email Field */}
+            <div>
+              <label className="block text-sm font-bold text-[var(--saathi-text)] mb-1.5">
+                Email Address (Optional)
+              </label>
+              <input
+                name="email"
+                type="email"
+                placeholder="farmer@example.com"
+                value={form.email}
+                onChange={handleChange}
+                className="w-full h-12 bg-white border border-[var(--saathi-border)] focus:border-[var(--saathi-accent)] focus:ring-2 focus:ring-red-100 text-[var(--saathi-text)] font-semibold px-4 rounded-lg outline-none transition text-base placeholder:text-slate-400 placeholder:font-normal"
+              />
+            </div>
+
+            {/* Password Field */}
+            <div>
+              <label className="block text-sm font-bold text-[var(--saathi-text)] mb-1.5">
+                Password <span className="text-red-600 font-bold ml-0.5">*</span>
+              </label>
+              <input
+                name="password"
+                type="password"
+                placeholder="Create a secure password"
+                value={form.password}
+                onChange={handleChange}
+                required
+                minLength={6}
+                className="w-full h-12 bg-white border border-[var(--saathi-border)] focus:border-[var(--saathi-accent)] focus:ring-2 focus:ring-red-100 text-[var(--saathi-text)] font-semibold px-4 rounded-lg outline-none transition text-base placeholder:text-slate-400 placeholder:font-normal"
+              />
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={isLoading || form.phone.length !== 10}
+              className="w-full h-12 sm:h-13 mt-4 bg-[var(--saathi-accent)] hover:bg-[var(--saathi-accent-dark)] text-white rounded-lg font-extrabold text-base sm:text-lg active:scale-[0.99] transition shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {isLoading ? (
+                <span className="inline-block animate-spin border-2 border-white border-t-transparent rounded-full w-5 h-5" />
+              ) : (
+                <>
+                  <span>Create Farmer Account</span>
+                  <span className="text-xl">→</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Already registered switch */}
+          <div className="mt-5 text-center">
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              className="text-sm font-medium text-[var(--saathi-text-secondary)] hover:text-[var(--saathi-text)] transition cursor-pointer"
+            >
+              Already have an account? <span className="font-extrabold text-red-600 hover:underline ml-0.5">Login with OTP</span>
+            </button>
+          </div>
         </div>
       </main>
+
+      <div className="h-6" />
     </div>
-  );
-}
-
-function Benefit({ icon, text }) {
-  return <div className="flex items-center gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10">{icon}</span><span>{text}</span></div>;
-}
-
-function FormField({ label, name, type = 'text', placeholder, value, onChange }) {
-  return (
-    <label className="block min-w-0">
-      <span className="mb-1.5 block text-sm font-semibold text-gray-700">{label}</span>
-      <input name={name} type={type} placeholder={placeholder} value={value} onChange={onChange} required minLength={type === 'password' ? 6 : undefined} className="h-11 w-full min-w-0 rounded-lg border border-gray-300 px-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-transparent focus:ring-2 focus:ring-emerald-600" />
-    </label>
   );
 }

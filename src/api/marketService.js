@@ -167,27 +167,5 @@ export const marketService = {
       console.error('Error fetching buyer listings:', error);
       return { success: false, listings: [], message: error.message };
     }
-  },
-
-  getCropJourney: async ({ state, district, crop }) => {
-    try {
-      const params = new URLSearchParams();
-      if (state) params.append('state', state);
-      if (district) params.append('district', district);
-      if (crop) params.append('crop', crop);
-
-      const url = `${apiBaseUrl}/api/crop-journey?${params.toString()}`;
-      const response = await fetch(url);
-      if (!response.ok) {
-        if (response.status === 404) {
-           return { available: false, message: "No mandi price found" };
-        }
-        throw new Error(`Crop Journey API returned ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching crop journey:', error);
-      throw error;
-    }
   }
 };
