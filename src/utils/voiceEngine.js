@@ -1,4 +1,4 @@
-const FASTAPI_URL = import.meta.env.VITE_FASTAPI_URL || 'http://localhost:8001';
+const FASTAPI_URL = import.meta.env.VITE_FASTAPI_URL || (import.meta.env.DEV ? 'http://localhost:8001' : 'https://saathi-backend-7f91.onrender.com');
 
 export async function processVoiceQuery(transcript, language = 'English') {
   if (!transcript || !transcript.trim()) {
