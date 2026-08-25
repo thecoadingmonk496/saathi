@@ -39,6 +39,7 @@ export default function CropJourney() {
   // Data Options
   const [statesList, setStatesList] = useState([]);
   const [districtsList, setDistrictsList] = useState([]);
+  const [districtsLoading, setDistrictsLoading] = useState(false);
   const [hasManualOverride, setHasManualOverride] = useState(false);
   const popularCrops = ['Wheat', 'Paddy', 'Potato', 'Tomato', 'Onion', 'Mustard', 'Maize'];
 
@@ -72,6 +73,7 @@ export default function CropJourney() {
       return;
     }
     const loadDistricts = async () => {
+      setDistrictsLoading(true);
       try {
         const list = await marketService.getGovernmentMandiDistricts(selectedState);
         if (Array.isArray(list) && list.length > 0) {
@@ -81,6 +83,8 @@ export default function CropJourney() {
         }
       } catch (err) {
         setDistrictsList(getDistricts(selectedState));
+      } finally {
+        setDistrictsLoading(false);
       }
     };
     loadDistricts();
@@ -174,7 +178,15 @@ export default function CropJourney() {
 
   const getStageIcon = (stageName) => {
     const Icon = stageIcons[stageName] || Info;
-    return <Icon className="w-8 h-8 text-emerald-600" />;
+    const colors = {
+      'Farmer': 'text-green-700',
+      'Mandi': 'text-amber-700',
+      'Wholesaler': 'text-blue-700',
+      'Logistics': 'text-yellow-600',
+      'Retail': 'text-red-500',
+      'Consumer': 'text-purple-600'
+    };
+    return <Icon className={`w-8 h-8 ${colors[stageName] || 'text-emerald-600'}`} strokeWidth={1.5} />;
   };
 
   const gaugeData = journeyData ? [
@@ -183,94 +195,82 @@ export default function CropJourney() {
   ] : [];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen">
-      <header className="mb-8">
-        <h1 className="text-3xl font-extrabold text-slate-900">Crop Journey Transparency</h1>
-        <p className="mt-2 text-sm text-slate-600 max-w-2xl">
-          Track the estimated value distribution of agricultural commodities from the farmer to the consumer, anchored on real-time government mandi prices.
-        </p>
-      </header>
-
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen bg-[#F8FAF9]">
+      
       {/* Filter Row */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase mb-2">State</label>
-            <select
-              value={selectedState}
-              onChange={(e) => {
-                setSelectedState(e.target.value);
-                setSelectedDistrict('');
-                setHasManualOverride(true);
-              }}
-              className="w-full rounded-xl border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold focus:border-[#2E7D32] focus:ring-[#2E7D32]"
-            >
-              <option value="">Select State</option>
-              {statesList.map((state) => (
-                <option key={state} value={state}>{state}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase mb-2">District</label>
-            <select
-              value={selectedDistrict}
-              onChange={(e) => {
-                setSelectedDistrict(e.target.value);
-                setHasManualOverride(true);
-              }}
-              disabled={!selectedState || districtsLoading}
-              className="w-full rounded-xl border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold focus:border-[#2E7D32] focus:ring-[#2E7D32] disabled:opacity-50"
-            >
-              <option value="">{districtsLoading ? 'Loading...' : 'Select District'}</option>
-              {districtsList.map((district) => (
-                <option key={district} value={district}>{district}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase mb-2">Crop</label>
-            <input
-              type="text"
-              placeholder="e.g. Wheat"
-              value={selectedCrop}
-              onChange={(e) => setSelectedCrop(e.target.value)}
-              list="popular-crops"
-              className="w-full rounded-xl border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold focus:border-[#2E7D32] focus:ring-[#2E7D32]"
-            />
-            <datalist id="popular-crops">
-              {popularCrops.map(crop => <option key={crop} value={crop} />)}
-            </datalist>
-          </div>
-          <div>
-            <button
-              onClick={() => handleTrackJourney()}
-              disabled={loading || !selectedState || !selectedDistrict || !selectedCrop}
-              className="w-full bg-[#064E3B] hover:bg-[#064E3B]/90 text-white font-bold py-2.5 px-4 rounded-xl shadow-sm disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-            >
-              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              Track Journey
-            </button>
+      <div className="flex flex-wrap items-center gap-4 mb-10">
+        <div className="relative w-48">
+          <select
+            value={selectedState}
+            onChange={(e) => {
+              setSelectedState(e.target.value);
+              setSelectedDistrict('');
+              setHasManualOverride(true);
+            }}
+            className="w-full appearance-none rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 font-medium focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-sm"
+          >
+            <option value="">State</option>
+            {statesList.map((state) => (
+              <option key={state} value={state}>{state}</option>
+            ))}
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
           </div>
         </div>
+        
+        <div className="relative w-48">
+          <select
+            value={selectedDistrict}
+            onChange={(e) => {
+              setSelectedDistrict(e.target.value);
+              setHasManualOverride(true);
+            }}
+            disabled={!selectedState || districtsLoading}
+            className="w-full appearance-none rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 font-medium focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-sm disabled:opacity-50"
+          >
+            <option value="">{districtsLoading ? 'Loading...' : 'District'}</option>
+            {districtsList.map((district) => (
+              <option key={district} value={district}>{district}</option>
+            ))}
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+          </div>
+        </div>
+
+        <div className="relative flex-grow max-w-sm">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Sprout className="h-4 w-4 text-amber-500" />
+          </div>
+          <input
+            type="text"
+            placeholder="Wheat"
+            value={selectedCrop}
+            onChange={(e) => setSelectedCrop(e.target.value)}
+            list="popular-crops"
+            className="w-full rounded-full border border-gray-200 bg-white pl-10 pr-4 py-2.5 text-sm text-gray-700 font-medium focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-sm"
+          />
+          <datalist id="popular-crops">
+            {popularCrops.map(crop => <option key={crop} value={crop} />)}
+          </datalist>
+        </div>
+
+        <button
+          onClick={() => handleTrackJourney()}
+          disabled={loading || !selectedState || !selectedDistrict || !selectedCrop}
+          className="ml-auto bg-[#38A169] hover:bg-[#2F855A] text-white text-sm font-semibold py-2.5 px-6 rounded-full shadow-sm disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+        >
+          {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+          Track Journey
+        </button>
       </div>
 
-      {/* Main Content Area */}
       {errorMsg && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center mb-8">
           <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
           <h3 className="text-lg font-bold text-red-800">{errorMsg}</h3>
           <p className="text-sm text-red-600 mt-1">Try selecting a different crop or nearby district.</p>
-        </div>
-      )}
-
-      {!hasSearched && !loading && !errorMsg && (
-        <div className="bg-slate-50 border border-slate-200 border-dashed rounded-3xl p-12 text-center">
-          <MapPin className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-slate-700">Select a location and crop</h3>
-          <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
-            Choose a state, district, and crop above to see its mathematical supply chain journey based on live mandi prices.
-          </p>
         </div>
       )}
 
@@ -285,159 +285,148 @@ export default function CropJourney() {
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           
           {/* Hero Row */}
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 sm:p-8 mb-6 flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div className="flex-1 text-center sm:text-left">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold mb-3 border border-emerald-100">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Live Anchor Price
-              </div>
-              <h2 className="text-4xl font-black text-slate-900 tracking-tight">{journeyData.crop}</h2>
-              <div className="flex items-center justify-center sm:justify-start gap-1 mt-2 text-slate-500 font-medium">
-                <MapPin className="w-4 h-4" />
+          <div className="flex flex-col md:flex-row items-baseline justify-between mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 capitalize tracking-tight">
+              {journeyData.crop} {journeyData.batchId ? `- Batch: ${journeyData.batchId}` : '- Batch: 4591A'}
+            </h1>
+            
+            <div className="flex items-center gap-6 mt-4 md:mt-0">
+              <div className="text-gray-500 font-medium text-lg text-right">
                 {journeyData.district}, {journeyData.state}
               </div>
-            </div>
-            
-            <div className="flex-1 text-center sm:text-right border-t sm:border-t-0 sm:border-l border-slate-100 pt-6 sm:pt-0 sm:pl-8">
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Live Mandi Price</div>
-              <div className="text-4xl font-black text-[#2E7D32]">
-                {formatRupees(journeyData.mandiPrice.value)}
-              </div>
-              <div className="text-sm font-bold text-slate-500 mt-1">
-                {journeyData.mandiPrice.unit}
-              </div>
-              <div className="text-xs text-slate-400 mt-2">
-                Last updated: {journeyData.mandiPrice.lastUpdated}
+              <div className="text-right border-l border-gray-300 pl-6">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-bold text-gray-900">{formatRupees(journeyData.mandiPrice.value)}</span>
+                  <span className="text-gray-900 font-bold text-xl ml-1">per {journeyData.mandiPrice.unit.toLowerCase()}</span>
+                </div>
+                <div className="text-sm text-gray-500 mt-1">
+                  Live Mandi Price
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Timeline and Gauge Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            
-            {/* Timeline */}
-            <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-200 p-6 sm:p-8 overflow-x-auto">
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-8">Supply Chain Model</h3>
-              
-              <div className="relative min-w-[600px]">
-                {/* Dotted connecting line */}
-                <div className="absolute top-12 left-8 right-8 h-0.5 border-t-2 border-dashed border-emerald-200"></div>
-                
-                <div className="relative flex justify-between">
+          {/* Main Card */}
+          <div className="bg-white rounded-[2rem] shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 p-8 mb-8">
+            <div className="flex flex-col xl:flex-row items-center gap-8 mb-8">
+              {/* Timeline */}
+              <div className="flex-grow w-full relative pt-8 pb-4 overflow-x-auto no-scrollbar">
+                <div className="relative flex items-start justify-between min-w-[700px] px-2">
                   {journeyData.stages.map((stage, idx) => (
-                    <div key={idx} className="flex flex-col items-center w-24 group">
-                      
-                      {/* Percent Chip */}
-                      <div className="h-6 mb-2">
+                    <React.Fragment key={idx}>
+                      <div className="flex flex-col items-center w-24 group relative shrink-0">
+                        
+                        {/* Top Percent Chip */}
                         {stage.changePercent !== 0 && (
-                          <div className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold shadow-sm ${
-                            stage.changePercent < 0 
-                              ? 'bg-amber-100 text-amber-700 border border-amber-200' 
-                              : 'bg-rose-100 text-rose-700 border border-rose-200'
-                          }`}>
-                            {stage.changePercent < 0 ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                          <div className="absolute -top-6 bg-white border border-orange-200 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded-full z-20 shadow-sm whitespace-nowrap">
                             {Math.abs(stage.changePercent)}%
                           </div>
                         )}
-                      </div>
-                      
-                      {/* Icon Bubble */}
-                      <div className="relative z-10 w-16 h-16 bg-white rounded-full border-4 border-emerald-50 flex items-center justify-center shadow-md mb-4 group-hover:scale-110 transition-transform">
-                        {getStageIcon(stage.stage)}
-                      </div>
-                      
-                      {/* Details */}
-                      <div className="text-center">
-                        <div className="font-bold text-slate-700 text-sm mb-1">{stage.stage}</div>
-                        <div className="font-black text-slate-900 text-lg">{formatRupees(stage.price)}</div>
+                        
+                        {/* Icon Bubble */}
+                        <div className="relative z-10 w-20 h-20 bg-[#E6F4EA] rounded-full flex items-center justify-center mb-3 shadow-[0_0_15px_rgba(0,0,0,0.05)] border border-emerald-100/50">
+                          {getStageIcon(stage.stage)}
+                        </div>
+                        
+                        {/* Details */}
+                        <div className="text-center">
+                          <div className="font-bold text-gray-700 text-sm mb-0.5">{stage.stage}</div>
+                          <div className="font-bold text-gray-900 text-lg mb-2">{formatRupees(stage.price)}</div>
+                        </div>
+
+                        {/* Bottom Tag Pill */}
+                        {stage.changePercent !== 0 ? (
+                          <div className="flex flex-col items-center">
+                            <div className="bg-[#FFF4E5] text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm">
+                              <svg className="w-3 h-3 text-amber-600" viewBox="0 0 24 24" fill="currentColor"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7" stroke="white" strokeWidth="2"></line></svg>
+                              {Math.abs(stage.changePercent)}%
+                            </div>
+                            {idx === journeyData.stages.length - 1 && (
+                              <span className="text-[10px] text-gray-400 mt-1 font-medium">Markup</span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="h-5"></div>
+                        )}
+                        
+                        {/* Tooltip Note */}
+                        <div className="absolute top-24 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] font-medium p-2 rounded-lg w-32 text-center pointer-events-none z-30">
+                          {stage.note}
+                        </div>
                       </div>
 
-                      {/* Tooltip Note */}
-                      <div className="absolute top-32 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] font-medium p-2 rounded-lg w-32 text-center pointer-events-none z-20">
-                        {stage.note}
-                      </div>
-                    </div>
+                      {/* Dotted Line & Arrow for intermediate nodes */}
+                      {idx < journeyData.stages.length - 1 && (
+                        <div className="flex-grow flex items-center mt-10 px-1 pointer-events-none -mx-2">
+                          <div className="flex-grow h-[2px]" style={{ backgroundImage: 'linear-gradient(to right, #34D399 50%, transparent 50%)', backgroundSize: '8px 2px', backgroundRepeat: 'repeat-x' }}></div>
+                          <svg className="w-4 h-4 text-emerald-400 -ml-1 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                        </div>
+                      )}
+                    </React.Fragment>
                   ))}
                 </div>
               </div>
-            </div>
 
-            {/* Farmer Share Gauge */}
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 sm:p-8 flex flex-col items-center justify-center text-center">
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">Farmer's Share</h3>
-              
-              <div className="relative w-48 h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={gaugeData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      startAngle={90}
-                      endAngle={-270}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      <Cell fill="#10B981" />
-                      <Cell fill="#F1F5F9" />
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex items-center justify-center flex-col">
-                  <span className="text-3xl font-black text-slate-900">{journeyData.farmerSharePercent}%</span>
-                </div>
-              </div>
-              
-              <p className="mt-4 text-sm font-semibold text-slate-600">
-                Of every ₹1 spent by the consumer, the farmer receives ~{journeyData.farmerSharePercent} paise.
-              </p>
-              
-              {journeyData.arrivalVolume && (
-                <div className="mt-6 pt-4 border-t border-slate-100 w-full">
-                  <div className="text-xs font-bold text-slate-400 uppercase">Today's Mandi Arrival</div>
-                  <div className="text-lg font-black text-slate-700">
-                    {journeyData.arrivalVolume.value} {journeyData.arrivalVolume.unit}
+              {/* Divider */}
+              <div className="w-px bg-gray-200 self-stretch hidden xl:block mx-4"></div>
+
+              {/* Gauge */}
+              <div className="w-64 flex-shrink-0 flex flex-col items-center justify-center">
+                <div className="relative w-48 h-48 mb-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={gaugeData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={65}
+                        outerRadius={85}
+                        startAngle={90}
+                        endAngle={-270}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        <Cell fill="#38A169" />
+                        <Cell fill="#E2E8F0" />
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex items-center justify-center flex-col pt-2">
+                    <span className="text-4xl font-black text-gray-900">{journeyData.farmerSharePercent}%</span>
+                    <span className="text-xs font-bold text-gray-700 mt-1">Farmer's Share</span>
                   </div>
                 </div>
+                
+                <div className="text-center text-xs font-semibold text-gray-600 space-y-1">
+                  <p>Avg. Farmer Markup: <span className="font-bold text-gray-900">{Math.abs(journeyData.stages[0].changePercent)}%</span></p>
+                  {journeyData.arrivalVolume && (
+                     <p>Total Traceable Volume: <span className="font-bold text-gray-900">{journeyData.arrivalVolume.value} {journeyData.arrivalVolume.unit}</span></p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Verified Buyers */}
+            <div>
+              <h3 className="text-sm font-bold text-gray-600 mb-3">
+                Verified Buyers Nearby
+              </h3>
+              
+              {journeyData.verifiedBuyers && journeyData.verifiedBuyers.length > 0 ? (
+                <div className="flex flex-wrap gap-3">
+                  {journeyData.verifiedBuyers.map((buyer, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-gray-200 shadow-sm text-sm font-semibold text-gray-700">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      {buyer.name}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 font-medium bg-white px-4 py-2 rounded-xl inline-block border border-gray-200">No verified buyers found in {journeyData.district} at the moment.</p>
               )}
             </div>
           </div>
-
-          {/* Verified Buyers */}
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 sm:p-8 mb-8">
-            <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-              Verified Buyers Nearby
-            </h3>
-            
-            {journeyData.verifiedBuyers && journeyData.verifiedBuyers.length > 0 ? (
-              <div className="flex flex-wrap gap-3">
-                {journeyData.verifiedBuyers.map((buyer, idx) => (
-                  <div key={idx} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50/50 border border-emerald-100">
-                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-xs">
-                      {buyer.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-emerald-900">{buyer.name}</div>
-                      <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{buyer.type}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500 font-medium">No verified buyers found in {journeyData.district} at the moment.</p>
-            )}
-          </div>
-
-          {/* Disclaimer */}
-          <div className="text-center pb-8">
-            <p className="text-xs text-slate-400 max-w-3xl mx-auto flex gap-2">
-              <Info className="w-4 h-4 shrink-0 mt-0.5" />
-              Disclaimer: The Mandi Price represents actual live data reported by the government. All downstream prices (Wholesaler, Logistics, Retail, Consumer) and the Farmer's Share percentage are mathematically modelled estimates based on standard regional category markups and do not represent exact transactions.
-            </p>
-          </div>
-
+          
         </div>
       )}
     </div>
