@@ -24,7 +24,7 @@ export default function CropJourney() {
   });
   
   const [myJourneys, setMyJourneys] = useState([]);
-  const [loadingMyJourneys, setLoadingMyJourneys] = useState(false);
+  const [loadingMyJourneys, setLoadingMyJourneys] = useState(!batchId);
   const [showManualSearch, setShowManualSearch] = useState(false);
 
   useEffect(() => {
@@ -104,8 +104,8 @@ export default function CropJourney() {
     }
 
     return (
-      <div className="min-h-screen bg-[#FDFCF5] pt-24 px-4 pb-16">
-        <div className="max-w-[1000px] mx-auto">
+      <div className="min-h-screen pt-24 px-4 pb-16 relative z-10 font-sans">
+        <div className="max-w-[1000px] mx-auto bg-[#FDFCF5] rounded-3xl p-6 sm:p-10 shadow-2xl">
           
           <div className="flex justify-between items-end mb-8">
             <div>
@@ -251,10 +251,11 @@ export default function CropJourney() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FDFCF5] pt-20 pb-16 font-sans">
+    <div className="min-h-screen pt-24 pb-16 px-4 sm:px-6 lg:px-8 relative z-10 font-sans">
+      <div className="max-w-[1400px] mx-auto bg-[#FDFCF5] rounded-3xl p-4 sm:p-8 lg:p-10 shadow-2xl">
       
       {/* HEADER SECTION */}
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 mb-8">
+      <div className="mb-8">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div>
             <h1 className="text-3xl font-extrabold text-[#0C3B2E] flex items-center gap-2 mb-2">
@@ -277,15 +278,15 @@ export default function CropJourney() {
         </div>
       </div>
 
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
           {/* MAIN LEFT COLUMN */}
           <div className="lg:col-span-8 space-y-6">
             
             {/* TIMELINE PANEL */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 relative overflow-hidden">
-              <div className="flex items-center justify-between relative z-10 px-2 sm:px-8">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 relative overflow-x-auto overflow-y-hidden hide-scrollbar">
+              <div className="flex items-center justify-between relative z-10 px-2 sm:px-8 min-w-[600px] lg:min-w-0">
                 {stages.map((stage) => {
                   const isActive = extractStageData(stage.key) != null;
                   const isSelected = selectedStage === stage.key;
@@ -313,7 +314,7 @@ export default function CropJourney() {
               </div>
               
               {/* Connecting line */}
-              <div className="absolute top-[4.5rem] left-12 right-12 h-1.5 bg-gray-100 rounded-full z-0 pointer-events-none">
+              <div className="absolute top-[4.5rem] left-12 right-12 h-1.5 bg-gray-100 rounded-full z-0 pointer-events-none min-w-[500px] lg:min-w-0">
                 <div className="h-full bg-emerald-400 rounded-full transition-all" style={{ width: `${Math.max(0, (chartData.length - 1) * 20)}%` }}></div>
               </div>
             </div>
@@ -567,6 +568,7 @@ export default function CropJourney() {
 
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

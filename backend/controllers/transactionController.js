@@ -343,7 +343,14 @@ async function confirmVerification(req, res) {
 
 async function getMyJourneys(req, res) {
   try {
-    const userId = req.user.userId;
+    const mongoose = require('mongoose');
+    let userId;
+    try {
+      userId = new mongoose.Types.ObjectId(req.user.userId);
+    } catch (err) {
+      return res.status(400).json({ success: false, message: 'Invalid user ID format' });
+    }
+    
     const transactions = await Transaction.find({
       $or: [{ sellerId: userId }, { buyerId: userId }],
       is_quarantined: { $ne: true }
@@ -353,12 +360,39 @@ async function getMyJourneys(req, res) {
     .populate('buyerId', 'firstName lastName')
     .lean();
 
+    const InventoryLot = require('../models/InventoryLot');
+    const txnIds = transactions.map(t => t._id);
+    
+    const lots = await InventoryLot.find({
+      $or: [
+        { transactionId: { $in: txnIds } },
+        { originTransaction: { $in: txnIds } }
+      ]
+    }).lean();
+
+    const lotMap = new Map();
+    for (const lot of lots) {
+      if (lot.transactionId) lotMap.set(lot.transactionId.toString(), lot);
+      if (lot.originTransaction) lotMap.set(lot.originTransaction.toString(), lot);
+    }
+
     const uniqueJourneysMap = new Map();
     for (const txn of transactions) {
-      if (!uniqueJourneysMap.has(txn.batchId)) {
-        const sellerName = txn.sellerId ? `${txn.sellerId.firstName} ${txn.sellerId.lastName}` : 'Unknown';
-        uniqueJourneysMap.set(txn.batchId, {
-          batchId: txn.batchId,
+      const lot = lotMap.get(txn._id.toString());
+      const canonicalId = (lot && lot.farmerBatchId) ? lot.farmerBatchId : txn.batchId;
+      
+      if (!uniqueJourneysMap.has(canonicalId)) {
+        let sellerName = txn.sellerId ? `${txn.sellerId.firstName} ${txn.sellerId.lastName}` : 'Unknown';
+        let originator = null;
+        
+        if (lot && lot.originFarmer && lot.originFarmer.name) {
+          originator = lot.originFarmer.name;
+        } else if (txn.stage === 'FARMER_TO_BUYER') {
+          originator = sellerName;
+        }
+
+        uniqueJourneysMap.set(canonicalId, {
+          batchId: canonicalId,
           transactionId: txn.transactionId,
           product: txn.product,
           quantity: txn.quantity,
@@ -366,7 +400,7 @@ async function getMyJourneys(req, res) {
           stage: txn.stage,
           date: txn.transactionDate,
           verificationStatus: txn.verificationStatus,
-          originator: txn.stage === 'FARMER_TO_BUYER' ? sellerName : null
+          originator: originator
         });
       }
     }
