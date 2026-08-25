@@ -4,8 +4,7 @@ const BuyerListing = require('./models/BuyerListing');
 const PurchaseOrder = require('./models/PurchaseOrder');
 const Transaction = require('./models/Transaction');
 const InventoryLot = require('./models/InventoryLot');
-const VerificationRecord = require('./models/VerificationRecord');
-const { mintTransactionFromOrder, requestVerification, confirmVerification } = require('./controllers/transactionController');
+const { mintTransactionFromOrder } = require('./controllers/transactionController');
 const orderController = require('./controllers/orderController');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
@@ -23,8 +22,7 @@ async function runTests() {
       BuyerListing.deleteMany({ product: 'Phase11Crop' }),
       PurchaseOrder.deleteMany({ product: 'Phase11Crop' }),
       Transaction.deleteMany({ product: 'Phase11Crop' }),
-      InventoryLot.deleteMany({ crop: 'phase11crop' }),
-      VerificationRecord.deleteMany({ recordType: 'SUPPLY_CHAIN' })
+      InventoryLot.deleteMany({ crop: 'phase11crop' })
     ]);
 
     // Setup Users
@@ -68,67 +66,6 @@ async function runTests() {
       status: (code) => ({ json: (data) => { approveRes = data; return { code, data }; } })
     });
     
-    // Check initial verification status
-    const txn1 = await Transaction.findOne({ sourceOrderId: order1Id });
-    if (txn1.verificationStatus !== 'UNVERIFIED') {
-      throw new Error(`Expected UNVERIFIED, got ${txn1.verificationStatus}`);
-    }
-    console.log('SUCCESS: Minted transaction is UNVERIFIED initially');
-
-    // 3. Request Verification (as farmer)
-    let reqVerRes = {};
-    const mockRes = {
-      json: (data) => { reqVerRes = data; return { code: 200, data }; },
-      status: (code) => ({ json: (data) => { reqVerRes = data; return { code, data }; } })
-    };
-    await requestVerification(
-      { params: { id: txn1._id }, user: { id: farmer._id.toString(), userId: farmer._id.toString(), role: 'FARMER' } },
-      mockRes
-    );
-    if (!reqVerRes.transaction) throw new Error(`Request ver failed: ${JSON.stringify(reqVerRes)}`);
-    if (reqVerRes.transaction.verificationStatus !== 'PENDING') throw new Error('Failed to set PENDING');
-    console.log('SUCCESS: verificationStatus transitions to PENDING');
-
-    // 4. Request Verification (Unauthorized)
-    let unauthorizedRes = {};
-    await requestVerification(
-      { params: { id: txn1._id }, user: { id: wholesaler._id.toString(), userId: wholesaler._id.toString(), role: 'WHOLESALER' } },
-      { status: (code) => ({ json: (data) => { unauthorizedRes = { code, data }; return { code, data }; } }) }
-    );
-    if (unauthorizedRes.code !== 403) throw new Error('Unauthorized user was able to request verification');
-    console.log('SUCCESS: Unauthorized verification request blocked');
-
-    // 5. Confirm Verification (Mocking Blockchain Writer)
-    const verRecord = await VerificationRecord.create({
-      recordType: 'SUPPLY_CHAIN',
-      referenceId: txn1.transactionId,
-      dataHash: 'hash',
-      payload: { test: true },
-      blockchain: { verified: true, status: 'verified' }
-    });
-
-    let confVerRes = {};
-    const mockResConf = {
-      json: (data) => { confVerRes = data; return { code: 200, data }; },
-      status: (code) => ({ json: (data) => { confVerRes = data; return { code, data }; } })
-    };
-    await confirmVerification(
-      { params: { id: txn1._id }, body: { status: 'VERIFIED', verificationRecordId: verRecord._id } },
-      mockResConf
-    );
-    if (confVerRes.transaction.verificationStatus !== 'VERIFIED') throw new Error('Failed to set VERIFIED');
-    if (confVerRes.transaction.verificationRecordId.toString() !== verRecord._id.toString()) throw new Error('verificationRecordId not set');
-    console.log('SUCCESS: verificationStatus transitions to VERIFIED with Record ID');
-
-    // 6. Test Invalid confirm Verification payload
-    let badConfRes = {};
-    await confirmVerification(
-      { params: { id: txn1._id }, body: { status: 'SUPER_VERIFIED' } },
-      { status: (code) => ({ json: (data) => { badConfRes = { code, data }; return { code, data }; } }) }
-    );
-    if (badConfRes.code !== 400) throw new Error('Accepted invalid status');
-    console.log('SUCCESS: Invalid verification status rejected');
-
     console.log('--- ALL PHASE 11 TESTS PASSED ---');
     process.exit(0);
   } catch (error) {

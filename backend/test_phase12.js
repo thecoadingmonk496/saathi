@@ -5,7 +5,6 @@ const BuyerListing = require('./models/BuyerListing');
 const PurchaseOrder = require('./models/PurchaseOrder');
 const Transaction = require('./models/Transaction');
 const InventoryLot = require('./models/InventoryLot');
-const VerificationRecord = require('./models/VerificationRecord');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -38,8 +37,7 @@ async function runTests() {
       BuyerListing.deleteMany({ commodity: 'Phase12Crop' }),
       PurchaseOrder.deleteMany({ product: 'Phase12Crop' }),
       Transaction.deleteMany({ product: 'Phase12Crop' }),
-      InventoryLot.deleteMany({ crop: 'phase12crop' }),
-      VerificationRecord.deleteMany({ recordType: 'SUPPLY_CHAIN' }) // Assuming isolated
+      InventoryLot.deleteMany({ crop: 'phase12crop' })
     ]);
 
     // 1 & 2 & 4. Authentication, Authorization, Self-dealing setup
@@ -105,23 +103,8 @@ async function runTests() {
     // Concurrency test: approve twice concurrently
     const approveB1W1Req = { user: { userId: w1._id, role: 'WHOLESALER' }, params: { id: overOrderRes.order._id } };
     
-    // 13 & 14 & 15 & 16 & 17. Verification Tests
-    const b1f1Txn = await Transaction.findOne({ sourceOrderId: poF1._id });
-    
-    let verReqRes = {};
-    const mockResVer = {
-      json: (data) => { verReqRes = data; return { code: 200, data }; },
-      status: (code) => ({ json: (data) => { verReqRes = data; return { code, data }; } })
-    };
-    await requestVerification({ params: { id: b1f1Txn._id }, user: { id: f1._id.toString(), userId: f1._id.toString(), role: 'FARMER' } }, mockResVer);
-    if (!verReqRes.transaction || verReqRes.transaction.verificationStatus !== 'PENDING') throw new Error("Failed to set PENDING");
-
-    // Unauthorized confirmation
-    let unauthConfRes = null;
-    await confirmVerification({ params: { id: b1f1Txn._id }, body: { status: 'VERIFIED', verificationRecordId: new mongoose.Types.ObjectId() } }, { status: (code) => { unauthConfRes = code; return { json: () => {} }; } });
-    // In real app, `requireBlockchainWriter` middleware blocks this before controller. In controller we assume it's authorized if it reaches here, so we just check it processes valid statuses.
-
     // 18. Crop Journey
+    const b1f1Txn = await Transaction.findOne({ sourceOrderId: poF1._id });
     const getCJReq = { params: { batchId: b1f1Txn.batchId } };
     let cjRes = null;
     await getCropJourney(getCJReq, { status: () => ({ json: (d) => { cjRes = d; } }) });

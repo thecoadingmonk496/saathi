@@ -289,57 +289,6 @@ async function getCropJourney(req, res) {
   }
 }
 
-async function requestVerification(req, res) {
-  try {
-    const { id } = req.params;
-    const transaction = await Transaction.findById(id);
-    if (!transaction) return res.status(404).json({ success: false, message: 'Transaction not found' });
-    
-    // Ensure only participants can request verification
-    const isParticipant = req.user.id === transaction.sellerId.toString() || req.user.id === transaction.buyerId.toString();
-    if (!isParticipant && req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Unauthorized' });
-    }
-
-    if (transaction.verificationStatus === 'VERIFIED') {
-      return res.status(400).json({ success: false, message: 'Transaction is already verified' });
-    }
-
-    transaction.verificationStatus = 'PENDING';
-    await transaction.save();
-
-    return res.json({ success: true, message: 'Verification requested', transaction });
-  } catch (error) {
-    console.error('[TransactionController] requestVerification error:', error.message);
-    return res.status(500).json({ success: false, message: 'Server error requesting verification' });
-  }
-}
-
-async function confirmVerification(req, res) {
-  try {
-    const { id } = req.params;
-    const { status, verificationRecordId } = req.body; // status must be VERIFIED or FAILED
-
-    if (!['VERIFIED', 'FAILED'].includes(status)) {
-      return res.status(400).json({ success: false, message: 'Invalid status' });
-    }
-
-    const transaction = await Transaction.findById(id);
-    if (!transaction) return res.status(404).json({ success: false, message: 'Transaction not found' });
-
-    transaction.verificationStatus = status;
-    if (status === 'VERIFIED' && verificationRecordId) {
-      transaction.verificationRecordId = verificationRecordId;
-    }
-    
-    await transaction.save();
-
-    return res.json({ success: true, message: `Verification confirmed as ${status}`, transaction });
-  } catch (error) {
-    console.error('[TransactionController] confirmVerification error:', error.message);
-    return res.status(500).json({ success: false, message: 'Server error confirming verification' });
-  }
-}
 
 async function getMyJourneys(req, res) {
   try {
@@ -418,6 +367,4 @@ module.exports = {
   getTransaction,
   getCropJourney,
   getMyJourneys,
-  requestVerification,
-  confirmVerification,
 };

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { useLocationContext } from '../context/LocationContext';
 import { marketService } from '../api/marketService';
-import { BuyerVerification } from '../components/BlockchainVerification';
 
 const popularCrops = ['Wheat', 'Paddy', 'Onion', 'Tomato', 'Mustard', 'Maize', 'Potato'];
 
