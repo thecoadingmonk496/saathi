@@ -195,7 +195,8 @@ export default function CropJourney() {
   ] : [];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen bg-[#F8FAF9]">
+    <div className="min-h-screen w-full bg-[#F8FAF9] pt-28 pb-16">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       
       {/* Filter Row */}
       <div className="flex flex-wrap items-center gap-4 mb-10">
@@ -398,7 +399,7 @@ export default function CropJourney() {
                 </div>
                 
                 <div className="text-center text-xs font-semibold text-gray-600 space-y-1">
-                  <p>Avg. Farmer Markup: <span className="font-bold text-gray-900">{Math.abs(journeyData.stages[0].changePercent)}%</span></p>
+                  <p>Avg. Farmer Markup: <span className="font-bold text-gray-900">{Math.abs(journeyData.stages?.[0]?.changePercent || 0)}%</span></p>
                   {journeyData.arrivalVolume && (
                      <p>Total Traceable Volume: <span className="font-bold text-gray-900">{journeyData.arrivalVolume.value} {journeyData.arrivalVolume.unit}</span></p>
                   )}
@@ -429,6 +430,7 @@ export default function CropJourney() {
           
         </div>
       )}
+      </div>
     </div>
   );
 }
