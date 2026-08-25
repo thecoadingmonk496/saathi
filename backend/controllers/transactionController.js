@@ -166,7 +166,9 @@ async function getCropJourney(req, res) {
     const { batchId } = req.params;
     
     // 1. Find the base transaction requested by the user
-    const baseTransaction = await Transaction.findOne({ batchId });
+    const baseTransaction = await Transaction.findOne({ 
+      $or: [ { batchId }, { transactionId: batchId } ] 
+    });
     if (!baseTransaction) {
       return res.status(200).json({
         success: true,

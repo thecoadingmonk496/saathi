@@ -357,9 +357,32 @@ export default function MarketExplorer() {
             <p className="text-gray-500">Please verify the Batch ID and try again.</p>
           </div>
         ) : !batchJourneyData ? (
-          <div className="bg-white rounded-2xl shadow-xl p-10 text-center border border-gray-100">
-             <h2 className="text-xl font-bold text-gray-900 mb-2">No Batch Selected</h2>
-             <p className="text-gray-500">Provide a valid batchId in the URL to view the traceability journey.</p>
+          <div className="bg-white rounded-2xl shadow-xl p-10 text-center border border-gray-100 max-w-2xl mx-auto mt-10">
+             <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+               <MapPin className="w-8 h-8 text-emerald-500" />
+             </div>
+             <h2 className="text-xl font-bold text-gray-900 mb-2">Track Your Crop</h2>
+             <p className="text-gray-500 mb-6">Enter a valid Batch ID or Transaction ID to view the complete traceability journey.</p>
+             <form 
+               onSubmit={(e) => {
+                 e.preventDefault();
+                 const inputVal = e.target.batchInput.value.trim();
+                 if (inputVal) {
+                   window.location.href = `/explorer?batchId=${inputVal}`;
+                 }
+               }}
+               className="flex flex-col sm:flex-row items-center gap-2 max-w-sm mx-auto"
+             >
+               <input 
+                 name="batchInput"
+                 type="text" 
+                 placeholder="e.g. 6a8d3e3..."
+                 className="flex-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-800 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
+               />
+               <button type="submit" className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition">
+                 Search
+               </button>
+             </form>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
