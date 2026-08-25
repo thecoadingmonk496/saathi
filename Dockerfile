@@ -25,6 +25,5 @@ COPY . /app/
 # Expose the port (Gunicorn will bind to this)
 EXPOSE 8000
 
-# Run the FastAPI app using Gunicorn with Uvicorn workers
-# Binding to 0.0.0.0 is necessary for Docker container networking
-CMD ["gunicorn", "main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000"]
+# Run the FastAPI app using Uvicorn directly to pick up Render's dynamic PORT
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
