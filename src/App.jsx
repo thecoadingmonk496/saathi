@@ -10,7 +10,6 @@ import BuyerOrders from './pages/BuyerOrders';
 import Dashboard from './pages/Dashboard';
 import Government from './pages/Government';
 import MarketPrices from './pages/MarketPrices';
-import MarketExplorer from './pages/MarketExplorer';
 import Login from './pages/Login';
 import Notifications from './pages/Notifications';
 import Register from './pages/Register';
@@ -81,7 +80,6 @@ export default function App() {
             <Route path="/consumers" element={<ProtectedPage><ConsumerDiscovery /></ProtectedPage>} />
             <Route path="/consumer/orders" element={<ProtectedPage><ConsumerOrders /></ProtectedPage>} />
             <Route path="/prices" element={<ProtectedPage><MarketPrices /></ProtectedPage>} />
-            <Route path="/explorer" element={<ProtectedPage><MarketExplorer /></ProtectedPage>} />
             <Route path="/crop-journey" element={<ProtectedPage><CropJourney /></ProtectedPage>} />
             <Route path="/government" element={<ProtectedPage><Government /></ProtectedPage>} />
             <Route path="/profile" element={<ProtectedPage><Profile /></ProtectedPage>} />

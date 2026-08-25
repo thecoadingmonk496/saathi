@@ -40,8 +40,9 @@ export default function BuyerOrders() {
       const data = await res.json();
       if (data.success) {
         if (action === 'approve') {
-          alert('Transaction recorded successfully!');
-          navigate(`/explorer?batchId=${data.transaction.batchId}`);
+          if (data.transaction && data.transaction.batchId) {
+            navigate(`/crop-journey`);
+          }
         } else {
           alert('Order rejected.');
           fetchOrders(); // Refresh list

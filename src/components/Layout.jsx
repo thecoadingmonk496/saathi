@@ -12,7 +12,7 @@ export default function Layout({ children }) {
   const [voiceAssistantResponse, setVoiceAssistantResponse] = useState('');
   const isDashboardPage = location.pathname === '/' || location.pathname === '/ai' || location.pathname === '/dashboard';
   const isTransparentPage = isDashboardPage
-    || location.pathname === '/explorer'
+    || location.pathname === '/crop-journey'
     || location.pathname === '/buyers'
     || location.pathname === '/prices';
 

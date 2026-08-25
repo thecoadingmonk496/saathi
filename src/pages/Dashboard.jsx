@@ -209,7 +209,7 @@ export default function Dashboard({ onVoiceStart, voiceAssistantResponse }) {
               title={t('card.explorerTitle')}
               body={t('card.explorerSubtitle')}
               action={t('dashboard.viewJourneyBtn')}
-              onOpen={() => navigate('/explorer')}
+              onOpen={() => navigate('/crop-journey')}
             />
             <ServiceCard
               accent="slate"
