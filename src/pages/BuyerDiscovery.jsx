@@ -384,7 +384,7 @@ export default function BuyerDiscovery() {
                       )}
                     </div>
                     <div className="mt-2">
-                      <BuyerVerification buyerId={`B-${buyer._id}`} buyerType={buyer.buyer_type} />
+                      {/* BuyerVerification was removed during blockchain cleanup */}
                     </div>
                   </div>
 
