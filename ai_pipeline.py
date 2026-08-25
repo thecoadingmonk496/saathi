@@ -165,7 +165,6 @@ llm = ChatGoogleGenerativeAI(
     model=MODEL_NAME,
     api_key=GOOGLE_API_KEY,
     temperature=0.2,
-    transport="rest",   # HTTP/1.1 REST — avoids gRPC/HTTP2 RemoteProtocolError
     timeout=60.0,
     max_retries=0,      # Application-level retry loop handles this
 )
@@ -333,6 +332,24 @@ def call_gemini_agent(inputs):
     return agent_executor.invoke(inputs)
 
 
+def _normalize_llm_response(response_content: Any) -> str:
+    """Safely extracts a plain string from various LangChain/Gemini response structures."""
+    if isinstance(response_content, str):
+        return response_content
+    elif isinstance(response_content, list):
+        parts = []
+        for item in response_content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict) and "text" in item:
+                parts.append(item["text"])
+        return "".join(parts)
+    elif hasattr(response_content, "content"):
+        return _normalize_llm_response(getattr(response_content, "content"))
+    else:
+        return str(response_content)
+
+
 def run_ai_pipeline(
     query: str,
     history: list = None,
@@ -426,10 +443,18 @@ def run_ai_pipeline(
         
     try:
         res = _invoke_llm()
-        if res and res.content:
+        if res:
             duration = time.time() - start_time
             logger.info(f"[AI] final response generated in {duration:.2f}s")
-            raw_text = res.content.strip()
+            
+            raw_content = getattr(res, "content", res)
+            logger.info(f"[AI] Raw response type: {type(raw_content).__name__}")
+            
+            normalized_text = _normalize_llm_response(raw_content)
+            logger.info(f"[AI] Normalized response type: {type(normalized_text).__name__}")
+            
+            raw_text = normalized_text.strip()
+            
             # Remove markdown JSON wrappers if present
             if raw_text.startswith("```json"):
                 raw_text = raw_text[7:]
