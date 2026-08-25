@@ -31,6 +31,7 @@ export default function BuyerDiscovery() {
 
   // Coming Soon Modal State
   const [activeBuyer, setActiveBuyer] = useState(null);
+  const [proposalQuantity, setProposalQuantity] = useState('');
 
   // 1a. Load states list on mount
   useEffect(() => {
@@ -379,6 +380,9 @@ export default function BuyerDiscovery() {
                     <div className="mt-3 flex flex-col gap-1 text-sm text-slate-500">
                       <p className="flex items-center gap-2"><span>📍</span> {buyer.market}, {buyer.district}, {buyer.state}</p>
                       <p className="flex items-center gap-2"><span>📦</span> Requirement: <span className="font-bold text-slate-700">{buyer.quantity_required}</span></p>
+                      {buyer.remainingQuantity !== undefined && (
+                        <p className="flex items-center gap-2"><span>📉</span> Remaining: <span className="font-bold text-[#2E7D32]">{buyer.remainingQuantity} quintals</span></p>
+                      )}
                     </div>
                     <div className="mt-2">
                       <BuyerVerification buyerId={`B-${buyer._id}`} buyerType={buyer.buyer_type} />
@@ -399,10 +403,14 @@ export default function BuyerDiscovery() {
                 <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100 pt-4">
                   <p className="text-xs text-slate-400">Posted on: {new Date(buyer.created_at).toLocaleDateString('en-IN')}</p>
                   <button
-                    onClick={() => setActiveBuyer(buyer)}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-[#2E7D32] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#256428] focus:outline-none"
+                    onClick={() => {
+                      setActiveBuyer(buyer);
+                      setProposalQuantity(buyer.remainingQuantity ? String(Math.min(10, buyer.remainingQuantity)) : '10');
+                    }}
+                    disabled={buyer.fulfillmentStatus === 'FULFILLED'}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-[#2E7D32] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#256428] focus:outline-none disabled:bg-slate-300 disabled:cursor-not-allowed"
                   >
-                    💬 {t('buyer.contactButton') || 'Contact via SAATHI'}
+                    {buyer.fulfillmentStatus === 'FULFILLED' ? 'Fully Fulfilled' : '💬 ' + (t('buyer.contactButton') || 'Contact via SAATHI')}
                   </button>
                 </div>
               </div>
@@ -411,7 +419,7 @@ export default function BuyerDiscovery() {
         )}
       </div>
 
-      {/* Coming Soon Modal */}
+      {/* Accept Offer Modal */}
       {activeBuyer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setActiveBuyer(null)}>
           <div
@@ -419,24 +427,84 @@ export default function BuyerDiscovery() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-center">
-              <span className="text-5xl">💬</span>
-              <h2 className="mt-4 text-xl font-black text-slate-900">Direct Messaging Coming Soon!</h2>
+              <span className="text-5xl">🤝</span>
+              <h2 className="mt-4 text-xl font-black text-slate-900">Confirm Sale</h2>
               <p className="mt-3 text-sm text-slate-600 leading-relaxed">
-                Direct buyer-to-farmer communication is currently on SAATHI's product roadmap.
+                You are about to accept the offer from <span className="font-bold">{activeBuyer.buyer_name}</span>.
               </p>
-              <div className="mt-4 bg-slate-50 border border-slate-100 rounded-2xl p-4 text-left">
-                <p className="text-xs font-bold uppercase text-slate-400">Intended flow for {activeBuyer.buyer_name}</p>
-                <p className="text-xs font-semibold text-slate-500 mt-2">
-                  Once active, this button will open a secure chat screen in SAATHI. 
-                  The buyer will receive a notification showing your available stock, and you can negotiate the pickup date and payment terms.
-                </p>
+              
+              <div className="mt-4 bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-left">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-bold uppercase text-emerald-800">Commodity</span>
+                  <span className="font-semibold text-emerald-900">{activeBuyer.commodity}</span>
+                </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-bold uppercase text-emerald-800">Price</span>
+                  <span className="font-black text-[#2E7D32]">{formatRupees(activeBuyer.offered_price)}/qtl</span>
+                </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-bold uppercase text-emerald-800">Remaining</span>
+                  <span className="font-semibold text-emerald-900">{activeBuyer.remainingQuantity} quintals</span>
+                </div>
               </div>
-              <button
-                onClick={() => setActiveBuyer(null)}
-                className="mt-6 w-full rounded-xl bg-[#2E7D32] py-3 text-sm font-bold text-white transition hover:bg-[#256428]"
-              >
-                Close
-              </button>
+
+              <div className="mt-4">
+                <label className="block text-left text-sm font-bold text-slate-700 mb-2">Quantity to Propose (Quintals)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max={activeBuyer.remainingQuantity}
+                  value={proposalQuantity}
+                  onChange={(e) => setProposalQuantity(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-lg font-bold outline-none focus:border-[#2E7D32]"
+                />
+              </div>
+
+              <div className="mt-6 flex flex-col gap-3">
+                <button
+                  onClick={async () => {
+                    try {
+                      const quantity = parseInt(proposalQuantity, 10);
+                      if (isNaN(quantity) || quantity <= 0 || quantity > activeBuyer.remainingQuantity) {
+                        alert('Please enter a valid quantity within the remaining limit.');
+                        return;
+                      }
+
+                      const token = localStorage.getItem('saathi_token');
+                      const response = await fetch('http://localhost:5001/api/purchase-orders', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                          listingId: activeBuyer._id,
+                          quantity: quantity
+                        })
+                      });
+                      
+                      const data = await response.json();
+                      if (data.success) {
+                        alert('Proposal sent to buyer!');
+                        setActiveBuyer(null);
+                      } else {
+                        alert(data.message || 'Failed to send proposal. Ensure you are logged in as a FARMER.');
+                      }
+                    } catch (err) {
+                      alert('Error connecting to backend.');
+                    }
+                  }}
+                  className="w-full rounded-xl bg-[#2E7D32] py-3 text-sm font-bold text-white transition hover:bg-[#256428]"
+                >
+                  Propose Sale
+                </button>
+                <button
+                  onClick={() => setActiveBuyer(null)}
+                  className="w-full rounded-xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -18,22 +18,6 @@ const languageTagMap = {
   Assamese: 'as-IN',
 };
 
-const naturalFemaleVoiceKeywords = [
-  'female', 'woman', 'natural', 'neural', 'swara', 'heera', 'neerja', 'kalpana', 'veena',
-  'kavya', 'shruti', 'ananya', 'geeta', 'meera', 'zira', 'samantha', 'jenny',
-  'victoria', 'google हिन्दी', 'google us english', 'google uk english female',
-];
-
-function prepareNaturalSpeechText(text, langTag) {
-  if (!text) return '';
-  const isHindi = langTag.startsWith('hi');
-  let speechText = text
-    .replace(/₹\s*([\d,]+)/g, isHindi ? '$1 रुपये' : '$1 rupees')
-    .replace(/quintal/g, isHindi ? t('explorer.qtl') : 'quintal')
-    .replace(/(\d+)\s*km/g, isHindi ? '$1 किलोमीटर' : '$1 kilometers');
-  return speechText;
-}
-
 export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 'Hindi', onNavigate }) {
   const { t } = useUser();
   const [status, setStatus] = useState('listening'); 
@@ -45,7 +29,17 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
   const [voices, setVoices] = useState([]);
 
   const recognitionRef = useRef(null);
+  const [audioUrl, setAudioUrl] = useState(null);
+  const audioRef = useRef(null);
   const langTag = languageTagMap[preferredLanguage] || 'hi-IN';
+
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
@@ -136,92 +130,64 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
           recognitionRef.current.abort();
         } catch { }
       }
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
+      if (audioRef.current) {
+        audioRef.current.pause();
       }
     };
   }, [langTag]);
 
-  const selectVoiceForLanguage = (targetLangTag) => {
-    if (!voices || voices.length === 0) return null;
-    const baseLang = targetLangTag.split('-')[0];
-
-    const isFemaleVoice = (v) => naturalFemaleVoiceKeywords.some((kw) => v.name.toLowerCase().includes(kw));
-
-    let matched = voices.find((v) => (v.lang === targetLangTag || v.lang.replace('_', '-') === targetLangTag) && isFemaleVoice(v));
-
-    if (!matched) {
-      matched = voices.find((v) => v.lang.startsWith(baseLang) && isFemaleVoice(v));
-    }
-
-    if (!matched) {
-      matched = voices.find((v) => v.lang === targetLangTag || v.lang.replace('_', '-') === targetLangTag || v.lang.startsWith(baseLang));
-    }
-
-    if (!matched || !isFemaleVoice(matched)) {
-      const indianFemaleFallback = voices.find((v) => (v.lang.startsWith('hi') || v.lang.includes('IN')) && isFemaleVoice(v));
-      if (indianFemaleFallback) {
-        matched = indianFemaleFallback;
-      }
-    }
-
-    if (!matched || !isFemaleVoice(matched)) {
-      const globalFemale = voices.find(isFemaleVoice);
-      if (globalFemale) {
-        matched = globalFemale;
-      }
-    }
-
-    return matched || voices[0] || null;
-  };
-
-  const speakText = (text) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) {
+  const playBase64Audio = (base64String) => {
+    if (!base64String) {
       setStatus('done');
       return;
     }
-
+    
     try {
-      window.speechSynthesis.cancel(); 
-
-      const naturalText = prepareNaturalSpeechText(text, langTag);
-      const utterance = new SpeechSynthesisUtterance(naturalText);
-
-      utterance.lang = langTag;
-      utterance.rate = 0.88; 
-      utterance.pitch = 1.0; 
-      utterance.volume = 1.0;
-
-      const pleasantVoice = selectVoiceForLanguage(langTag);
-      if (pleasantVoice) {
-        utterance.voice = pleasantVoice;
+      if (audioRef.current) {
+        audioRef.current.pause();
       }
-
-      utterance.onstart = () => {
-        setStatus('speaking');
-      };
-
-      utterance.onend = () => {
+      
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+      
+      const binaryString = window.atob(base64String);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      const blob = new Blob([bytes], { type: 'audio/mpeg' });
+      const newAudioUrl = URL.createObjectURL(blob);
+      
+      setAudioUrl(newAudioUrl);
+      
+      const audio = new Audio(newAudioUrl);
+      audioRef.current = audio;
+      
+      audio.onplay = () => setStatus('speaking');
+      audio.onended = () => setStatus('done');
+      audio.onerror = (e) => {
+        console.error('Audio playback error', e);
         setStatus('done');
       };
-
-      utterance.onerror = (err) => {
-        console.warn('Speech synthesis error:', err);
+      
+      audio.play().catch(e => {
+        console.error('Autoplay prevented', e);
         setStatus('done');
-      };
-
-      if (window.speechSynthesis.paused) {
-        window.speechSynthesis.resume();
-      }
-
-      window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      console.error('TTS execution error:', e);
+      });
+    } catch (error) {
+      console.error('Failed to decode or play base64 audio:', error);
       setStatus('done');
     }
   };
 
-  const handleFinalSpeech = (queryText) => {
+  const speakText = (text) => {
+    return;
+  };
+
+  const handleFinalSpeech = async (queryText) => {
     if (!queryText.trim()) return;
 
     if (recognitionRef.current) {
@@ -232,24 +198,31 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
     setStatus('thinking');
 
-    window.setTimeout(() => {
-      const { response, action } = processVoiceQuery(queryText, preferredLanguage);
+    try {
+      const { response, action, audioBase64 } = await processVoiceQuery(queryText, preferredLanguage);
       setResponseText(response);
       onResponse?.(response);
 
-      speakText(response);
+      if (audioBase64) {
+        playBase64Audio(audioBase64);
+      } else {
+        setStatus('done');
+      }
 
       if (action && action.type === 'NAVIGATE' && action.path) {
         window.setTimeout(() => {
           onNavigate?.(action.path);
         }, 1800);
       }
-    }, 450);
+    } catch (err) {
+      console.error('API Error in handleFinalSpeech:', err);
+      setStatus('error');
+    }
   };
 
   const handleRestartListening = () => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
     }
     setTranscript('');
     setInterimTranscript('');
@@ -360,7 +333,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
               {responseText && (
                 <button
                   type="button"
-                  onClick={() => speakText(responseText)}
+                  onClick={() => { if (audioRef.current) { audioRef.current.currentTime = 0; audioRef.current.play().catch(e => console.error(e)); } }}
                   className="inline-flex items-center gap-1 rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-extrabold text-[#065f46] hover:bg-emerald-200 transition hover:scale-105"
                 >
                   <SpeakerWaveIcon className="h-3.5 w-3.5" />

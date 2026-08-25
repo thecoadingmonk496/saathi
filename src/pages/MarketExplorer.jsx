@@ -1,13 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
+import { useSearchParams } from 'react-router-dom';
 import {
   Leaf,
   Shield,
@@ -15,51 +7,193 @@ import {
   ChevronDown,
   X,
   MapPin,
-  Lock,
-  ArrowRight,
+  Clock,
+  User,
+  Check,
   TrendingUp,
   AlertTriangle,
-  Link as LinkIcon
+  Building,
+  Truck,
+  Store,
+  ShoppingBag,
+  ChevronRight,
+  ChevronUp,
 } from 'lucide-react';
 import { marketService } from '../api/marketService';
 
-// Recharts Custom Marker
-const CustomizedDot = (props) => {
-  const { cx, cy } = props;
+// -- Helper components --
+
+const VerificationBadge = ({ status }) => {
+  if (status === 'verified') return <div className="flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg text-xs font-bold border border-emerald-100"><CheckCircle2 className="w-3.5 h-3.5" /> VERIFIED</div>;
+  if (status === 'pending') return <div className="flex items-center gap-1 bg-amber-50 text-amber-700 px-2.5 py-1 rounded-lg text-xs font-bold border border-amber-100"><Clock className="w-3.5 h-3.5" /> PENDING VERIFICATION</div>;
+  if (status === 'failed') return <div className="flex items-center gap-1 bg-red-50 text-red-700 px-2.5 py-1 rounded-lg text-xs font-bold border border-red-100"><AlertTriangle className="w-3.5 h-3.5" /> VERIFICATION FAILED</div>;
+  return <div className="flex items-center gap-1 bg-gray-50 text-gray-500 px-2.5 py-1 rounded-lg text-xs font-bold border border-gray-200"><User className="w-3.5 h-3.5" /> UNVERIFIED</div>;
+};
+
+const ExpandableTransactionDetails = ({ data, isDemo, status }) => {
+  const [expanded, setExpanded] = useState(false);
+  if (!data) return null;
+
   return (
-    <circle cx={cx} cy={cy} r={4} fill="#fff" stroke="#10B981" strokeWidth={2.5} />
+    <div className="mt-3 border-t border-gray-100 pt-3">
+      <button 
+        onClick={() => setExpanded(!expanded)} 
+        className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
+      >
+        {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+        Transaction Details
+      </button>
+      
+      {expanded && (
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-gray-50/50 rounded-lg p-3 text-xs border border-gray-100">
+          <div>
+            <div className="text-gray-500 font-medium mb-0.5">Transaction ID</div>
+            <div className="font-mono text-gray-700 font-semibold break-all">{data.transactionId || 'Not available'}</div>
+          </div>
+          <div>
+            <div className="text-gray-500 font-medium mb-0.5">Batch / Lot ID</div>
+            <div className="font-mono text-gray-700 font-semibold break-all">{data.batchId || 'Not available'}</div>
+          </div>
+          <div>
+            <div className="text-gray-500 font-medium mb-0.5">Timestamp</div>
+            <div className="text-gray-700 font-semibold">{data.date ? new Date(data.date).toLocaleString() : 'Not available'}</div>
+          </div>
+          <div>
+            <div className="text-gray-500 font-medium mb-0.5">Verification Record</div>
+            <div className="font-mono text-gray-700 font-semibold break-all">{data.verificationRecordId || 'N/A'}</div>
+          </div>
+          {status === 'unverified' && (
+            <div className="sm:col-span-2 text-gray-400 font-medium italic">
+              This transaction has not yet been independently verified.
+            </div>
+          )}
+          {isDemo && (
+            <div className="sm:col-span-2 mt-1">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-bold tracking-wider">
+                DEMO DATA
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 };
 
-const CustomizedLabel = (props) => {
-  const { x, y, value } = props;
-  if (value === null || value === undefined) return null;
+const StageCard = ({ title, icon: Icon, color, data, status, isUnavailable, nextStageIcon }) => {
+  if (isUnavailable) {
+    return (
+      <div className="relative pl-8 md:pl-0">
+        <div className="absolute left-[11px] top-6 bottom-[-24px] w-[2px] bg-gray-200 md:hidden z-0"></div>
+        <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-5 opacity-60 shadow-sm relative z-10">
+          <div className="flex items-center gap-3 mb-2">
+            <div className={`w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0`}>
+              <Icon className="w-4 h-4 text-gray-400" />
+            </div>
+            <h3 className="font-bold text-gray-500 text-base">{title}</h3>
+          </div>
+          <p className="text-xs text-gray-400 font-medium ml-11">Not yet recorded in SAATHI.</p>
+        </div>
+        {nextStageIcon && <div className="hidden md:flex justify-center py-3 text-gray-300"><div className="h-6 w-px bg-gray-200"></div></div>}
+      </div>
+    );
+  }
+
   return (
-    <text x={x} y={y - 12} fill="#111827" fontSize={11} fontWeight="bold" textAnchor="middle">
-      {`₹${value.toLocaleString('en-IN')}`}
-    </text>
+    <div className="relative pl-8 md:pl-0">
+       {nextStageIcon && <div className="absolute left-[11px] top-6 bottom-[-24px] w-[2px] bg-emerald-200 md:hidden z-0"></div>}
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:shadow-md transition-shadow relative z-10 ring-1 ring-black/[0.02]">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-full ${color} flex items-center justify-center shrink-0 shadow-sm`}>
+              <Icon className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 text-lg">{title}</h3>
+              <div className="text-xs font-semibold text-gray-500 flex items-center gap-1 mt-0.5">
+                <User className="w-3 h-3" /> {data.buyer || 'Unknown'}
+              </div>
+            </div>
+          </div>
+          <VerificationBadge status={status} />
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-4 gap-x-2 bg-gray-50/50 rounded-xl p-4 border border-gray-50">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Quantity</p>
+            <p className="font-bold text-gray-900 text-sm">{data.quantity} {data.unit === 'quintal' ? 'QTL' : data.unit}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Price</p>
+            <p className="font-bold text-emerald-600 text-sm">₹{data.price?.toLocaleString('en-IN')}</p>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Location</p>
+            <p className="font-semibold text-gray-700 text-sm truncate flex items-center gap-1"><MapPin className="w-3 h-3 text-gray-400 shrink-0"/>{data.location || 'Not available'}</p>
+          </div>
+        </div>
+
+        <ExpandableTransactionDetails data={data} isDemo={data.transactionId?.includes('DEMO')} status={status} />
+      </div>
+
+       {nextStageIcon && (
+        <div className="hidden md:flex justify-center py-4 text-emerald-300">
+          <div className="h-6 w-[2px] bg-gradient-to-b from-emerald-400 to-emerald-200 rounded-full"></div>
+        </div>
+      )}
+    </div>
   );
 };
+
+
+// -- Main Component --
 
 export default function MarketExplorer() {
+  const [searchParams] = useSearchParams();
+  const batchId = searchParams.get('batchId');
+  
+  const [batchJourneyData, setBatchJourneyData] = useState(null);
+  const [productName, setProductName] = useState('Commodity');
+  const [loadingData, setLoadingData] = useState(false);
+  const [apiError, setApiError] = useState(null);
+
+  // Mandi Data states
   const [statesOfIndia, setStatesOfIndia] = useState([]);
   const [availableDistricts, setAvailableDistricts] = useState([]);
   const [availableMarkets, setAvailableMarkets] = useState([]);
-
   const [selectedState, setSelectedState] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('');
-  const [selectedBlock, setSelectedBlock] = useState('');
   const [selectedMandi, setSelectedMandi] = useState('');
   const [selectedCrop, setSelectedCrop] = useState('');
-
   const [mandiRecord, setMandiRecord] = useState(null);
-  const [loadingData, setLoadingData] = useState(false);
-  const [apiError, setApiError] = useState(null);
-  const [latestDataInfo, setLatestDataInfo] = useState(null);
 
   const cropsList = ["Wheat", "Rice", "Maize", "Cotton", "Sugarcane", "Mustard", "Soyabean", "Potato"];
 
-  // 1. Fetch States on mount
+  // Fetch batch journey if batchId exists
+  useEffect(() => {
+    if (batchId) {
+      setLoadingData(true);
+      fetch(`http://localhost:5001/api/transactions/journey/${batchId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.journey) {
+            setBatchJourneyData(data.journey);
+            if (data.product) setProductName(data.product);
+          } else {
+             setApiError('No traceability record found for this batch.');
+          }
+          setLoadingData(false);
+        })
+        .catch(err => {
+          console.error(err);
+          setApiError('Unable to load crop journey. Please try again.');
+          setLoadingData(false);
+        });
+    }
+  }, [batchId]);
+
+  // Fetch States on mount for Mandi section
   useEffect(() => {
     marketService.getGovernmentMandiStates().then(states => {
       setStatesOfIndia(states || []);
@@ -67,23 +201,20 @@ export default function MarketExplorer() {
     });
   }, []);
 
-  // 2. Fetch Districts when State changes
+  // Fetch Districts when State changes
   useEffect(() => {
     if (selectedState) {
       marketService.getGovernmentMandiDistricts(selectedState).then(districts => {
         setAvailableDistricts(districts || []);
         setSelectedDistrict('');
-        setSelectedBlock('');
         setSelectedMandi('');
         setAvailableMarkets([]);
         setMandiRecord(null);
-        setLatestDataInfo(null);
-        setApiError(null);
       });
     }
   }, [selectedState]);
 
-  // 3 & 4. Fetch Markets when State+District+Crop changes
+  // Fetch Markets when State+District+Crop changes
   useEffect(() => {
     if (selectedState && selectedDistrict && selectedCrop) {
       marketService.getGovernmentMandiPrices({
@@ -105,477 +236,363 @@ export default function MarketExplorer() {
     }
   }, [selectedState, selectedDistrict, selectedCrop]);
 
-  const handleViewJourney = async () => {
+  const handleSearchMandi = async () => {
     if (!selectedState || !selectedDistrict || !selectedCrop || !selectedMandi) return;
-    
-    setLoadingData(true);
-    setApiError(null);
-    setMandiRecord(null);
-    setLatestDataInfo(null);
-
     const res = await marketService.getGovernmentMandiPrices({
-      state: selectedState,
-      district: selectedDistrict,
-      commodity: selectedCrop,
-      market: selectedMandi,
-      limit: 1
+      state: selectedState, district: selectedDistrict, commodity: selectedCrop, market: selectedMandi, limit: 1
     });
-
-    setLoadingData(false);
-
-    if (!res.success) {
-      setApiError('Government market data is temporarily unavailable.');
-      return;
-    }
-
-    if (res.records && res.records.length > 0) {
+    if (res.success && res.records && res.records.length > 0) {
       setMandiRecord(res.records[0]);
-      setLatestDataInfo({
-        isLatestAvailable: res.isLatestAvailable,
-        latestArrivalDate: res.latestArrivalDate
-      });
     } else {
-      setMandiRecord(false); // Indicates no records found
+      setMandiRecord(false);
     }
   };
 
-  const priceData = [
-    { name: 'Farmer', price: null, increase: null },
-    { name: 'Mandi', price: mandiRecord ? mandiRecord.modal_price : null, increase: null },
-    { name: 'Wholesaler', price: null, increase: null },
-    { name: 'Distributor', price: null, increase: null },
-    { name: 'Retailer', price: null, increase: null },
-  ];
+
+  // --- Rendering logic ---
+
+  if (loadingData) {
+    return (
+      <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center pt-16">
+        <Leaf className="w-12 h-12 text-emerald-500 animate-bounce mb-4" />
+        <h2 className="text-xl font-bold text-gray-800">Loading crop journey...</h2>
+        <p className="text-gray-500 font-medium mt-2">Tracing origin records</p>
+      </div>
+    );
+  }
+
+  // Calculate Summary metrics
+  const farmersList = batchJourneyData?.farmers || [];
+  const totalFarmers = farmersList.length;
+  const totalQuantity = farmersList.reduce((acc, f) => acc + (f.data?.quantity || 0), 0);
+  
+  let currentStageName = 'Farmer';
+  let currentStageTime = null;
+  let stagesRecorded = 1;
+
+  if (farmersList.length > 0) {
+     currentStageName = 'Buyer'; // Farm to Buyer is stage 1
+     currentStageTime = farmersList[0].data?.date;
+     stagesRecorded = 2;
+  }
+  if (batchJourneyData?.wholesaler?.status === 'verified') {
+    currentStageName = 'Wholesaler';
+    currentStageTime = batchJourneyData.wholesaler.data?.date;
+    stagesRecorded = 3;
+  }
+  if (batchJourneyData?.distributor?.status === 'verified') {
+    currentStageName = 'Distributor';
+    currentStageTime = batchJourneyData.distributor.data?.date;
+    stagesRecorded = 4;
+  }
+  if (batchJourneyData?.retailer?.status === 'verified') {
+    currentStageName = 'Retailer';
+    currentStageTime = batchJourneyData.retailer.data?.date;
+    stagesRecorded = 5;
+  }
+  if (batchJourneyData?.consumer?.status === 'verified') {
+    currentStageName = 'Consumer';
+    currentStageTime = batchJourneyData.consumer.data?.date;
+    stagesRecorded = 6;
+  }
+
+  const isCompleted = currentStageName === 'Consumer';
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] font-sans pb-12 pt-16 text-[#111827]">
+    <div className="min-h-screen bg-[#F9FAFB] font-sans pb-24 pt-16 text-[#111827]">
       
-      {/* Top Header Section with Warm Earthy Background */}
-      <div className="relative border-b border-[#E5E7EB] bg-gradient-to-br from-[#FDFCF8] via-[#F9F6EE] to-[#F3EFE6] overflow-hidden">
-        {/* Subtle texture overlay */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/cream-paper.png")' }}></div>
+      {/* 1. HEADER SECTION */}
+      <div className="bg-[#0C3B2E] text-white pt-10 pb-20 px-6 relative overflow-hidden">
+        {/* Pattern overlay */}
+        <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
         
-        <div className="relative z-10 max-w-[1600px] mx-auto px-6 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            {/* Left: Title & Filters (Col-span-8) */}
-            <div className="lg:col-span-8">
-              <div className="mb-5">
-                <h1 className="text-3xl font-bold flex items-center gap-2 text-[#111827]">
-                  <Leaf className="text-[#10B981] h-8 w-8" fill="#10B981" />
-                  Crop Journey
-                </h1>
-                <p className="text-sm font-medium text-[#6B7280] mt-1.5">
-                  Track your crop from farm to consumer — every step, every price
-                </p>
+        <div className="max-w-5xl mx-auto relative z-10">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5" /> Immutable Record
+                </span>
+                {batchId?.includes('DEMO') && (
+                  <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                    SIMULATED DEMO
+                  </span>
+                )}
               </div>
-
-              {/* Filter Card */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-                  {/* State */}
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">State</label>
-                    <div className="relative">
-                      <select 
-                        value={selectedState} 
-                        onChange={(e) => setSelectedState(e.target.value)}
-                        className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] focus:bg-white transition-colors">
-                        {statesOfIndia.map(state => <option key={state} value={state}>{state}</option>)}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
-                    </div>
-                  </div>
-                  {/* District */}
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">District</label>
-                    <div className="relative">
-                      <select 
-                        value={selectedDistrict}
-                        onChange={(e) => setSelectedDistrict(e.target.value)}
-                        className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] focus:bg-white transition-colors">
-                        <option value="">Select District</option>
-                        {availableDistricts.map(dist => <option key={dist} value={dist}>{dist}</option>)}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
-                    </div>
-                  </div>
-                  {/* Crop */}
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Crop / Commodity</label>
-                    <div className="relative">
-                      <select 
-                        value={selectedCrop}
-                        onChange={(e) => setSelectedCrop(e.target.value)}
-                        className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] focus:bg-white transition-colors">
-                        <option value="">Select Crop</option>
-                        {cropsList.map(crop => <option key={crop} value={crop}>{crop}</option>)}
-                      </select>
-                      <X onClick={() => setSelectedCrop('')} className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" />
-                    </div>
-                  </div>
-                  {/* Market */}
-                  <div className="lg:col-span-2">
-                    <label className="block text-[11px] font-semibold text-gray-500 mb-1 uppercase tracking-wide">Market / Mandi</label>
-                    <div className="relative">
-                      <select 
-                        value={selectedMandi}
-                        onChange={(e) => setSelectedMandi(e.target.value)}
-                        className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] focus:bg-white transition-colors disabled:opacity-50"
-                        disabled={availableMarkets.length === 0}
-                      >
-                        {availableMarkets.length === 0 && <option value="">No markets found</option>}
-                        {availableMarkets.map(m => <option key={m} value={m}>{m}</option>)}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
-                    </div>
-                  </div>
-                  {/* View Journey Button */}
-                  <div className="flex items-end">
-                    <button 
-                      onClick={handleViewJourney} 
-                      disabled={loadingData || !selectedState || !selectedDistrict || !selectedCrop || !selectedMandi}
-                      className="w-full bg-[#0C3B2E] hover:bg-[#1B4D3E] text-white font-bold py-2 rounded-lg transition text-sm disabled:opacity-50">
-                      {loadingData ? 'Loading...' : 'View Journey'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Breadcrumb */}
-              <div className="mt-3 text-xs font-medium text-[#6B7280] flex items-center gap-1.5">
-                <MapPin className="h-3 w-3 text-amber-600" />
-                Showing data for: <span className="font-semibold text-gray-800">{selectedState || 'State'} {'>'} {selectedDistrict || 'District'} {'>'} {selectedCrop || 'Crop'} {'>'} {selectedMandi || 'Market'}</span>
-              </div>
-            </div>
-
-            {/* Right: Metrics (Col-span-4) */}
-            <div className="lg:col-span-4 flex flex-col sm:flex-row lg:flex-col xl:flex-row gap-4 h-full pt-1 lg:pt-0">
-              {/* Transparency Score */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex-1 flex flex-col justify-center min-w-[180px]">
-                <div className="flex items-center gap-2 mb-3 text-[#111827] font-semibold text-sm">
-                  <Shield className="h-4 w-4 text-gray-500" />
-                  Transparency Score
-                </div>
-                <div className="text-4xl font-extrabold text-[#10B981] flex items-baseline gap-1">
-                  {mandiRecord ? '92' : '--'}<span className="text-xl text-gray-400 font-medium">/100</span>
-                </div>
-                {mandiRecord && <div className="text-xs font-bold text-[#10B981] mt-2 bg-[#ECFDF5] px-2 py-1 rounded-md inline-block self-start border border-[#10B981]/20">Highly Transparent</div>}
-              </div>
-
-              {/* Verification Checklist & Last Updated */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-1 flex flex-col justify-between min-w-[220px]">
-                <div className="grid grid-cols-1 gap-2 text-[11px] font-semibold text-gray-600">
-                  <div className="flex items-center justify-between"><span className="flex items-center gap-1.5"><CheckCircle2 className={`h-3.5 w-3.5 ${mandiRecord ? 'text-[#10B981]' : 'text-gray-300'}`}/> Government Data</span> <span className="text-gray-400">{mandiRecord ? 'Verified' : '--'}</span></div>
-                  <div className="flex items-center justify-between"><span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-gray-300"/> Buyer Verified</span> <span className="text-gray-400">--</span></div>
-                  <div className="flex items-center justify-between"><span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-gray-300"/> Digital Records</span> <span className="text-gray-400">--</span></div>
-                  <div className="flex items-center justify-between"><span className="flex items-center gap-1.5"><CheckCircle2 className={`h-3.5 w-3.5 ${mandiRecord ? 'text-[#10B981]' : 'text-gray-300'}`}/> Secure Records</span> <span className="text-gray-400">{mandiRecord ? 'Yes' : '--'}</span></div>
-                  <div className="flex items-center justify-between"><span className="flex items-center gap-1.5"><CheckCircle2 className={`h-3.5 w-3.5 ${mandiRecord ? 'text-[#10B981]' : 'text-gray-300'}`}/> Location Tracking</span> <span className="text-gray-400">{mandiRecord ? 'Yes' : '--'}</span></div>
-                </div>
-                
-                <div className="mt-4 pt-3 border-t border-gray-100 flex items-end justify-between">
-                  <div>
-                    <div className="text-[10px] text-gray-400 font-bold mb-1 uppercase tracking-wider flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-gray-300"></span> 
-                      {latestDataInfo?.isLatestAvailable ? 'Latest Available Data' : 'Market Data Date'}
-                    </div>
-                    <div className="text-xs font-bold text-gray-800">{mandiRecord ? mandiRecord.arrival_date : '--'}</div>
-                  </div>
-                  <div className="flex gap-1.5 shrink-0">
-                     <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${mandiRecord ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>data.gov.in</div>
-                     <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${mandiRecord ? 'bg-[#10B981] text-white border-transparent' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>AGMARKNET</div>
-                  </div>
-                </div>
+              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-2">
+                Crop Journey
+              </h1>
+              <div className="text-emerald-100/80 font-medium text-lg flex items-center gap-2">
+                <span className="capitalize">{productName}</span> 
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span className="font-mono text-sm opacity-80">Batch: {batchId || 'N/A'}</span>
               </div>
             </div>
             
+            {/* Quick Status Badge */}
+            {batchJourneyData && (
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-center min-w-[200px]">
+                <p className="text-emerald-200 text-xs font-bold uppercase tracking-wider mb-1">Current Location</p>
+                <div className="text-2xl font-bold flex items-center justify-center gap-2">
+                   {currentStageName}
+                   {isCompleted && <CheckCircle2 className="w-6 h-6 text-emerald-400" />}
+                </div>
+                {currentStageTime && (
+                  <p className="text-[10px] text-emerald-100/60 mt-1 font-medium">Last moved: {new Date(currentStageTime).toLocaleDateString()}</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Main Grid Content */}
-      <div className="max-w-[1600px] mx-auto px-6 py-6">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 -mt-10 relative z-20">
         
-        {apiError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl mb-6 font-semibold flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
-            {apiError}
+        {apiError && !batchJourneyData ? (
+          <div className="bg-white rounded-2xl shadow-xl p-10 text-center border border-gray-100">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">{apiError}</h2>
+            <p className="text-gray-500">Please verify the Batch ID and try again.</p>
           </div>
-        )}
-        
-        {mandiRecord === false && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl mb-6 font-semibold flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
-            <div>
-              <p>No government mandi record found for this combination.</p>
-              <p className="text-sm font-medium mt-1">Try another market, commodity or date.</p>
-            </div>
-          </div>
-        )}
-
-        {loadingData ? (
-          <div className="animate-pulse flex flex-col space-y-6">
-            <div className="h-24 bg-gray-200 rounded-xl"></div>
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-               <div className="lg:col-span-8 h-80 bg-gray-200 rounded-xl"></div>
-               <div className="lg:col-span-4 h-80 bg-gray-200 rounded-xl"></div>
-            </div>
-          </div>
-        ) : mandiRecord ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            {/* Left Main Area (Col-span-8) */}
-            <div className="lg:col-span-8 flex flex-col gap-6">
-              
-              {/* Progress Stepper - Compact Horizontal */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 overflow-x-auto">
-                <div className="flex items-center min-w-max px-2">
-                  {[
-                    { num: 1, name: 'Farmer', loc: mandiRecord.district, active: false, imgUrl: '/images/journey/farmer.jpg' },
-                    { num: 2, name: 'Mandi', loc: mandiRecord.market, active: true, imgUrl: '/images/journey/mandi.jpg' },
-                    { num: 3, name: 'Wholesaler', loc: '--', active: false, imgUrl: '/images/journey/wholesaler.jpg' },
-                    { num: 4, name: 'Distributor', loc: '--', active: false, imgUrl: '/images/journey/distributor.jpg' },
-                    { num: 5, name: 'Retailer', loc: '--', active: false, imgUrl: '/images/journey/retailer.jpg' },
-                    { num: 6, name: 'Consumer', loc: '--', active: false, imgUrl: '/images/journey/consumer.jpg' },
-                  ].map((step, idx) => (
-                    <React.Fragment key={step.name}>
-                      <div className={`relative px-4 py-2 rounded-lg flex items-center gap-3 w-[190px] shrink-0 ${step.active ? 'border border-[#10B981] bg-[#ECFDF5]/30' : 'border border-transparent hover:bg-gray-50'}`}>
-                        <img src={step.imgUrl} alt={step.name} className="w-12 h-12 rounded object-cover shadow-sm shrink-0" />
-                        <div className="flex flex-col min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`text-[10px] font-bold h-3.5 w-3.5 rounded-full flex items-center justify-center shrink-0 ${step.active ? 'bg-[#10B981] text-white' : 'bg-gray-100 text-gray-500'}`}>{step.num}</span>
-                            <span className="font-bold text-[13px] text-[#111827] truncate">{step.name}</span>
-                          </div>
-                          <span className="text-[10px] text-gray-500 font-medium truncate mt-0.5">{step.loc}</span>
-                          {step.active ? (
-                            <span className="text-[9px] font-bold text-[#10B981] mt-0.5">Current Stage</span>
-                          ) : (
-                            <span className="text-[9px] font-bold text-gray-400 flex items-center gap-0.5 mt-0.5"><CheckCircle2 className="h-3 w-3 text-gray-300" /> Pending</span>
-                          )}
-                        </div>
-                      </div>
-                      {idx < 5 && <ArrowRight className="h-4 w-4 text-gray-300 shrink-0 mx-1" />}
-                    </React.Fragment>
-                  ))}
-                </div>
-              </div>
-
-              {/* Price Chart & Breakdown */}
-              <div className="flex flex-col xl:flex-row gap-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                
-                {/* Chart */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-base font-bold text-[#111827]">Price Journey <span className="text-xs font-medium text-gray-400 ml-1">(₹ per Quintal)</span></h3>
-                    <div className="relative">
-                      <select className="appearance-none rounded-md border border-gray-200 bg-gray-50 py-1.5 pl-3 pr-8 text-[11px] font-bold text-gray-600 focus:outline-none">
-                        <option>Price per Quintal</option>
-                      </select>
-                      <ChevronDown className="absolute right-2 top-2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-                    </div>
-                  </div>
-                  
-                  <div className="h-[260px] w-full relative">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={priceData} margin={{ top: 20, right: 30, left: -10, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#6B7280', fontWeight: 600 }} dy={10} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#6B7280', fontWeight: 500 }} domain={[(mandiRecord.modal_price || 2000) - 1000, (mandiRecord.modal_price || 2000) + 1000]} tickFormatter={(val) => `₹${val.toLocaleString('en-IN')}`} />
-                        <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px', fontWeight: 'bold' }} cursor={{ stroke: '#E5E7EB', strokeWidth: 2, strokeDasharray: '3 3' }} />
-                        <Line 
-                          type="monotone" 
-                          dataKey="price" 
-                          stroke="#10B981" 
-                          strokeWidth={2.5} 
-                          dot={<CustomizedDot />} 
-                          label={<CustomizedLabel />}
-                          activeDot={{ r: 5, fill: '#10B981', stroke: '#fff', strokeWidth: 2 }}
-                          connectNulls={false}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                {/* Breakdown */}
-                <div className="w-full xl:w-64 shrink-0 flex flex-col justify-between pt-4 xl:pt-0 border-t xl:border-t-0 xl:border-l border-gray-100 xl:pl-6">
-                  <div>
-                    <h3 className="text-sm font-bold text-[#111827] mb-5">Why Price Changed?</h3>
-                    <ul className="space-y-3.5">
-                      <li className="flex justify-between items-center text-xs font-semibold text-[#6B7280]">
-                        <span className="flex items-center gap-2"><span className="h-1 w-1 rounded-full bg-gray-400"></span>Downstream Data</span>
-                        <span className="font-bold text-[#111827]">Not available</span>
-                      </li>
-                      <li className="flex justify-between items-center text-xs font-semibold text-[#6B7280]">
-                        <span className="flex items-center gap-2"><span className="h-1 w-1 rounded-full bg-gray-400"></span>Mandi Modal Price</span>
-                        <span className="font-bold text-[#10B981]">₹{mandiRecord.modal_price?.toLocaleString('en-IN')}</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* Journey Flow Detailed Information Grid (Compact Row) */}
-              <div className="bg-transparent">
-                <div className="flex justify-between items-end mb-3">
-                  <h3 className="text-base font-bold text-[#111827]">Journey Flow — Detailed Information</h3>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                  {[
-                    { title: 'Farmer', imgUrl: '/images/journey/farmer.jpg', data: [['Location', mandiRecord.district], ['Status', 'SAATHI data not yet available']] },
-                    { title: 'Mandi', imgUrl: '/images/journey/mandi.jpg', data: [['Market', mandiRecord.market], ['Commodity', mandiRecord.commodity], ['Variety', mandiRecord.variety || 'FAQ'], ['Modal Price', `₹${mandiRecord.modal_price?.toLocaleString('en-IN') || 0} /q`], ['Date', mandiRecord.arrival_date]] },
-                    { title: 'Wholesaler', imgUrl: '/images/journey/wholesaler.jpg', data: [['Status', 'SAATHI data not yet available']] },
-                    { title: 'Distributor', imgUrl: '/images/journey/distributor.jpg', data: [['Status', 'SAATHI data not yet available']] },
-                    { title: 'Retailer', imgUrl: '/images/journey/retailer.jpg', data: [['Status', 'SAATHI data not yet available']] },
-                    { title: 'Consumer', imgUrl: '/images/journey/consumer.jpg', data: [['Status', 'Not available']] },
-                  ].map((item, idx) => (
-                    <div key={item.title} className="bg-white rounded-xl shadow-sm border border-gray-200 p-3.5 flex flex-col relative group hover:border-[#10B981]/40 transition-all h-full overflow-hidden">
-                      <div className="flex items-center gap-2 mb-3">
-                        <img src={item.imgUrl} alt={item.title} className="w-5 h-5 rounded-sm object-cover" />
-                        <h4 className="font-bold text-[13px] text-gray-800">{item.title}</h4>
-                      </div>
-                      <div className="flex-1 relative mb-4">
-                        <div className="space-y-2 relative z-10">
-                          {item.data.map(([label, val]) => (
-                            <div key={label} className="grid grid-cols-1 gap-0.5 text-[10px]">
-                              <span className="text-gray-400 font-semibold">{label}</span>
-                              <span className="font-bold text-gray-700 leading-tight bg-white/70 inline-block px-1 -mx-1 rounded">{val}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="absolute -bottom-2 -right-2 w-20 h-20 opacity-90 z-0">
-                          <img src={item.imgUrl} alt={item.title} className="w-full h-full object-contain drop-shadow-md rounded-lg" style={{ maskImage: 'linear-gradient(to top, rgba(0,0,0,1) 50%, rgba(0,0,0,0.2) 100%)', WebkitMaskImage: 'linear-gradient(to top, rgba(0,0,0,1) 50%, rgba(0,0,0,0.2) 100%)' }} />
-                        </div>
-                      </div>
-                      <button className="w-full relative z-10 text-[10px] font-bold text-gray-600 bg-white border border-gray-200 rounded py-1.5 hover:bg-gray-50 transition mt-auto shadow-sm">View Details ∨</button>
-                      {idx < 5 && <ArrowRight className="hidden lg:block absolute -right-2 top-[30%] h-3 w-3 text-gray-300 z-10 bg-[#F9FAFB]" />}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-            </div>
-
-            {/* Right Sidebar Area (Col-span-4) */}
-            <div className="lg:col-span-4 flex flex-col gap-6">
-              
-              {/* Stage Details Panel */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-[#FDFDFD]">
-                   <h3 className="font-bold text-[13px] text-gray-500 uppercase tracking-wider">Stage Details</h3>
-                   <X className="h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" />
-                </div>
-                <div className="p-6">
-                  <div className="mb-6">
-                    <div className="inline-flex items-center gap-1.5 bg-[#ECFDF5] text-[#10B981] font-bold text-xs px-2.5 py-1 rounded-full mb-3 border border-[#10B981]/20">
-                      <div className="w-2 h-2 rounded-full bg-[#10B981]"></div>
-                      Stage 2 of 6
-                    </div>
-                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">Mandi Market</h2>
-                  </div>
-
-                  <div className="space-y-4 mb-8">
-                    <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
-                      <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center border border-gray-100">
-                        <img src="/images/details/warehouse.jpg" alt="Market" className="w-full h-full object-cover mix-blend-multiply" />
-                      </div>
-                      <div className="flex-1 flex justify-between items-center">
-                        <span className="text-sm font-semibold text-gray-800">Market Name</span>
-                        <span className="text-sm font-bold text-gray-900 text-right">{mandiRecord.market}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
-                      <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center border border-gray-100">
-                        <img src="/images/details/pin.jpg" alt="Location" className="w-full h-full object-cover mix-blend-multiply scale-110" />
-                      </div>
-                      <div className="flex-1 flex justify-between items-center">
-                        <span className="text-sm font-semibold text-gray-800">Location</span>
-                        <span className="text-sm font-bold text-gray-900 text-right">{mandiRecord.district}, {mandiRecord.state}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
-                      <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center border border-gray-100">
-                        <Leaf className="h-4 w-4 text-amber-600" />
-                      </div>
-                      <div className="flex-1 flex justify-between items-center">
-                        <span className="text-sm font-semibold text-gray-800">Commodity</span>
-                        <span className="text-sm font-bold text-gray-900 text-right">{mandiRecord.commodity}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
-                      <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center border border-gray-100">
-                        <TrendingUp className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <div className="flex-1 flex justify-between items-center">
-                        <span className="text-sm font-semibold text-gray-800">Variety / Grade</span>
-                        <span className="text-sm font-bold text-gray-900 text-right">{mandiRecord.variety} / {mandiRecord.grade}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
-                      <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center border border-gray-100">
-                        <img src="/images/details/boxes.jpg" alt="Price" className="w-full h-full object-cover mix-blend-multiply scale-125" />
-                      </div>
-                      <div className="flex-1 flex flex-col justify-center">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-sm font-semibold text-gray-800">Modal Price (₹/q)</span>
-                          <span className="text-sm font-bold text-[#10B981] text-right">₹{mandiRecord.modal_price?.toLocaleString('en-IN')}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-xs text-gray-500">
-                          <span>Min: ₹{mandiRecord.min_price?.toLocaleString('en-IN')}</span>
-                          <span>Max: ₹{mandiRecord.max_price?.toLocaleString('en-IN')}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
-                      <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center border border-gray-100">
-                        <img src="/images/details/calendar.jpg" alt="Date" className="w-full h-full object-cover mix-blend-multiply scale-110" />
-                      </div>
-                      <div className="flex-1 flex justify-between items-center">
-                        <span className="text-sm font-semibold text-gray-800">Arrival Date</span>
-                        <span className="text-sm font-bold text-gray-900 text-right">{mandiRecord.arrival_date}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
-                      <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center border border-gray-100">
-                         <LinkIcon className="h-4 w-4 text-gray-400 -rotate-45" />
-                      </div>
-                      <div className="flex-1 flex justify-between items-center">
-                        <span className="text-sm font-semibold text-gray-800">Source</span>
-                        <span className="text-[11px] font-mono font-medium text-gray-600 bg-gray-100 border border-gray-200 px-2 py-1 rounded">AGMARKNET</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <a href="https://agmarknet.gov.in" target="_blank" rel="noreferrer" className="w-full bg-[#0C3B2E] hover:bg-[#1B4D3E] text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition text-sm shadow-md">
-                    View Source <ArrowRight className="h-4 w-4 -rotate-45" />
-                  </a>
-                </div>
-              </div>
-            </div>
+        ) : !batchJourneyData ? (
+          <div className="bg-white rounded-2xl shadow-xl p-10 text-center border border-gray-100">
+             <h2 className="text-xl font-bold text-gray-900 mb-2">No Batch Selected</h2>
+             <p className="text-gray-500">Provide a valid batchId in the URL to view the traceability journey.</p>
           </div>
         ) : (
-          <div className="py-20 text-center text-gray-400">
-            <Leaf className="h-12 w-12 mx-auto mb-4 opacity-20" />
-            <p className="font-semibold">Select your filters and click "View Journey" to see government mandi data.</p>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            {/* LEFT COLUMN: TIMELINE (col-span-8) */}
+            <div className="lg:col-span-8 space-y-6">
+              
+              {/* SUMMARY PANEL */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 grid grid-cols-2 md:grid-cols-4 gap-4 divide-x divide-gray-100">
+                <div className="px-2 text-center">
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Origin</div>
+                  <div className="text-xl font-extrabold text-gray-900">{totalFarmers} <span className="text-sm font-semibold text-gray-500">Farmers</span></div>
+                </div>
+                <div className="px-2 text-center">
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Sourced</div>
+                  <div className="text-xl font-extrabold text-emerald-600">{totalQuantity} <span className="text-sm font-semibold opacity-70">QTL</span></div>
+                </div>
+                <div className="px-2 text-center">
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Stages</div>
+                  <div className="text-xl font-extrabold text-gray-900">{stagesRecorded} <span className="text-sm font-semibold text-gray-500">/ 6</span></div>
+                </div>
+                <div className="px-2 text-center">
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Verified</div>
+                  <div className="text-xl font-extrabold text-gray-900">{stagesRecorded} <span className="text-sm font-semibold text-gray-500">hops</span></div>
+                </div>
+              </div>
+
+              <h2 className="text-lg font-bold text-gray-900 px-2 mt-8 mb-4 border-b border-gray-200 pb-2">Complete Supply Chain Traceability</h2>
+
+              {/* VERTICAL TIMELINE */}
+              <div className="relative pb-10">
+
+                {/* 1. FARM ORIGINS (Multi-farmer support) */}
+                <div className="relative pl-8 md:pl-0 mb-6">
+                  {/* Mobile timeline connector */}
+                  <div className="absolute left-[11px] top-6 bottom-[-24px] w-[2px] bg-emerald-200 md:hidden z-0"></div>
+                  
+                  <div className="flex items-center gap-2 mb-4 md:justify-center">
+                    <div className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-emerald-200 z-10 bg-white">
+                      Farm Origin
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
+                    {farmersList.map((farmer, idx) => (
+                      <div key={farmer.data?.transactionId || idx} className="bg-white rounded-2xl border border-emerald-100 shadow-sm p-4 relative ring-1 ring-black/[0.02] hover:shadow-md transition-all">
+                        <div className="flex items-start justify-between mb-3">
+                           <div className="flex items-center gap-2.5">
+                             <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                               <Leaf className="w-4 h-4 text-emerald-600" />
+                             </div>
+                             <div>
+                               <h4 className="font-bold text-gray-900 text-sm">{farmer.data?.seller || 'Unknown Farmer'}</h4>
+                               <p className="text-[10px] font-semibold text-gray-500 flex items-center gap-0.5 mt-0.5"><MapPin className="w-3 h-3"/> {farmer.data?.location || 'Unknown'}</p>
+                             </div>
+                           </div>
+                           <div className="text-emerald-500"><CheckCircle2 className="w-4 h-4" /></div>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-3 grid grid-cols-2 gap-2 text-xs border border-gray-100">
+                          <div><span className="text-gray-400 font-bold text-[10px] uppercase">Qty</span><br/><span className="font-bold text-gray-800">{farmer.data?.quantity} QTL</span></div>
+                          <div><span className="text-gray-400 font-bold text-[10px] uppercase">Price</span><br/><span className="font-bold text-emerald-600">₹{farmer.data?.price}</span></div>
+                        </div>
+                        <ExpandableTransactionDetails data={farmer.data} isDemo={farmer.data?.transactionId?.includes('DEMO')} status={farmer.status} />
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop timeline connector */}
+                  <div className="hidden md:flex justify-center py-4 text-emerald-300">
+                    <div className="h-6 w-[2px] bg-gradient-to-b from-emerald-400 to-emerald-200 rounded-full"></div>
+                  </div>
+                </div>
+
+                {/* 2. BUYER (Aggregator) */}
+                {/* Note: In this architecture, the buyer is technically the receiver of the farmer transactions. We consolidate them into a Buyer stage. */}
+                {farmersList.length > 0 && (
+                   <StageCard 
+                     title="Buyer / Aggregator"
+                     icon={Building}
+                     color="bg-teal-500"
+                     data={{
+                       ...farmersList[0].data, 
+                       quantity: totalQuantity, // Aggregate
+                       seller: undefined // It's the buyer now
+                     }}
+                     status={farmersList[0].status}
+                     nextStageIcon={true}
+                   />
+                )}
+
+                {/* 3. WHOLESALER */}
+                <StageCard 
+                  title="Wholesaler"
+                  icon={Truck}
+                  color="bg-blue-500"
+                  data={batchJourneyData.wholesaler?.data}
+                  status={batchJourneyData.wholesaler?.status}
+                  isUnavailable={!batchJourneyData.wholesaler?.data}
+                  nextStageIcon={true}
+                />
+
+                {/* 4. DISTRIBUTOR */}
+                <StageCard 
+                  title="Distributor"
+                  icon={Package}
+                  color="bg-indigo-500"
+                  data={batchJourneyData.distributor?.data}
+                  status={batchJourneyData.distributor?.status}
+                  isUnavailable={!batchJourneyData.distributor?.data}
+                  nextStageIcon={true}
+                />
+
+                {/* 5. RETAILER */}
+                <StageCard 
+                  title="Retailer"
+                  icon={Store}
+                  color="bg-purple-500"
+                  data={batchJourneyData.retailer?.data}
+                  status={batchJourneyData.retailer?.status}
+                  isUnavailable={!batchJourneyData.retailer?.data}
+                  nextStageIcon={true}
+                />
+
+                {/* 6. CONSUMER */}
+                <StageCard 
+                  title="Consumer"
+                  icon={ShoppingBag}
+                  color="bg-rose-500"
+                  data={batchJourneyData.consumer?.data}
+                  status={batchJourneyData.consumer?.status}
+                  isUnavailable={!batchJourneyData.consumer?.data}
+                  nextStageIcon={false}
+                />
+
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN: GOVERNMENT & MARKETPLACE (col-span-4) */}
+            <div className="lg:col-span-4 space-y-6">
+              
+              {/* GOVERNMENT MANDI RECORD */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden sticky top-24">
+                <div className="bg-[#1E3A8A] px-5 py-4 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-blue-200" />
+                    <h3 className="font-bold text-sm">GOVERNMENT / MANDI</h3>
+                  </div>
+                  <CheckCircle2 className="w-5 h-5 text-blue-300" />
+                </div>
+                
+                <div className="p-5">
+                  <p className="text-xs font-medium text-gray-500 mb-4 leading-relaxed">
+                    Compare this commercial batch against official government Mandi records to verify fair pricing.
+                  </p>
+
+                  <div className="space-y-4">
+                     <div>
+                      <label className="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">State</label>
+                      <select 
+                        value={selectedState} 
+                        onChange={(e) => setSelectedState(e.target.value)}
+                        className="w-full text-sm font-semibold border-gray-200 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 py-2">
+                        {statesOfIndia.map(state => <option key={state} value={state}>{state}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">District</label>
+                      <select 
+                        value={selectedDistrict}
+                        onChange={(e) => setSelectedDistrict(e.target.value)}
+                        className="w-full text-sm font-semibold border-gray-200 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 py-2">
+                        <option value="">Select District</option>
+                        {availableDistricts.map(dist => <option key={dist} value={dist}>{dist}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Crop</label>
+                      <select 
+                        value={selectedCrop}
+                        onChange={(e) => setSelectedCrop(e.target.value)}
+                        className="w-full text-sm font-semibold border-gray-200 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 py-2">
+                        <option value="">Select Crop</option>
+                        {cropsList.map(crop => <option key={crop} value={crop}>{crop}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Market</label>
+                      <select 
+                        value={selectedMandi}
+                        onChange={(e) => setSelectedMandi(e.target.value)}
+                        disabled={availableMarkets.length === 0}
+                        className="w-full text-sm font-semibold border-gray-200 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 py-2 disabled:opacity-50">
+                        {availableMarkets.length === 0 && <option value="">No markets found</option>}
+                        {availableMarkets.map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    </div>
+                    <button 
+                      onClick={handleSearchMandi} 
+                      disabled={!selectedState || !selectedDistrict || !selectedCrop || !selectedMandi}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition text-sm disabled:opacity-50 mt-2">
+                      Fetch Official Price
+                    </button>
+                  </div>
+
+                  {mandiRecord && (
+                    <div className="mt-6 pt-5 border-t border-gray-100">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Official Modal Price</div>
+                        <div className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">data.gov.in</div>
+                      </div>
+                      <div className="text-3xl font-extrabold text-blue-900 mb-1">
+                        ₹{mandiRecord.modal_price} <span className="text-sm font-semibold text-gray-500">/ QTL</span>
+                      </div>
+                      <div className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-gray-400" /> {mandiRecord.market}, {mandiRecord.district}
+                      </div>
+                      <div className="text-[10px] font-medium text-gray-400 mt-3 flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> Arrival Date: {mandiRecord.arrival_date}
+                      </div>
+                    </div>
+                  )}
+
+                  {mandiRecord === false && (
+                    <div className="mt-5 p-3 rounded-lg bg-amber-50 border border-amber-100 text-amber-800 text-xs font-semibold text-center">
+                      No official records found for this selection.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
           </div>
         )}
-
-        {/* Footer Alert */}
-        <div className="bg-[#ECFDF5] border border-[#10B981]/30 rounded-xl p-4 flex items-center gap-3 mt-4 mx-auto max-w-[1600px] shadow-sm">
-          <div className="bg-white rounded-full p-1.5 shrink-0 shadow-sm border border-[#10B981]/20">
-            <Lock className="h-4 w-4 text-[#10B981]" />
-          </div>
-          <p className="text-[13px] font-semibold text-[#064E3B]">
-            Government data verifies market-level information; downstream transaction details are shown only when recorded/verified through SAATHI.
-          </p>
-        </div>
-
       </div>
     </div>
   );

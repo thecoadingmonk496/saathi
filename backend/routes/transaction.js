@@ -1,6 +1,7 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/authMiddleware');
-const { createTransaction, getTransaction, getCropJourney } = require('../controllers/transactionController');
+const { requireBlockchainWriter } = require('../middleware/blockchainAuth');
+const { getTransaction, getCropJourney, requestVerification, confirmVerification } = require('../controllers/transactionController');
 
 const router = express.Router();
 
@@ -10,7 +11,8 @@ router.get('/journey/:batchId', getCropJourney);
 // Get a specific transaction details
 router.get('/:id', requireAuth, getTransaction);
 
-// Create a new transaction (requires auth)
-router.post('/', requireAuth, createTransaction);
+// Verification endpoints
+router.post('/:id/request-verification', requireAuth, requestVerification);
+router.post('/:id/confirm-verification', requireBlockchainWriter, confirmVerification);
 
 module.exports = router;

@@ -220,6 +220,70 @@ export default function Dashboard({ onVoiceStart, voiceAssistantResponse }) {
               action={t('dashboard.viewGovtBtn')}
               onOpen={() => navigate('/government')}
             />
+            <ServiceCard
+              accent="green"
+              icon={UserGroupIcon}
+              title="Wholesalers"
+              body="Propose downstream sales"
+              action="View Wholesalers"
+              onOpen={() => navigate('/wholesalers')}
+            />
+            <ServiceCard
+              accent="amber"
+              icon={BuildingLibraryIcon}
+              title="Incoming Orders"
+              body="Review wholesale proposals"
+              action="View Orders"
+              onOpen={() => navigate('/wholesaler/orders')}
+            />
+            <ServiceCard
+              accent="blue"
+              icon={UserGroupIcon}
+              title="Distributors"
+              body="Sell to distributors"
+              action="View Distributors"
+              onOpen={() => navigate('/distributors')}
+            />
+            <ServiceCard
+              accent="slate"
+              icon={BuildingLibraryIcon}
+              title="Distributor Orders"
+              body="Review distributor proposals"
+              action="View Orders"
+              onOpen={() => navigate('/distributor/orders')}
+            />
+            <ServiceCard
+              accent="green"
+              icon={UserGroupIcon}
+              title="Retailers"
+              body="Sell to retailers"
+              action="View Retailers"
+              onOpen={() => navigate('/retailers')}
+            />
+            <ServiceCard
+              accent="amber"
+              icon={BuildingLibraryIcon}
+              title="Retailer Orders"
+              body="Review retailer proposals"
+              action="View Orders"
+              onOpen={() => navigate('/retailer/orders')}
+            />
+            <ServiceCard
+              accent="blue"
+              icon={UserGroupIcon}
+              title="Consumers"
+              body="Sell to consumers"
+              action="View Consumers"
+              onOpen={() => navigate('/consumers')}
+            />
+            <ServiceCard
+              accent="slate"
+              icon={BuildingLibraryIcon}
+              title="Consumer Purchases"
+              body="Review your purchases"
+              action="View Purchases"
+              onOpen={() => navigate('/consumer/orders')}
+            />
           </section>
 
           <section className="mt-5 grid gap-5 lg:grid-cols-[1fr_0.98fr] lg:items-start">

@@ -49,6 +49,7 @@ async function registerUser(req, res) {
       email: normalizedEmail,
       phone: normalizedPhone,
       password: hashedPassword,
+      role: req.body.role || 'USER',
     });
 
     return res.status(201).json({
