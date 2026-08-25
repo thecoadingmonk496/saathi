@@ -17,7 +17,6 @@ import { useLocationContext } from '../context/LocationContext';
 import { useUser } from '../context/UserContext';
 import { mockBuyers, mockCrops, mockPriceHistory, mockSupplyChain } from '../utils/mockData';
 import { getDistricts, getVillages, locationStates } from '../utils/locationOptions';
-import { BlockchainTransparency } from '../components/BlockchainVerification';
 
 const languageLocales = {
   English: 'en-IN',
@@ -210,7 +209,7 @@ export default function Dashboard({ onVoiceStart, voiceAssistantResponse }) {
               title={t('card.explorerTitle')}
               body={t('card.explorerSubtitle')}
               action={t('dashboard.viewJourneyBtn')}
-              onOpen={() => navigate('/explorer')}
+              onOpen={() => navigate('/crop-journey')}
             />
             <ServiceCard
               accent="slate"
@@ -219,6 +218,70 @@ export default function Dashboard({ onVoiceStart, voiceAssistantResponse }) {
               body={t('dashboard.govtSubtitleShort')}
               action={t('dashboard.viewGovtBtn')}
               onOpen={() => navigate('/government')}
+            />
+            <ServiceCard
+              accent="green"
+              icon={UserGroupIcon}
+              title="Wholesalers"
+              body="Propose downstream sales"
+              action="View Wholesalers"
+              onOpen={() => navigate('/wholesalers')}
+            />
+            <ServiceCard
+              accent="amber"
+              icon={BuildingLibraryIcon}
+              title="Incoming Orders"
+              body="Review wholesale proposals"
+              action="View Orders"
+              onOpen={() => navigate('/wholesaler/orders')}
+            />
+            <ServiceCard
+              accent="blue"
+              icon={UserGroupIcon}
+              title="Distributors"
+              body="Sell to distributors"
+              action="View Distributors"
+              onOpen={() => navigate('/distributors')}
+            />
+            <ServiceCard
+              accent="slate"
+              icon={BuildingLibraryIcon}
+              title="Distributor Orders"
+              body="Review distributor proposals"
+              action="View Orders"
+              onOpen={() => navigate('/distributor/orders')}
+            />
+            <ServiceCard
+              accent="green"
+              icon={UserGroupIcon}
+              title="Retailers"
+              body="Sell to retailers"
+              action="View Retailers"
+              onOpen={() => navigate('/retailers')}
+            />
+            <ServiceCard
+              accent="amber"
+              icon={BuildingLibraryIcon}
+              title="Retailer Orders"
+              body="Review retailer proposals"
+              action="View Orders"
+              onOpen={() => navigate('/retailer/orders')}
+            />
+            <ServiceCard
+              accent="blue"
+              icon={UserGroupIcon}
+              title="Consumers"
+              body="Sell to consumers"
+              action="View Consumers"
+              onOpen={() => navigate('/consumers')}
+            />
+            <ServiceCard
+              accent="slate"
+              icon={BuildingLibraryIcon}
+              title="Consumer Purchases"
+              body="Review your purchases"
+              action="View Purchases"
+              onOpen={() => navigate('/consumer/orders')}
             />
           </section>
 
@@ -237,10 +300,6 @@ export default function Dashboard({ onVoiceStart, voiceAssistantResponse }) {
               t={t}
             />
           </section>
-
-          <div className="mt-5">
-            <BlockchainTransparency />
-          </div>
 
           <HowSaathiHelps t={t} />
         </div>

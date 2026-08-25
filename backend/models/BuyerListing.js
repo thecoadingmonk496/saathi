@@ -2,6 +2,11 @@ const mongoose = require('mongoose');
 
 const buyerListingSchema = new mongoose.Schema(
   {
+    buyerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
     buyer_name: {
       type: String,
       required: true,
@@ -53,9 +58,19 @@ const buyerListingSchema = new mongoose.Schema(
       default: 'Contact via SAATHI messaging',
       trim: true
     },
+    fulfilledQuantity: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: 0
+    },
     is_demo: {
       type: Boolean,
       default: true
+    },
+    locked_for_fulfillment: {
+      type: Boolean,
+      default: false
     },
     created_at: {
       type: Date,

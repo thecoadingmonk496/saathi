@@ -57,6 +57,14 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
   const langTag = languageTagMap[preferredLanguage] || 'hi-IN';
 
   useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
+
+  useEffect(() => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     const loadVoices = () => {
       const availableVoices = window.speechSynthesis.getVoices();

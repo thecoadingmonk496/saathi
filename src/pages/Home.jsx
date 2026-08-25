@@ -5,9 +5,9 @@ import { useTranslation } from '../hooks/useTranslation';
 
 const dashboardItems = [
   { label: t('nav.buyerDiscovery'), path: '/buyers', icon: '🤝', color: 'bg-green-50 text-[#2E7D32]' },
-  { label: t('nav.marketPrices'), path: '/prices', icon: '📈', color: 'bg-amber-50 text-amber-700' },
-  { label: t('nav.marketExplorer'), path: '/explorer', icon: '🗺️', color: 'bg-sky-50 text-sky-700' },
-  { label: t('card.govtTitle'), path: '/government', icon: '🏛️', color: 'bg-violet-50 text-violet-700' },
+  { label: t('nav.marketPrices'), path: '/prices', icon: '📊', color: 'bg-emerald-50 text-emerald-700' },
+  { label: t('nav.marketExplorer'), path: '/crop-journey', icon: '🗺️', color: 'bg-sky-50 text-sky-700' },
+  { label: t('nav.buyerDiscovery'), path: '/buyers', icon: '🤝', color: 'bg-amber-50 text-amber-700' },
 ];
 
 export default function Home() {

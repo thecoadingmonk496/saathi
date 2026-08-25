@@ -128,7 +128,28 @@ const uttarPradeshListings = [
   }
 ];
 
-async function seedUttarPradeshListings() {
+const User = require('../models/User');
+const bcrypt = require('bcryptjs');
+
+async function getDemoBuyerUser() {
+  let buyer = await User.findOne({ email: 'demobuyer@saathi.com' });
+  if (!buyer) {
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash('demopass123', salt);
+    buyer = await User.create({
+      firstName: 'Demo',
+      lastName: 'Buyer',
+      phone: '0000000001',
+      email: 'demobuyer@saathi.com',
+      password: hashedPassword,
+      role: 'BUYER',
+      language: 'en'
+    });
+  }
+  return buyer;
+}
+
+async function seedUttarPradeshListings(buyerId) {
   try {
     const existing = await BuyerListing.countDocuments({
       state: { $regex: '^Uttar Pradesh$', $options: 'i' },
@@ -143,6 +164,7 @@ async function seedUttarPradeshListings() {
     const now = new Date();
     const payload = uttarPradeshListings.map((listing, i) => ({
       ...listing,
+      buyerId,
       contact_note: 'Contact via SAATHI messaging',
       is_demo: true,
       created_at: new Date(now.getTime() - (i * 2 * 60 * 60 * 1000))
@@ -159,13 +181,16 @@ async function seedUttarPradeshListings() {
 
 async function seedBuyerListings() {
   try {
+    const demoBuyer = await getDemoBuyerUser();
+    const buyerId = demoBuyer._id;
+
     const force =
       process.env.FORCE_SEED === '1' || process.env.FORCE_SEED === 'true';
 
     const existingCount = await BuyerListing.countDocuments({ is_demo: true });
     if (existingCount > 0 && !force) {
       console.log('[SeedBuyers] Demo buyer listings already seeded.');
-      await seedUttarPradeshListings();
+      await seedUttarPradeshListings(buyerId);
       return;
     }
 
@@ -199,6 +224,7 @@ async function seedBuyerListings() {
 
       seededListings.push({
         buyer_name: buyerTemplate.name,
+        buyerId,
         buyer_type: buyerTemplate.type,
         commodity: record.commodity,
         variety: record.variety || 'Common',
@@ -216,7 +242,7 @@ async function seedBuyerListings() {
     await BuyerListing.insertMany(seededListings);
     console.log(`[SeedBuyers] Seeded ${seededListings.length} demo buyer listings across dynamic markets.`);
 
-    await seedUttarPradeshListings();
+    await seedUttarPradeshListings(buyerId);
   } catch (err) {
     console.error('[SeedBuyers] Error seeding buyer listings:', err.message);
   }

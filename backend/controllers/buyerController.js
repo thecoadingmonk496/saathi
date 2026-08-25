@@ -1,4 +1,5 @@
 const BuyerListing = require('../models/BuyerListing');
+const PurchaseOrder = require('../models/PurchaseOrder'); // Need this to fetch accepted quantities
 
 async function getBuyerListings(req, res) {
   try {
@@ -19,10 +20,38 @@ async function getBuyerListings(req, res) {
     const cleanLimit = parseInt(limit, 10) || 20;
     const cleanOffset = parseInt(offset, 10) || 0;
 
-    const listings = await BuyerListing.find(query)
+    const listingsDocs = await BuyerListing.find(query)
       .sort({ created_at: -1 })
       .skip(cleanOffset)
-      .limit(cleanLimit);
+      .limit(cleanLimit)
+      .lean(); // Use lean so we can append dynamic properties
+
+    // Calculate dynamic fulfillment context
+    const listings = listingsDocs.map((listing) => {
+      // 1. Parse requestedQuantity from the string (e.g. "50 quintals" -> 50)
+      const qtyMatch = listing.quantity_required.match(/\d+/);
+      const requestedQuantity = qtyMatch ? parseInt(qtyMatch[0], 10) : Number.MAX_SAFE_INTEGER; // Fallback to infinity if unparseable
+
+      // 2. Use atomic fulfilled quantity
+      const acceptedQuantity = listing.fulfilledQuantity || 0;
+      const remainingQuantity = Math.max(0, requestedQuantity - acceptedQuantity);
+
+      // 3. Determine status
+      let fulfillmentStatus = 'UNFULFILLED';
+      if (acceptedQuantity >= requestedQuantity) {
+        fulfillmentStatus = 'FULLY_FULFILLED';
+      } else if (acceptedQuantity > 0) {
+        fulfillmentStatus = 'PARTIALLY_FULFILLED';
+      }
+
+      return {
+        ...listing,
+        requestedQuantity,
+        acceptedQuantity,
+        remainingQuantity,
+        fulfillmentStatus
+      };
+    });
 
     return res.status(200).json({
       success: true,
