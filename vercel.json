@@ -1,6 +1,6 @@
 {
   "framework": "vite",
-  "installCommand": "npm install --legacy-peer-deps",
+  "installCommand": "corepack enable pnpm && pnpm install",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" },
     { "source": "/(.*)", "destination": "/index.html" }
