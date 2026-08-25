@@ -123,6 +123,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://saathi-umber.vercel.app",
         "http://localhost:5173", 
         "http://localhost:5175",
         "http://localhost:3000", 
