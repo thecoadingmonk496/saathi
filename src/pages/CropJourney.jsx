@@ -315,59 +315,45 @@ export default function CropJourney() {
           </div>
 
           {/* Main Card */}
-          <div className="bg-white rounded-[2rem] shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 p-8 mb-8">
-            <div className="flex flex-col xl:flex-row items-center gap-8 mb-8">
+          <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 p-8 mb-8">
+            <div className="flex flex-col xl:flex-row items-center gap-10 mb-8">
+              
               {/* Timeline */}
-              <div className="flex-grow w-full relative pt-8 pb-4 overflow-x-auto no-scrollbar">
-                <div className="relative flex items-start justify-between min-w-[700px] px-2">
+              <div className="flex-grow w-full relative overflow-x-auto pb-6 pt-4 no-scrollbar">
+                <div className="flex items-center justify-between min-w-[750px] px-4">
                   {journeyData.stages.map((stage, idx) => (
                     <React.Fragment key={idx}>
-                      <div className="flex flex-col items-center w-24 group relative shrink-0">
-                        
-                        {/* Top Percent Chip */}
+                      <div className="flex flex-col items-center relative group w-28">
+                        {/* Markup Pill */}
                         {stage.changePercent !== 0 && (
-                          <div className="absolute -top-6 bg-white border border-orange-200 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded-full z-20 shadow-sm whitespace-nowrap">
+                          <div className="absolute -top-3 right-0 z-20 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 text-orange-600 text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1 transform translate-x-4">
+                            <TrendingUp className="w-3 h-3" />
                             {Math.abs(stage.changePercent)}%
                           </div>
                         )}
                         
-                        {/* Icon Bubble */}
-                        <div className="relative z-10 w-20 h-20 bg-[#E6F4EA] rounded-full flex items-center justify-center mb-3 shadow-[0_0_15px_rgba(0,0,0,0.05)] border border-emerald-100/50">
+                        {/* Icon Circle */}
+                        <div className="w-16 h-16 rounded-full bg-white border-2 border-slate-100 shadow-[0_8px_20px_rgba(0,0,0,0.04)] flex items-center justify-center mb-4 z-10 group-hover:scale-110 transition-transform duration-300">
                           {getStageIcon(stage.stage)}
                         </div>
                         
-                        {/* Details */}
+                        {/* Text */}
                         <div className="text-center">
-                          <div className="font-bold text-gray-700 text-sm mb-0.5">{stage.stage}</div>
-                          <div className="font-bold text-gray-900 text-lg mb-2">{formatRupees(stage.price)}</div>
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">{stage.stage}</h4>
+                          <p className="text-lg font-black text-slate-800">{formatRupees(stage.price)}</p>
                         </div>
-
-                        {/* Bottom Tag Pill */}
-                        {stage.changePercent !== 0 ? (
-                          <div className="flex flex-col items-center">
-                            <div className="bg-[#FFF4E5] text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm">
-                              <svg className="w-3 h-3 text-amber-600" viewBox="0 0 24 24" fill="currentColor"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7" stroke="white" strokeWidth="2"></line></svg>
-                              {Math.abs(stage.changePercent)}%
-                            </div>
-                            {idx === journeyData.stages.length - 1 && (
-                              <span className="text-[10px] text-gray-400 mt-1 font-medium">Markup</span>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="h-5"></div>
-                        )}
                         
-                        {/* Tooltip Note */}
-                        <div className="absolute top-24 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] font-medium p-2 rounded-lg w-32 text-center pointer-events-none z-30">
+                        {/* Tooltip */}
+                        <div className="absolute top-20 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] font-medium px-3 py-1.5 rounded-lg w-max max-w-[120px] text-center pointer-events-none z-30">
                           {stage.note}
                         </div>
                       </div>
 
-                      {/* Dotted Line & Arrow for intermediate nodes */}
+                      {/* Connector Line */}
                       {idx < journeyData.stages.length - 1 && (
-                        <div className="flex-grow flex items-center mt-10 px-1 pointer-events-none -mx-2">
-                          <div className="flex-grow h-[2px]" style={{ backgroundImage: 'linear-gradient(to right, #34D399 50%, transparent 50%)', backgroundSize: '8px 2px', backgroundRepeat: 'repeat-x' }}></div>
-                          <svg className="w-4 h-4 text-emerald-400 -ml-1 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                        <div className="flex-1 flex items-center px-2 -mt-10">
+                          <div className="w-full border-t-2 border-dashed border-slate-200"></div>
+                          <div className="w-2 h-2 rounded-full bg-slate-300 ml-1"></div>
                         </div>
                       )}
                     </React.Fragment>
@@ -375,40 +361,48 @@ export default function CropJourney() {
                 </div>
               </div>
 
-              {/* Divider */}
-              <div className="w-px bg-gray-200 self-stretch hidden xl:block mx-4"></div>
+              {/* Vertical Divider */}
+              <div className="w-px bg-slate-100 self-stretch hidden xl:block mx-2"></div>
 
               {/* Gauge */}
-              <div className="w-64 flex-shrink-0 flex flex-col items-center justify-center">
-                <div className="relative w-48 h-48 mb-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={gaugeData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={65}
-                        outerRadius={85}
-                        startAngle={90}
-                        endAngle={-270}
-                        dataKey="value"
-                        stroke="none"
-                      >
-                        <Cell fill="#38A169" />
-                        <Cell fill="#E2E8F0" />
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex items-center justify-center flex-col pt-2">
-                    <span className="text-4xl font-black text-gray-900">{journeyData.farmerSharePercent}%</span>
-                    <span className="text-xs font-bold text-gray-700 mt-1">Farmer's Share</span>
+              <div className="w-72 flex-shrink-0 flex flex-col items-center justify-center bg-slate-50/50 rounded-3xl p-6 border border-slate-100">
+                <div className="relative w-40 h-40 mb-4">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    {/* Background Circle */}
+                    <circle
+                      cx="50" cy="50" r="40"
+                      fill="transparent"
+                      stroke="#E2E8F0"
+                      strokeWidth="12"
+                    />
+                    {/* Progress Circle */}
+                    <circle
+                      cx="50" cy="50" r="40"
+                      fill="transparent"
+                      stroke="#10B981"
+                      strokeWidth="12"
+                      strokeLinecap="round"
+                      strokeDasharray={`${2 * Math.PI * 40}`}
+                      strokeDashoffset={`${2 * Math.PI * 40 * (1 - journeyData.farmerSharePercent / 100)}`}
+                      className="transition-all duration-1000 ease-out"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-4xl font-black text-slate-800">{journeyData.farmerSharePercent}%</span>
                   </div>
                 </div>
                 
-                <div className="text-center text-xs font-semibold text-gray-600 space-y-1">
-                  <p>Avg. Farmer Markup: <span className="font-bold text-gray-900">{Math.abs(journeyData.stages?.[0]?.changePercent || 0)}%</span></p>
+                <h4 className="text-sm font-extrabold text-slate-700 uppercase tracking-wider mb-2">Farmer's Share</h4>
+                <div className="text-center w-full space-y-2">
+                  <div className="flex justify-between items-center text-xs font-semibold text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-100 shadow-sm">
+                    <span>Avg. Markup</span>
+                    <span className="text-slate-800 font-bold">{Math.abs(journeyData.stages?.[0]?.changePercent || 0)}%</span>
+                  </div>
                   {journeyData.arrivalVolume && (
-                     <p>Total Traceable Volume: <span className="font-bold text-gray-900">{journeyData.arrivalVolume.value} {journeyData.arrivalVolume.unit}</span></p>
+                     <div className="flex justify-between items-center text-xs font-semibold text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-100 shadow-sm">
+                       <span>Volume</span>
+                       <span className="text-slate-800 font-bold">{journeyData.arrivalVolume.value} {journeyData.arrivalVolume.unit}</span>
+                     </div>
                   )}
                 </div>
               </div>
