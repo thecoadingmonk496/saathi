@@ -12,7 +12,8 @@ export default function CropJourney() {
   const [searchParams] = useSearchParams();
   const batchId = searchParams.get('batchId');
   const navigate = useNavigate();
-  const { token } = useUser();
+  const { user } = useUser();
+  const token = localStorage.getItem('token');
   
   const [journeyData, setJourneyData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -32,6 +33,8 @@ export default function CropJourney() {
       fetchJourney(batchId);
     } else if (token) {
       fetchMyJourneys();
+    } else {
+      setLoadingMyJourneys(false);
     }
   }, [batchId, token]);
 
