@@ -56,24 +56,26 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/onboarding" element={<Onboarding />} />
 
-            {/* Public Portal & Core Market Routes */}
+            {/* Public Landing Page */}
             <Route path="/" element={<Layout><Dashboard /></Layout>} />
             <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
-            <Route path="/prices" element={<Layout><MarketPrices /></Layout>} />
-            <Route path="/mandis" element={<Layout><MandiInformation /></Layout>} />
-            <Route path="/buyers" element={<Layout><BuyerDiscovery /></Layout>} />
-            <Route path="/explorer" element={<Layout><MarketExplorer /></Layout>} />
-            <Route path="/crop-journey" element={<Layout><CropJourney /></Layout>} />
-            <Route path="/reviews" element={<Layout><Reviews /></Layout>} />
             <Route path="/about" element={<Layout><About /></Layout>} />
-            <Route path="/government" element={<Layout><Government /></Layout>} />
-            <Route path="/ai" element={<Layout><Dashboard /></Layout>} />
 
-            {/* Supply Chain Discovery Routes */}
-            <Route path="/wholesalers" element={<Layout><WholesalerDiscovery /></Layout>} />
-            <Route path="/distributors" element={<Layout><DistributorDiscovery /></Layout>} />
-            <Route path="/retailers" element={<Layout><RetailerDiscovery /></Layout>} />
-            <Route path="/consumers" element={<Layout><ConsumerDiscovery /></Layout>} />
+            {/* Protected Core Market Routes */}
+            <Route path="/prices" element={<ProtectedPage><MarketPrices /></ProtectedPage>} />
+            <Route path="/mandis" element={<ProtectedPage><MandiInformation /></ProtectedPage>} />
+            <Route path="/buyers" element={<ProtectedPage><BuyerDiscovery /></ProtectedPage>} />
+            <Route path="/explorer" element={<ProtectedPage><MarketExplorer /></ProtectedPage>} />
+            <Route path="/crop-journey" element={<ProtectedPage><CropJourney /></ProtectedPage>} />
+            <Route path="/reviews" element={<ProtectedPage><Reviews /></ProtectedPage>} />
+            <Route path="/government" element={<ProtectedPage><Government /></ProtectedPage>} />
+            <Route path="/ai" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
+
+            {/* Protected Supply Chain Discovery Routes */}
+            <Route path="/wholesalers" element={<ProtectedPage><WholesalerDiscovery /></ProtectedPage>} />
+            <Route path="/distributors" element={<ProtectedPage><DistributorDiscovery /></ProtectedPage>} />
+            <Route path="/retailers" element={<ProtectedPage><RetailerDiscovery /></ProtectedPage>} />
+            <Route path="/consumers" element={<ProtectedPage><ConsumerDiscovery /></ProtectedPage>} />
 
             {/* Buyer Onboarding & Self-Service */}
             <Route path="/buyer-register" element={<BuyerRegister />} />
