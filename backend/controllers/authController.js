@@ -171,4 +171,65 @@ async function verifyOtp(req, res) {
   }
 }
 
-module.exports = { registerUser, loginUser, sendOtp, verifyOtp };
+async function updateProfile(req, res) {
+  try {
+    const userId = req.user._id; // from authMiddleware
+    const { name, mobile, farmerId, village, block, district, state, profileImage, landHolding, primaryCrops, irrigation, farmingType } = req.body;
+    
+    // Parse name into firstName and lastName if provided
+    let firstName, lastName;
+    if (name) {
+      const nameParts = name.trim().split(' ');
+      firstName = nameParts[0];
+      lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+    }
+
+    const updates = {};
+    if (firstName) updates.firstName = firstName;
+    if (lastName !== undefined) updates.lastName = lastName;
+    if (mobile) updates.phone = mobile;
+    if (farmerId !== undefined) updates.farmerId = farmerId;
+    if (village !== undefined) updates.village = village;
+    if (block !== undefined) updates.block = block;
+    if (district !== undefined) updates.district = district;
+    if (state !== undefined) updates.state = state;
+    if (profileImage !== undefined) updates.profileImage = profileImage;
+    if (landHolding !== undefined) updates.landHolding = landHolding;
+    if (primaryCrops !== undefined) updates.primaryCrops = primaryCrops;
+    if (irrigation !== undefined) updates.irrigation = irrigation;
+    if (farmingType !== undefined) updates.farmingType = farmingType;
+
+    const user = await User.findByIdAndUpdate(userId, updates, { new: true });
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        phone: user.phone,
+        farmerId: user.farmerId,
+        village: user.village,
+        block: user.block,
+        district: user.district,
+        state: user.state,
+        profileImage: user.profileImage,
+        landHolding: user.landHolding,
+        primaryCrops: user.primaryCrops,
+        irrigation: user.irrigation,
+        farmingType: user.farmingType,
+      }
+    });
+  } catch (error) {
+    console.error('Update profile error:', error.message);
+    return res.status(500).json({ success: false, message: 'Unable to update profile' });
+  }
+}
+
+module.exports = { registerUser, loginUser, sendOtp, verifyOtp, updateProfile };

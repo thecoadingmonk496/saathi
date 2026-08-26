@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { useLocationContext } from '../context/LocationContext';
+import { CameraIcon } from '@heroicons/react/24/solid';
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -122,48 +123,50 @@ export default function Profile() {
 
   return (
     <section className="mx-auto w-full max-w-5xl">
-      {}
-      <header className="rounded-[28px] bg-[#14532D] p-6 sm:p-8 text-white shadow-xl flex flex-col sm:flex-row items-center sm:items-start gap-6 relative overflow-hidden">
-        {}
+      <header className="rounded-[28px] bg-primary-dark p-6 sm:p-8 text-white shadow-xl flex flex-col sm:flex-row items-center sm:items-start gap-6 relative overflow-hidden">
+        {/* Background Decorative Element */}
         <div className="absolute -right-20 -top-20 opacity-10 pointer-events-none">
           <svg width="250" height="250" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 22h20L12 2zm0 4.5l6.5 13h-13L12 6.5z"/></svg>
         </div>
 
-        {}
-        <label className="group relative h-24 w-24 shrink-0 cursor-pointer rounded-full border-4 border-[#F7F3E8]/20 bg-[#2F7D32] shadow-inner z-10 sm:h-28 sm:w-28" title="Upload profile photo">
-          {profileImage ? (
-            <img src={profileImage} alt="Profile" className="h-full w-full rounded-full object-cover" />
-          ) : (
-            <span className="flex h-full w-full items-center justify-center text-4xl">👨🏽‍🌾</span>
-          )}
-          <span className="absolute inset-x-1 bottom-1 rounded-full bg-black/65 px-2 py-1 text-center text-[10px] font-bold text-white opacity-0 transition group-hover:opacity-100 sm:text-xs">
-            Upload photo
-          </span>
-          <input type="file" accept="image/*" className="sr-only" onChange={handleProfileImageChange} />
-        </label>
+        {/* Profile Image & Upload Button */}
+        <div className="relative shrink-0 z-10 group">
+          <label className="relative flex h-24 w-24 sm:h-28 sm:w-28 cursor-pointer items-center justify-center overflow-hidden rounded-full border-[3px] border-white/20 bg-accent shadow-inner transition hover:border-white/40" title="Upload profile photo">
+            {profileImage ? (
+              <img src={profileImage} alt="Profile" className="h-full w-full object-cover transition duration-300 group-hover:brightness-90" />
+            ) : (
+              <span className="text-5xl transition duration-300 group-hover:scale-110">👨🏽‍🌾</span>
+            )}
+            <input type="file" accept="image/*" className="sr-only" onChange={handleProfileImageChange} />
+          </label>
+          {/* Persistent Camera Overlay Icon */}
+          <div className="pointer-events-none absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-800 shadow-md ring-2 ring-primary-dark transition group-hover:bg-slate-100 sm:h-9 sm:w-9">
+            <CameraIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+          </div>
+        </div>
 
-        {}
-        <div className="flex-1 text-center sm:text-left z-10">
-          <p className="text-xs font-extrabold uppercase tracking-widest text-[#F7F3E8]/80 mb-1">{t('profile.title')}</p>
-          <h1 className="text-3xl font-extrabold sm:text-4xl text-white">{profile.name}</h1>
-
-          <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-start gap-3">
-            <span className="text-sm font-bold bg-white/10 px-4 py-1.5 rounded-full border border-white/20">
-              Farmer ID: {profile.farmerId}
+        {/* User Info */}
+        <div className="flex-1 text-center sm:text-left z-10 pt-2">
+          <h1 className="text-3xl font-extrabold sm:text-4xl text-white tracking-tight">{profile.name}</h1>
+          <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+            <span className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white border border-white/10 backdrop-blur-sm">
+              <span className="opacity-75">Farmer ID:</span> {profile.farmerId}
             </span>
-            <span className="text-sm font-extrabold bg-[#D99A2B]/20 text-[#D99A2B] px-4 py-1.5 rounded-full border border-[#D99A2B]/40 flex items-center gap-1.5">
-              ✓ Verified Farmer
+            <span className="flex items-center gap-1.5 rounded-full bg-[#10B981]/20 px-3 py-1 text-xs font-bold text-[#34D399] border border-[#10B981]/30">
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>
+              VERIFIED FARMER
             </span>
           </div>
-          <p className="mt-3 text-sm font-medium text-green-100 flex items-center justify-center sm:justify-start gap-1.5">
-            <span className="text-lg">📍</span> {profile.village}, {profile.district}, {profile.state}
+          <p className="mt-3 text-sm font-medium text-slate-300 flex items-center justify-center sm:justify-start gap-1.5">
+            <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            {profile.village}, {profile.district}, {profile.state}
           </p>
         </div>
       </header>
 
       {}
       <section className="mt-8">
-        <h2 className="text-2xl font-extrabold text-[#14532D] mb-5 pb-2 border-b-2 border-slate-100/60">{t('profile.personalDetails')}</h2>
+        <h2 className="text-2xl font-extrabold text-primary-dark mb-5 pb-2 border-b-2 border-slate-100/60">{t('profile.personalDetails')}</h2>
         <div className="grid gap-5 sm:grid-cols-2">
           <TextField label="Full Name" name="name" value={profile.name} onChange={updateProfileField} />
           <TextField label="Mobile Number" name="mobile" type="tel" value={profile.mobile} onChange={updateProfileField} />
@@ -177,29 +180,29 @@ export default function Profile() {
 
       {}
       <section className="mt-10">
-        <h2 className="text-2xl font-extrabold text-[#14532D] mb-5 pb-2 border-b-2 border-slate-100/60">
+        <h2 className="text-2xl font-extrabold text-primary-dark mb-5 pb-2 border-b-2 border-slate-100/60">
           Farm Details
         </h2>
         <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
-          <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col items-center text-center transition hover:border-[#2F7D32] hover:shadow-md focus:outline-none focus:ring-4 focus:ring-green-100">
+          <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
             <span className="text-3xl mb-3">📏</span>
-            <span className="text-xs font-extrabold text-[#795548] uppercase tracking-wider">Land Holding</span>
-            <span className="mt-1 text-base font-bold text-slate-900">{farmDetails.landHolding}</span>
+            <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Land Holding</span>
+            <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{farmDetails.landHolding}</span>
           </button>
-          <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col items-center text-center transition hover:border-[#2F7D32] hover:shadow-md focus:outline-none focus:ring-4 focus:ring-green-100">
+          <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
             <span className="text-3xl mb-3">🌾</span>
-            <span className="text-xs font-extrabold text-[#795548] uppercase tracking-wider">Primary Crops</span>
-            <span className="mt-1 text-base font-bold text-slate-900">{farmDetails.primaryCrops}</span>
+            <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Primary Crops</span>
+            <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{farmDetails.primaryCrops}</span>
           </button>
-          <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col items-center text-center transition hover:border-[#2F7D32] hover:shadow-md focus:outline-none focus:ring-4 focus:ring-green-100">
+          <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
             <span className="text-3xl mb-3">💧</span>
-            <span className="text-xs font-extrabold text-[#795548] uppercase tracking-wider">Irrigation</span>
-            <span className="mt-1 text-base font-bold text-slate-900">{farmDetails.irrigation}</span>
+            <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Irrigation</span>
+            <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{farmDetails.irrigation}</span>
           </button>
-          <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col items-center text-center transition hover:border-[#2F7D32] hover:shadow-md focus:outline-none focus:ring-4 focus:ring-green-100">
+          <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
             <span className="text-3xl mb-3">🚜</span>
-            <span className="text-xs font-extrabold text-[#795548] uppercase tracking-wider">Farming Type</span>
-            <span className="mt-1 text-base font-bold text-slate-900">{farmDetails.farmingType}</span>
+            <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Farming Type</span>
+            <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{farmDetails.farmingType}</span>
           </button>
         </div>
       </section>
@@ -208,27 +211,27 @@ export default function Profile() {
       <div className="mt-10 grid gap-6 sm:grid-cols-2">
         {}
         <section>
-          <h2 className="text-2xl font-extrabold text-[#14532D] mb-5 pb-2 border-b-2 border-slate-100/60">{t('explorer.location')}</h2>
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm h-[calc(100%-3rem)] flex flex-col justify-between">
+          <h2 className="text-2xl font-extrabold text-primary-dark mb-5 pb-2 border-b-2 border-slate-100/60">{t('explorer.location')}</h2>
+          <div className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm h-[calc(100%-3rem)] flex flex-col justify-between">
             <div>
-              <p className="text-xs font-extrabold text-[#795548] uppercase tracking-wider">Current Location</p>
-              <p className="mt-2 text-lg font-bold text-slate-900 leading-tight">
+              <p className="text-xs font-extrabold text-secondary uppercase tracking-wider">Current Location</p>
+              <p className="mt-2 text-lg font-bold text-[var(--saathi-text)] leading-tight">
                 {permissionStatus === 'granted' && address ? address.formatted : `${profile.village}, ${profile.district}, ${profile.state}`}
               </p>
               <div className="mt-4 flex items-center gap-3">
                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-extrabold ${
                   permissionStatus === 'granted' 
-                    ? 'bg-green-50 text-[#14532D] border-green-200' 
-                    : 'bg-amber-50 text-amber-800 border-amber-200'
+                    ? 'bg-red-50 text-primary-dark border-red-200' 
+                    : 'bg-red-50 text-red-800 border-red-200'
                 }`}>
                   {permissionStatus === 'granted' ? '✓ Location detected' : 'Saved location'}
                 </span>
-                <span className="text-xs text-slate-500 font-bold">Source: {permissionStatus === 'granted' ? 'GPS' : 'Manual entry'}</span>
+                <span className="text-xs text-[var(--saathi-text-muted)] font-bold">Source: {permissionStatus === 'granted' ? 'GPS' : 'Manual entry'}</span>
               </div>
             </div>
             <button 
               onClick={requestLocation}
-              className="mt-6 w-full flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-4 py-3 rounded-xl text-sm font-bold text-slate-700 transition"
+              className="mt-6 w-full flex items-center justify-center gap-2 bg-[var(--saathi-surface-alt)] hover:bg-slate-100 border border-[var(--saathi-border-light)] px-4 py-3 rounded-xl text-sm font-bold text-[var(--saathi-text-secondary)] transition"
             >
               <span className="text-lg">📍</span>{t('location.refresh')}</button>
           </div>
@@ -236,20 +239,20 @@ export default function Profile() {
 
         {}
         <section>
-          <h2 className="text-2xl font-extrabold text-[#14532D] mb-5 pb-2 border-b-2 border-slate-100/60">
+          <h2 className="text-2xl font-extrabold text-primary-dark mb-5 pb-2 border-b-2 border-slate-100/60">
             Language Preference
           </h2>
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm h-[calc(100%-3rem)] flex flex-col justify-between">
+          <div className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm h-[calc(100%-3rem)] flex flex-col justify-between">
             <div>
-              <p className="text-xs font-extrabold text-[#795548] uppercase tracking-wider">Selected Language</p>
-              <p className="mt-2 text-2xl font-extrabold text-slate-900">{preferredLanguage}</p>
-              <p className="mt-3 text-sm text-slate-500 font-semibold leading-relaxed">
+              <p className="text-xs font-extrabold text-secondary uppercase tracking-wider">Selected Language</p>
+              <p className="mt-2 text-2xl font-extrabold text-[var(--saathi-text)]">{preferredLanguage}</p>
+              <p className="mt-3 text-sm text-[var(--saathi-text-muted)] font-semibold leading-relaxed">
                 This language will be used across the entire SAATHI platform and for the AI Voice Assistant.
               </p>
             </div>
             <button
               onClick={() => setIsLanguageModalOpen(true)}
-              className="mt-6 w-full flex items-center justify-center gap-2 bg-[#F7F3E8] hover:bg-[#e8e2d2] border border-[#d2c9b4] text-[#795548] px-4 py-3 rounded-xl text-sm font-extrabold transition shadow-sm"
+              className="mt-6 w-full flex items-center justify-center gap-2 bg-background hover:bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border)] text-secondary px-4 py-3 rounded-xl text-sm font-extrabold transition shadow-sm"
             >
               🌐 Change Language
             </button>
@@ -259,11 +262,11 @@ export default function Profile() {
 
       {}
       <div className="mt-12 flex flex-col sm:flex-row items-center gap-4 pt-8 border-t-2 border-slate-100/60">
-        <button type="button" onClick={handleSave} className="w-full sm:w-auto bg-[#14532D] hover:bg-[#0f4021] text-white px-10 py-3.5 rounded-2xl font-extrabold text-base transition shadow-lg shadow-green-900/20">{t('profile.save')}</button>
-        <button type="button" onClick={handleReset} className="w-full sm:w-auto bg-[#F7F3E8] hover:bg-[#e8e2d2] border-2 border-[#14532D] text-[#14532D] px-8 py-3.5 rounded-2xl font-extrabold text-base transition">
+        <button type="button" onClick={handleSave} className="w-full sm:w-auto bg-primary-dark hover:bg-primary text-white px-10 py-3.5 rounded-2xl font-extrabold text-base transition shadow-lg shadow-red-900/20">{t('profile.save')}</button>
+        <button type="button" onClick={handleReset} className="w-full sm:w-auto bg-background hover:bg-[var(--saathi-surface-alt)] border-2 border-primary-dark text-primary-dark px-8 py-3.5 rounded-2xl font-extrabold text-base transition">
           Reset
         </button>
-        {saveMessage && <p className="w-full text-center text-sm font-semibold text-[#14532D] sm:w-auto sm:text-left">{saveMessage}</p>}
+        {saveMessage && <p className="w-full text-center text-sm font-semibold text-primary-dark sm:w-auto sm:text-left">{saveMessage}</p>}
         <div className="flex-1"></div>
         <button onClick={handleLogout} className="w-full sm:w-auto mt-4 sm:mt-0 text-red-600 hover:text-red-700 font-extrabold px-6 py-3.5 rounded-2xl hover:bg-red-50 transition border border-transparent hover:border-red-100">
           Sign Out
@@ -285,16 +288,16 @@ export default function Profile() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">
-              <h2 id="language-dialog-title" className="text-2xl font-extrabold text-slate-900">🌐 भाषा चुनें</h2>
+              <h2 id="language-dialog-title" className="text-2xl font-extrabold text-[var(--saathi-text)]">🌐 भाषा चुनें</h2>
               <button
                 type="button"
                 onClick={() => setIsLanguageModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold bg-slate-50 h-8 w-8 rounded-full flex items-center justify-center transition"
+                className="text-slate-400 hover:text-[var(--saathi-text-secondary)] font-bold bg-[var(--saathi-surface-alt)] h-8 w-8 rounded-full flex items-center justify-center transition"
               >
                 ✕
               </button>
             </div>
-            <p className="text-sm font-semibold text-slate-500 mb-6">Select your preferred language / अपनी पसंदीदा भाषा चुनें</p>
+            <p className="text-sm font-semibold text-[var(--saathi-text-muted)] mb-6">Select your preferred language / अपनी पसंदीदा भाषा चुनें</p>
 
             <div className="grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1">
               {supportedLanguages.map((lang) => (
@@ -304,12 +307,12 @@ export default function Profile() {
                   onClick={() => selectLanguage(lang.code)}
                   className={`flex flex-col items-center justify-center text-center rounded-2xl border-2 p-4 transition ${
                     preferredLanguage === lang.name
-                      ? 'border-[#2F7D32] bg-[#2F7D32]/5 text-[#14532D]'
-                      : 'border-slate-100 text-slate-800 hover:border-green-300 hover:bg-slate-50'
+                      ? 'border-accent-dark bg-primary-dark opacity-5 text-white'
+                      : 'border-slate-100 text-[var(--saathi-text)] hover:border-red-300 hover:bg-[var(--saathi-surface-alt)]'
                   }`}
                 >
                   <span className="text-lg font-extrabold mb-1">{lang.nativeName}</span>
-                  <span className="text-xs font-bold text-slate-500">{lang.name}</span>
+                  <span className="text-xs font-bold text-[var(--saathi-text-muted)]">{lang.name}</span>
                 </button>
               ))}
             </div>
@@ -317,7 +320,7 @@ export default function Profile() {
             <button
               type="button"
               onClick={() => setIsLanguageModalOpen(false)}
-              className="mt-6 w-full rounded-xl border-2 border-slate-200 px-4 py-3.5 text-sm font-extrabold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition"
+              className="mt-6 w-full rounded-xl border-2 border-[var(--saathi-border-light)] px-4 py-3.5 text-sm font-extrabold text-[var(--saathi-text-secondary)] hover:bg-[var(--saathi-surface-alt)] hover:text-[var(--saathi-text)] transition"
             >
               Cancel
             </button>
@@ -329,8 +332,8 @@ export default function Profile() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" role="presentation" onClick={() => setIsFarmDetailsModalOpen(false)}>
           <section className="w-full max-w-lg rounded-[28px] bg-white p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="farm-details-dialog-title" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between gap-4">
-              <h2 id="farm-details-dialog-title" className="text-2xl font-extrabold text-slate-900">Edit Farm Details</h2>
-              <button type="button" onClick={() => setIsFarmDetailsModalOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 font-bold text-slate-500 hover:bg-slate-200" aria-label="Close farm details">✕</button>
+              <h2 id="farm-details-dialog-title" className="text-2xl font-extrabold text-[var(--saathi-text)]">Edit Farm Details</h2>
+              <button type="button" onClick={() => setIsFarmDetailsModalOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 font-bold text-[var(--saathi-text-muted)] hover:bg-slate-200" aria-label="Close farm details">✕</button>
             </div>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <FarmDetailField label="Land Holding" name="landHolding" value={farmDetails.landHolding} onChange={setFarmDetails} />
@@ -338,7 +341,7 @@ export default function Profile() {
               <FarmDetailField label="Irrigation" name="irrigation" value={farmDetails.irrigation} onChange={setFarmDetails} />
               <FarmDetailField label="Farming Type" name="farmingType" value={farmDetails.farmingType} onChange={setFarmDetails} />
             </div>
-            <button type="button" onClick={() => { updateUser(farmDetails); setIsFarmDetailsModalOpen(false); setSaveMessage('Farm details saved successfully.'); }} className="mt-6 w-full rounded-xl bg-[#14532D] px-4 py-3.5 text-sm font-extrabold text-white transition hover:bg-[#0f4021]">Save Farm Details</button>
+            <button type="button" onClick={() => { updateUser(farmDetails); setIsFarmDetailsModalOpen(false); setSaveMessage('Farm details saved successfully.'); }} className="mt-6 w-full rounded-xl bg-primary-dark px-4 py-3.5 text-sm font-extrabold text-white transition hover:bg-primary">Save Farm Details</button>
           </section>
         </div>
       )}
@@ -349,14 +352,14 @@ export default function Profile() {
 function TextField({ label, name, value, onChange, type = 'text', disabled = false }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-extrabold text-slate-700">{label}</span>
+      <span className="mb-2 block text-sm font-extrabold text-[var(--saathi-text-secondary)]">{label}</span>
       <input
         type={type}
         name={name}
         value={value}
         onChange={onChange}
         disabled={disabled}
-        className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3.5 text-base font-semibold text-slate-900 bg-white outline-none transition focus:border-[#2F7D32] focus:bg-[#2F7D32]/5 disabled:bg-slate-50 disabled:text-slate-500 disabled:border-slate-100"
+        className="w-full rounded-2xl border-2 border-[var(--saathi-border-light)] px-4 py-3.5 text-base font-semibold text-[var(--saathi-text)] bg-white outline-none transition focus:border-accent-dark focus:bg-accent disabled:bg-[var(--saathi-surface-alt)] disabled:text-[var(--saathi-text-muted)] disabled:border-slate-100"
       />
     </label>
   );
@@ -365,12 +368,12 @@ function TextField({ label, name, value, onChange, type = 'text', disabled = fal
 function FarmDetailField({ label, name, value, onChange }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-extrabold text-slate-700">{label}</span>
+      <span className="mb-2 block text-sm font-extrabold text-[var(--saathi-text-secondary)]">{label}</span>
       <input
         type="text"
         value={value}
         onChange={(event) => onChange((currentDetails) => ({ ...currentDetails, [name]: event.target.value }))}
-        className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-base font-semibold text-slate-900 outline-none transition focus:border-[#2F7D32] focus:ring-4 focus:ring-green-100"
+        className="w-full rounded-xl border-2 border-[var(--saathi-border-light)] px-4 py-3 text-base font-semibold text-[var(--saathi-text)] outline-none transition focus:border-accent-dark focus:ring-4 focus:ring-red-100"
       />
     </label>
   );

@@ -35,6 +35,16 @@ const userSchema = new mongoose.Schema(
       enum: ['FARMER', 'BUYER', 'WHOLESALER', 'DISTRIBUTOR', 'RETAILER', 'CONSUMER', 'USER', 'ADMIN'],
       default: 'USER'
     },
+    farmerId: { type: String, trim: true },
+    village: { type: String, trim: true },
+    block: { type: String, trim: true },
+    district: { type: String, trim: true },
+    state: { type: String, trim: true },
+    profileImage: { type: String },
+    landHolding: { type: String, trim: true },
+    primaryCrops: { type: String, trim: true },
+    irrigation: { type: String, trim: true },
+    farmingType: { type: String, trim: true },
   },
   { timestamps: true },
 );
