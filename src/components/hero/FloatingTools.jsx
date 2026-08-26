@@ -206,7 +206,7 @@ export default function FloatingTools({ onOpenLanguageModal, onVoiceStart }) {
         {/* 3. Language Selector Tab (with official Bilingual अ / A Icon) */}
         <button
           type="button"
-          onClick={() => toggleModal('lang')}
+          onClick={() => { if (onOpenLanguageModal) onOpenLanguageModal(); else toggleModal('lang'); }}
           aria-expanded={activeModal === 'lang'}
           aria-label="Select Language"
           title="Language / भाषा"
@@ -233,73 +233,6 @@ export default function FloatingTools({ onOpenLanguageModal, onVoiceStart }) {
 
         {/* Modal Popovers */}
         <div className="relative">
-          {/* Language Popover */}
-          {activeModal === 'lang' && (
-            <div
-              ref={langPopoverRef}
-              role="dialog"
-              aria-label="Language Selector"
-              className="absolute right-14 top-0 w-64 rounded-lg border border-[var(--saathi-border-light)] bg-[var(--saathi-surface)] p-3.5 text-[var(--saathi-text)] shadow-[0_4px_12px_rgba(0,0,0,0.08)] z-50 animate-in fade-in zoom-in-95"
-            >
-              <div className="flex items-center justify-between border-b border-[var(--saathi-border-light)] pb-2">
-                <div className="flex items-center gap-2 text-[var(--saathi-primary)]">
-                  <LanguageTranslateIcon className="h-4 w-4" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-[var(--saathi-text)]">
-                    Language / भाषा
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveModal(null)}
-                  aria-label="Close language selector"
-                  className="rounded-md p-1 text-[var(--saathi-text-secondary)] hover:bg-[var(--saathi-surface-alt)] hover:text-[var(--saathi-text)] transition"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="py-2 space-y-1">
-                {TOP_5_LANGUAGES.map((lang) => {
-                  const isSelected = lang.code === preferredLanguage || lang.name === preferredLanguage;
-
-                  return (
-                    <button
-                      key={lang.code}
-                      type="button"
-                      onClick={() => handleLanguageSelect(lang.code)}
-                      className={`flex w-full items-center justify-between rounded-md px-2.5 py-2 text-xs font-semibold transition ${
-                        isSelected
-                          ? 'bg-[var(--saathi-surface-alt)] text-[var(--saathi-text)] font-bold'
-                          : 'text-[var(--saathi-text-secondary)] hover:bg-[var(--saathi-surface-alt)] hover:text-[var(--saathi-text)]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>{lang.nativeName}</span>
-                        <span className="text-[11px] text-[var(--saathi-text-muted)]">({lang.name})</span>
-                      </div>
-                      {isSelected && <CheckIcon className="h-4 w-4 text-[var(--saathi-accent)]" />}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* All 22 Languages Modal Trigger */}
-              <div className="pt-2 border-t border-[var(--saathi-border-light)]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveModal(null);
-                    if (onOpenLanguageModal) onOpenLanguageModal();
-                  }}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-md bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] px-3 py-2 text-center text-xs font-bold text-[var(--saathi-primary)] hover:bg-[var(--saathi-border-light)] transition"
-                >
-                  <LanguageTranslateIcon className="h-4 w-4" />
-                  <span>All Languages (22) →</span>
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Accessibility Panel */}
           <AccessibilityPanel
             isOpen={activeModal === 'a11y'}
@@ -335,4 +268,6 @@ export default function FloatingTools({ onOpenLanguageModal, onVoiceStart }) {
     </>
   );
 }
+
+
 
