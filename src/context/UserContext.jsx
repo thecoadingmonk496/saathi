@@ -10,7 +10,7 @@ const nameToCode = supportedLanguages.reduce((acc, l) => { acc[l.name] = l.code;
  * Always returns the canonical NAME ("Hindi").
  */
 function normalizeLang(input) {
-  if (!input) return 'Hindi';
+  if (!input) return 'English';
   // Input is a code like "hi"
   if (codeToName[input]) return codeToName[input];
   // Input is a name like "Hindi" — validate it exists

@@ -221,8 +221,11 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
     }
   };
 
-  const handleFinalSpeech = (queryText) => {
-    if (!queryText.trim()) return;
+  const isProcessingRef = useRef(false);
+
+  const handleFinalSpeech = async (queryText) => {
+    if (!queryText.trim() || isProcessingRef.current) return;
+    isProcessingRef.current = true;
 
     if (recognitionRef.current) {
       try {
@@ -232,22 +235,84 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
     setStatus('thinking');
 
-    window.setTimeout(() => {
-      const { response, action } = processVoiceQuery(queryText, preferredLanguage);
-      setResponseText(response);
-      onResponse?.(response);
+    try {
+      const res = await fetch('https://saathi-backend-7t91.onrender.com/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          message: queryText,
+          history: [],
+          profile: {} 
+        })
+      });
+      
+      if (!res.ok) throw new Error('Live AI backend request failed');
+      
+      const data = await res.json();
+      const aiResponse = data.ai_response;
+      
+      setResponseText(aiResponse);
+      onResponse?.(aiResponse);
 
+      // Try fetching premium TTS from backend
+      try {
+        const ttsRes = await fetch('https://saathi-backend-7t91.onrender.com/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            text: aiResponse,
+            language_code: data.detected_language_bcp47 || langTag
+          })
+        });
+        
+        if (ttsRes.ok) {
+          const ttsData = await ttsRes.json();
+          if (ttsData.audio_base64) {
+            setStatus('speaking');
+            const audio = new Audio(`data:${ttsData.mime_type};base64,${ttsData.audio_base64}`);
+            audio.onended = () => {
+              setStatus('done');
+              isProcessingRef.current = false;
+            };
+            audio.onerror = () => {
+              console.warn('Failed to play premium TTS audio');
+              speakText(aiResponse); // fallback to browser TTS
+              isProcessingRef.current = false;
+            };
+            audio.play().catch((err) => {
+              console.warn('Audio play rejected (likely autoplay policy):', err);
+              speakText(aiResponse);
+            });
+            return;
+          }
+        }
+      } catch (ttsErr) {
+        console.warn('Premium TTS fetch failed:', ttsErr);
+      }
+      
+      // Fallback to browser TTS if backend TTS failed
+      speakText(aiResponse);
+      isProcessingRef.current = false;
+
+    } catch (e) {
+      console.warn('Live AI failed, falling back to local engine:', e);
+      // Fallback to local rule-based engine
+      const { response, action } = processVoiceQuery(queryText, preferredLanguage);
+      setResponseText(`[DEBUG ERROR: ${e.message}] ` + response);
+      onResponse?.(response);
       speakText(response);
+      isProcessingRef.current = false;
 
       if (action && action.type === 'NAVIGATE' && action.path) {
         window.setTimeout(() => {
           onNavigate?.(action.path);
         }, 1800);
       }
-    }, 450);
+    }
   };
 
   const handleRestartListening = () => {
+    isProcessingRef.current = false;
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
