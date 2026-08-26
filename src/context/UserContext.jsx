@@ -29,7 +29,7 @@ function getLangCode(nameOrCode) {
 
 function loadSavedLanguage() {
   // Could be stored as code ("hi") or name ("Hindi") — normalize to name
-  const saved = localStorage.getItem('saathi_language');
+  const saved = localStorage.getItem('saathi_lang_pref');
   return normalizeLang(saved);
 }
 
@@ -103,7 +103,7 @@ export function UserProvider({ children }) {
     const name = normalizeLang(langInput);  // e.g. "Hindi"
     const code = getLangCode(name);          // e.g. "hi"
     setPreferredLanguage(name);
-    localStorage.setItem('saathi_language', code);
+    localStorage.setItem('saathi_lang_pref', code);
   }, []);
 
   // ─── Translation function ──────────────────────────────────────────────────
