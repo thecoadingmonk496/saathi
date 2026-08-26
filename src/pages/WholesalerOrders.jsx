@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useUser } from '../context/UserContext';
 import { Check, X, Package } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5001/api';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')).replace(/\/$/, '') + '/api';
 
 export default function WholesalerOrders() {
   const { token } = useUser();
@@ -41,17 +41,17 @@ export default function WholesalerOrders() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-emerald-600 font-semibold animate-pulse">Loading orders...</div>;
+  if (loading) return <div className="p-8 text-center text-[var(--saathi-primary)] font-semibold animate-pulse">Loading orders...</div>;
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 pb-24">
       <div className="flex items-center gap-3 mb-8">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+        <div className="w-10 h-10 rounded-xl bg-[var(--saathi-primary)] flex items-center justify-center shadow-lg shadow-md">
           <Package className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Incoming Proposals</h1>
-          <p className="text-sm text-gray-500 font-medium mt-1">Review and approve inventory shipments from Buyers</p>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-[var(--saathi-primary)] tracking-tight">Incoming Proposals</h1>
+          <p className="text-base font-semibold text-[var(--saathi-text-secondary)] mt-1.5">Review and approve inventory shipments from Buyers</p>
         </div>
       </div>
 
@@ -59,36 +59,36 @@ export default function WholesalerOrders() {
 
       <div className="space-y-4">
         {orders.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 shadow-sm text-gray-500 font-medium">
+          <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 shadow-sm text-[var(--saathi-text-muted)] font-medium">
             No pending proposals found.
           </div>
         ) : (
           orders.map(order => (
-            <div key={order._id} className="bg-white rounded-2xl shadow-sm border border-emerald-100/50 p-5 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-md transition-shadow">
+            <div key={order._id} className="bg-white rounded-2xl shadow-sm border border-[var(--saathi-border-light)]/50 p-5 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-md transition-shadow">
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6 flex-1">
                 <div>
-                  <p className="text-xs text-gray-500 font-medium mb-1">Seller (Buyer Role)</p>
-                  <p className="font-semibold text-gray-900">{order.sellerId?.firstName} {order.sellerId?.lastName}</p>
+                  <p className="text-xs text-[var(--saathi-text-muted)] font-medium mb-1">Seller (Buyer Role)</p>
+                  <p className="font-semibold text-[var(--saathi-text)]">{order.sellerId?.firstName} {order.sellerId?.lastName}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 font-medium mb-1">Product</p>
-                  <p className="font-semibold text-gray-900">{order.product}</p>
+                  <p className="text-xs text-[var(--saathi-text-muted)] font-medium mb-1">Product</p>
+                  <p className="font-semibold text-[var(--saathi-text)]">{order.product}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 font-medium mb-1">Quantity proposed</p>
-                  <p className="font-semibold text-emerald-600">{order.quantity} q</p>
+                  <p className="text-xs text-[var(--saathi-text-muted)] font-medium mb-1">Quantity proposed</p>
+                  <p className="font-semibold text-[var(--saathi-primary)]">{order.quantity} q</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 font-medium mb-1">Price</p>
-                  <p className="font-semibold text-gray-900">₹{order.price}/q</p>
+                  <p className="text-xs text-[var(--saathi-text-muted)] font-medium mb-1">Price</p>
+                  <p className="font-semibold text-[var(--saathi-text)]">₹{order.price}/q</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-3 w-full md:w-auto pt-4 md:pt-0 border-t md:border-t-0 border-gray-100">
                 <button
                   onClick={() => handleAction(order._id, 'approve')}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 text-white font-semibold shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors"
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--saathi-primary)] text-white font-semibold shadow-lg shadow-md hover:bg-[var(--saathi-primary)] transition-colors"
                 >
                   <Check className="w-4 h-4" /> Approve
                 </button>

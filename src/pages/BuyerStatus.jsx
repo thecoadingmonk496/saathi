@@ -27,7 +27,7 @@ const STATUS_MAP = {
     message: 'Please review your application and provide the requested information.',
   },
   APPROVED: {
-    color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    color: 'bg-[var(--saathi-border-light)] text-emerald-800 border-[var(--saathi-border)]',
     icon: '🟢',
     title: 'Saathi Verified Buyer',
     message: 'Your buyer profile has been approved.',
@@ -76,7 +76,7 @@ export default function BuyerStatus() {
   const statusInfo = application ? STATUS_MAP[application.verificationStatus] || STATUS_MAP.PENDING : null;
 
   return (
-    <div className="min-h-screen bg-[#064E3B] pb-12">
+    <div className="min-h-screen bg-[var(--saathi-primary)] pb-12">
       <div className="mx-auto max-w-3xl px-4 pt-8 sm:px-6">
         <header className="text-center mb-8">
           <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-xs font-bold text-emerald-100">
@@ -92,7 +92,7 @@ export default function BuyerStatus() {
           {!application ? (
             <div className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">
                   Mobile Number
                 </label>
                 <input
@@ -104,14 +104,14 @@ export default function BuyerStatus() {
                   }}
                   placeholder="Enter your registered mobile number"
                   maxLength={10}
-                  className="w-full h-12 rounded-xl border border-slate-300 px-4 text-sm text-slate-900 focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
+                  className="w-full h-12 rounded-xl border border-[var(--saathi-border)] px-4 text-sm text-[var(--saathi-text)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
                 />
                 {error && <p className="mt-1 text-xs font-semibold text-red-600">⚠️ {error}</p>}
               </div>
               <button
                 onClick={handleCheckStatus}
                 disabled={loading || phone.length !== 10}
-                className="w-full py-3 rounded-xl bg-[#2E7D32] text-white font-bold hover:bg-[#256428] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-xl bg-[var(--saathi-primary)] text-white font-bold hover:bg-[var(--saathi-primary-hover)] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
@@ -124,7 +124,7 @@ export default function BuyerStatus() {
               </button>
               <button
                 onClick={() => navigate('/buyer-register')}
-                className="w-full py-3 rounded-xl border border-slate-300 text-slate-700 font-bold hover:bg-slate-50 transition"
+                className="w-full py-3 rounded-xl border border-[var(--saathi-border)] text-[var(--saathi-text-secondary)] font-bold hover:bg-[var(--saathi-surface-alt)] transition"
               >
                 New Application? Register as Buyer
               </button>
@@ -135,15 +135,15 @@ export default function BuyerStatus() {
                 <div className="flex items-center gap-3">
                   <span className="text-3xl">{statusInfo.icon}</span>
                   <div>
-                    <h2 className="text-lg font-extrabold text-slate-900">{statusInfo.title}</h2>
-                    <p className="mt-1 text-sm text-slate-600">{statusInfo.message}</p>
+                    <h2 className="text-lg font-extrabold text-[var(--saathi-text)]">{statusInfo.title}</h2>
+                    <p className="mt-1 text-sm text-[var(--saathi-text-secondary)]">{statusInfo.message}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                <p className="text-xs font-bold uppercase text-slate-500">Submitted</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">
+              <div className="bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] rounded-xl p-5">
+                <p className="text-xs font-bold uppercase text-[var(--saathi-text-muted)]">Submitted</p>
+                <p className="mt-1 text-sm font-semibold text-[var(--saathi-text)]">
                   {new Date(application.submittedAt).toLocaleDateString('en-IN', {
                     day: 'numeric',
                     month: 'long',
@@ -166,13 +166,13 @@ export default function BuyerStatus() {
                 </div>
               )}
 
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                <p className="text-xs font-bold uppercase text-slate-500">Application Details</p>
+              <div className="bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] rounded-xl p-5">
+                <p className="text-xs font-bold uppercase text-[var(--saathi-text-muted)]">Application Details</p>
                 <div className="mt-2 space-y-2 text-sm">
-                  <p><span className="font-semibold text-slate-600">Business:</span> <span className="text-slate-800">{application.business.name}</span></p>
-                  <p><span className="font-semibold text-slate-600">Buyer Type:</span> <span className="text-slate-800">{application.buyerType}</span></p>
-                  <p><span className="font-semibold text-slate-600">Location:</span> <span className="text-slate-800">{application.address.villageCity}, {application.address.district}, {application.address.state}</span></p>
-                  <p><span className="font-semibold text-slate-600">Commodities:</span> <span className="text-slate-800">{application.commodities.map((c) => c.name).join(', ')}</span></p>
+                  <p><span className="font-semibold text-[var(--saathi-text-secondary)]">Business:</span> <span className="text-[var(--saathi-text)]">{application.business.name}</span></p>
+                  <p><span className="font-semibold text-[var(--saathi-text-secondary)]">Buyer Type:</span> <span className="text-[var(--saathi-text)]">{application.buyerType}</span></p>
+                  <p><span className="font-semibold text-[var(--saathi-text-secondary)]">Location:</span> <span className="text-[var(--saathi-text)]">{application.address.villageCity}, {application.address.district}, {application.address.state}</span></p>
+                  <p><span className="font-semibold text-[var(--saathi-text-secondary)]">Commodities:</span> <span className="text-[var(--saathi-text)]">{application.commodities.map((c) => c.name).join(', ')}</span></p>
                 </div>
               </div>
 
@@ -180,7 +180,7 @@ export default function BuyerStatus() {
                 {application.verificationStatus === 'ACTION_REQUIRED' && (
                   <button
                     onClick={() => navigate(`/buyer-update/${application._id}?phone=${phone}`)}
-                    className="w-full py-3 rounded-xl bg-[#2E7D32] text-white font-bold hover:bg-[#256428] transition"
+                    className="w-full py-3 rounded-xl bg-[var(--saathi-primary)] text-white font-bold hover:bg-[var(--saathi-primary-hover)] transition"
                   >
                     Update Application
                   </button>
@@ -191,13 +191,13 @@ export default function BuyerStatus() {
                     setChecked(false);
                     setPhone('');
                   }}
-                  className="w-full py-3 rounded-xl border border-slate-300 text-slate-700 font-bold hover:bg-slate-50 transition"
+                  className="w-full py-3 rounded-xl border border-[var(--saathi-border)] text-[var(--saathi-text-secondary)] font-bold hover:bg-[var(--saathi-surface-alt)] transition"
                 >
                   Check Another Application
                 </button>
                 <button
                   onClick={() => navigate('/')}
-                  className="w-full py-3 rounded-xl border border-slate-300 text-slate-700 font-bold hover:bg-slate-50 transition"
+                  className="w-full py-3 rounded-xl border border-[var(--saathi-border)] text-[var(--saathi-text-secondary)] font-bold hover:bg-[var(--saathi-surface-alt)] transition"
                 >
                   Back to Dashboard
                 </button>

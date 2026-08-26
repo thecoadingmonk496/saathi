@@ -1,25 +1,27 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { useLocation } from 'react-router-dom';
-import HeroBackground from './components/HeroBackground';
 import Layout from './components/Layout';
-import PersistentFooter from './components/PersistentFooter';
 import { UserProvider, useUser } from './context/UserContext';
 import { LocationProvider } from './context/LocationContext';
-import BuyerDiscovery from './pages/BuyerDiscovery';
-import BuyerOrders from './pages/BuyerOrders';
+
+// Existing Pages
 import Dashboard from './pages/Dashboard';
-import Government from './pages/Government';
 import MarketPrices from './pages/MarketPrices';
+import MarketExplorer from './pages/MarketExplorer';
+import MandiInformation from './pages/MandiInformation';
+import BuyerDiscovery from './pages/BuyerDiscovery';
+import Reviews from './pages/Reviews';
+import About from './pages/About';
 import Login from './pages/Login';
-import Notifications from './pages/Notifications';
 import Register from './pages/Register';
 import Onboarding from './pages/Onboarding';
 import Profile from './pages/Profile';
+import Notifications from './pages/Notifications';
+import Government from './pages/Government';
 import Admin from './pages/Admin';
 import AdminLogin from './pages/AdminLogin';
-import BuyerRegister from './pages/BuyerRegister';
-import BuyerStatus from './pages/BuyerStatus';
-import BuyerUpdate from './pages/BuyerUpdate';
+
+// Multi-Tier Supply Chain & Order Pages
+import CropJourney from './pages/CropJourney';
 import WholesalerDiscovery from './pages/WholesalerDiscovery';
 import WholesalerOrders from './pages/WholesalerOrders';
 import DistributorDiscovery from './pages/DistributorDiscovery';
@@ -28,7 +30,10 @@ import RetailerDiscovery from './pages/RetailerDiscovery';
 import RetailerOrders from './pages/RetailerOrders';
 import ConsumerDiscovery from './pages/ConsumerDiscovery';
 import ConsumerOrders from './pages/ConsumerOrders';
-import CropJourney from './pages/CropJourney';
+import BuyerOrders from './pages/BuyerOrders';
+import BuyerRegister from './pages/BuyerRegister';
+import BuyerStatus from './pages/BuyerStatus';
+import BuyerUpdate from './pages/BuyerUpdate';
 
 function ProtectedPage({ children }) {
   const { isLoggedIn } = useUser();
@@ -40,60 +45,56 @@ function ProtectedPage({ children }) {
   return <Layout>{children}</Layout>;
 }
 
-function CatchAllRedirect() {
-  const { isLoggedIn } = useUser();
-
-  return <Navigate to={isLoggedIn ? '/' : '/login'} replace />;
-}
-
-function GlobalHeroBackground() {
-  const { pathname } = useLocation();
-  const pageOwnsHero = pathname === '/' || pathname === '/ai';
-
-  if (pageOwnsHero) {
-    return null;
-  }
-
-  return <HeroBackground />;
-}
-
 export default function App() {
   return (
     <UserProvider>
       <LocationProvider>
         <BrowserRouter>
           <Routes>
+            {/* Auth Routes */}
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
             <Route path="/onboarding" element={<Onboarding />} />
 
-            <Route path="/" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
-            <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
-            <Route path="/buyers" element={<ProtectedPage><BuyerDiscovery /></ProtectedPage>} />
-            <Route path="/buyer/orders" element={<ProtectedPage><BuyerOrders /></ProtectedPage>} />
-            <Route path="/wholesalers" element={<ProtectedPage><WholesalerDiscovery /></ProtectedPage>} />
-            <Route path="/wholesaler/orders" element={<ProtectedPage><WholesalerOrders /></ProtectedPage>} />
-            <Route path="/distributors" element={<ProtectedPage><DistributorDiscovery /></ProtectedPage>} />
-            <Route path="/distributor/orders" element={<ProtectedPage><DistributorOrders /></ProtectedPage>} />
-            <Route path="/retailers" element={<ProtectedPage><RetailerDiscovery /></ProtectedPage>} />
-            <Route path="/retailer/orders" element={<ProtectedPage><RetailerOrders /></ProtectedPage>} />
-            <Route path="/consumers" element={<ProtectedPage><ConsumerDiscovery /></ProtectedPage>} />
-            <Route path="/consumer/orders" element={<ProtectedPage><ConsumerOrders /></ProtectedPage>} />
-            <Route path="/prices" element={<ProtectedPage><MarketPrices /></ProtectedPage>} />
-            <Route path="/crop-journey" element={<ProtectedPage><CropJourney /></ProtectedPage>} />
-            <Route path="/government" element={<ProtectedPage><Government /></ProtectedPage>} />
-            <Route path="/profile" element={<ProtectedPage><Profile /></ProtectedPage>} />
-            <Route path="/ai" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
-            
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin" element={<Admin />} />
+            {/* Public Portal & Core Market Routes */}
+            <Route path="/" element={<Layout><Dashboard /></Layout>} />
+            <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
+            <Route path="/prices" element={<Layout><MarketPrices /></Layout>} />
+            <Route path="/mandis" element={<Layout><MandiInformation /></Layout>} />
+            <Route path="/buyers" element={<Layout><BuyerDiscovery /></Layout>} />
+            <Route path="/explorer" element={<Layout><MarketExplorer /></Layout>} />
+            <Route path="/crop-journey" element={<Layout><CropJourney /></Layout>} />
+            <Route path="/reviews" element={<Layout><Reviews /></Layout>} />
+            <Route path="/about" element={<Layout><About /></Layout>} />
+            <Route path="/government" element={<Layout><Government /></Layout>} />
+            <Route path="/ai" element={<Layout><Dashboard /></Layout>} />
 
+            {/* Supply Chain Discovery Routes */}
+            <Route path="/wholesalers" element={<Layout><WholesalerDiscovery /></Layout>} />
+            <Route path="/distributors" element={<Layout><DistributorDiscovery /></Layout>} />
+            <Route path="/retailers" element={<Layout><RetailerDiscovery /></Layout>} />
+            <Route path="/consumers" element={<Layout><ConsumerDiscovery /></Layout>} />
+
+            {/* Buyer Onboarding & Self-Service */}
             <Route path="/buyer-register" element={<BuyerRegister />} />
             <Route path="/buyer-status" element={<BuyerStatus />} />
             <Route path="/buyer-update/:id" element={<BuyerUpdate />} />
 
+            {/* Protected Order & Account Routes */}
+            <Route path="/buyer/orders" element={<ProtectedPage><BuyerOrders /></ProtectedPage>} />
+            <Route path="/wholesaler/orders" element={<ProtectedPage><WholesalerOrders /></ProtectedPage>} />
+            <Route path="/distributor/orders" element={<ProtectedPage><DistributorOrders /></ProtectedPage>} />
+            <Route path="/retailer/orders" element={<ProtectedPage><RetailerOrders /></ProtectedPage>} />
+            <Route path="/consumer/orders" element={<ProtectedPage><ConsumerOrders /></ProtectedPage>} />
+            <Route path="/profile" element={<ProtectedPage><Profile /></ProtectedPage>} />
             <Route path="/notifications" element={<ProtectedPage><Notifications /></ProtectedPage>} />
-            <Route path="*" element={<CatchAllRedirect />} />
+
+            {/* Admin Management */}
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin" element={<Admin />} />
+
+            {/* Catch-all redirect */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
       </LocationProvider>

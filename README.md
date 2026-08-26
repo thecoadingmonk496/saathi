@@ -69,16 +69,19 @@ The interface uses a shared agricultural field background, clear card-based info
 ```
 backend/
 +-- config/
-ï¿½   +-- db.js                  # MongoDB Atlas connection with serverless caching
+¦   +-- db.js                  # MongoDB Atlas connection with serverless caching
 +-- controllers/
-ï¿½   +-- authController.js      # Register, Login, Send OTP, Verify OTP
-ï¿½   +-- adminController.js     # Admin login, list users, delete user
+¦   +-- authController.js      # Register, Login, Send OTP, Verify OTP
+¦   +-- adminController.js     # Admin login, list users, delete user
 +-- middleware/
+¦   +-- blockchainAuth.js      # JWT verification middleware
 +-- models/
-ï¿½   +-- User.js                # Mongoose user schema
+¦   +-- User.js                # Mongoose user schema
+¦   +-- VerificationRecord.js  # Blockchain verification records
 +-- routes/
-ï¿½   +-- auth.js                # /api/auth/* routes
-ï¿½   +-- admin.js               # /api/admin/* routes (protected)
+¦   +-- auth.js                # /api/auth/* routes
+¦   +-- admin.js               # /api/admin/* routes (protected)
+¦   +-- blockchain.js          # /api/blockchain/* routes
 +-- services/                  # Business logic services
 +-- .env                       # Local secrets (not committed)
 +-- .env.example               # Environment variable template
@@ -386,7 +389,9 @@ SAATHI aims to make agricultural market information easier to access, understand
 
 ---
 
-## The Core Problem
+## Blockchain Integration
+
+### The Core Problem
 
 In India's agricultural supply chain, a farmer sells wheat for Rs. 20/kg but the consumer buys it for Rs. 60/kg. Nobody knows where the money went, who handled the crop, or whether the buyer is genuine. There is zero transparency and zero trust.
 
@@ -398,10 +403,10 @@ In India's agricultural supply chain, a farmer sells wheat for Rs. 20/kg but the
 
 | Problem in Agriculture | How Blockchain Solves It |
 |---|---|
-| Farmers do not know if a buyer is genuine | Buyer identity is verified on-chain ï¿½ permanent, unfakeable proof |
-| Supply chain data can be faked or tampered | Every stage (farm to mandi to distributor to retailer) is recorded on blockchain ï¿½ immutable |
+| Farmers do not know if a buyer is genuine | Buyer identity is verified on-chain — permanent, unfakeable proof |
+| Supply chain data can be faked or tampered | Every stage (farm to mandi to distributor to retailer) is recorded on blockchain — immutable |
 | Price manipulation is invisible | Any price record written on-chain cannot be changed retroactively |
-| No accountability if something goes wrong | Every record has a transaction hash ï¿½ traceable on public blockchain forever |
+| No accountability if something goes wrong | Every record has a transaction hash — traceable on public blockchain forever |
 
 ---
 
@@ -413,11 +418,11 @@ When a crop moves from one stage to another (Farmer to Mandi to Wholesaler to Di
 
 - Product name (e.g., Wheat)
 - Stage (e.g., Mandi, Retailer)
-- Data hash ï¿½ a SHA-256 fingerprint of the full data
-- Timestamp ï¿½ when the event occurred
-- Verifier address ï¿½ who recorded it
+- Data hash — a SHA-256 fingerprint of the full data
+- Timestamp — when the event occurred
+- Verifier address — who recorded it
 
-If anyone tampers with the data later, the hash will not match the on-chain record ï¿½ fraud is instantly detectable.
+If anyone tampers with the data later, the hash will not match the on-chain record — fraud is instantly detectable.
 
 #### 2. Buyer Verification
 
@@ -427,7 +432,7 @@ Before a farmer connects with a buyer on SAATHI, that buyer's identity is writte
 - Verification status (verified / pending / failed)
 - On-chain timestamp
 
-Farmers can trust the buyer is real ï¿½ it is not just a self-reported profile.
+Farmers can trust the buyer is real — it is not just a self-reported profile.
 
 ---
 
@@ -438,10 +443,10 @@ Farmers can trust the buyer is real ï¿½ it is not just a self-reported profile.
 | Which blockchain? | Polygon Amoy (Ethereum-compatible testnet) |
 | Why Polygon? | Low gas fees, fast transactions, eco-friendly, EVM-compatible |
 | Why not Ethereum mainnet? | Too expensive for high-frequency supply chain writes |
-| Smart contract language | Solidity ï¿½ deployed as the SaathiVerification contract |
-| Backend connection | ethers.js ï¿½ signs transactions with a wallet private key |
+| Smart contract language | Solidity — deployed as the SaathiVerification contract |
+| Backend connection | ethers.js — signs transactions with a wallet private key |
 | Where is data stored? | Full data in MongoDB (fast and cheap), only the hash goes on blockchain (proof of integrity) |
-| Is it public? | Yes ï¿½ any transaction hash can be verified on Polygonscan Amoy |
+| Is it public? | Yes — any transaction hash can be verified on Polygonscan Amoy |
 
 ---
 
@@ -489,10 +494,10 @@ SAATHI_CONTRACT_ADDRESS=0xYourDeployedContractAddress
 BLOCKCHAIN_SERVICE_KEY=your_internal_api_secret_key
 ```
 
-> If these variables are not set, the blockchain service operates in **pending mode** ï¿½ all API calls return gracefully without crashing, and the rest of the application works normally. Full activation requires deploying the Solidity contract to Polygon Amoy and setting the environment variables above.
+> If these variables are not set, the blockchain service operates in **pending mode** — all API calls return gracefully without crashing, and the rest of the application works normally. Full activation requires deploying the Solidity contract to Polygon Amoy and setting the environment variables above.
 
 ---
 
 ### One-Line Summary
 
-SAATHI uses Polygon blockchain to create an immutable, transparent record of every supply chain transaction and buyer verification ï¿½ so that for the first time, a farmer can cryptographically prove where their crop went and trust who they are selling to.
+SAATHI uses Polygon blockchain to create an immutable, transparent record of every supply chain transaction and buyer verification — so that for the first time, a farmer can cryptographically prove where their crop went and trust who they are selling to.

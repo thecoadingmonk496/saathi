@@ -1,6 +1,5 @@
 {
   "framework": "vite",
-  "installCommand": "corepack enable pnpm && pnpm install",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" },
     { "source": "/(.*)", "destination": "/index.html" }
@@ -13,12 +12,6 @@
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "X-XSS-Protection", "value": "1; mode=block" }
       ]
-    }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/refresh-mandi-cache",
-      "schedule": "0 3 * * *"
     }
   ]
 }

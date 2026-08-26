@@ -4,7 +4,7 @@ import { useUser } from '../context/UserContext';
 import { Truck, CheckCircle, Package } from 'lucide-react';
 import { MapPin, Navigation } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5001/api';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')).replace(/\/$/, '') + '/api';
 
 export default function WholesalerDiscovery() {
   const { token, user } = useUser();
@@ -91,17 +91,17 @@ export default function WholesalerDiscovery() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-emerald-600 font-semibold text-lg animate-pulse">Loading wholesalers...</div>;
+  if (loading) return <div className="p-8 text-center text-[var(--saathi-primary)] font-semibold text-lg animate-pulse">Loading wholesalers...</div>;
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 pb-24">
       <div className="flex items-center gap-3 mb-8">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+        <div className="w-10 h-10 rounded-xl bg-[var(--saathi-primary)] flex items-center justify-center shadow-lg shadow-md">
           <Truck className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Wholesaler Network</h1>
-          <p className="text-sm text-gray-500 font-medium mt-1">Connect and sell your inventory downstream</p>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-[var(--saathi-primary)] tracking-tight">Wholesaler Network</h1>
+          <p className="text-base font-semibold text-[var(--saathi-text-secondary)] mt-1.5">Connect and sell your inventory downstream</p>
         </div>
       </div>
 
@@ -112,19 +112,19 @@ export default function WholesalerDiscovery() {
       )}
 
       {success && (
-        <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700 font-medium flex items-center gap-2">
+        <div className="mb-6 p-4 rounded-xl bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] text-[var(--saathi-primary)] font-medium flex items-center gap-2">
           <CheckCircle className="w-5 h-5" />
           {success}
         </div>
       )}
 
       {selectedWholesaler ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-emerald-100/50 p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-[var(--saathi-border-light)]/50 p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-800">New Proposal to {selectedWholesaler.firstName} {selectedWholesaler.lastName}</h2>
+            <h2 className="text-2xl font-extrabold text-[var(--saathi-text)] tracking-tight">New Proposal to {selectedWholesaler.firstName} {selectedWholesaler.lastName}</h2>
             <button 
               onClick={() => setSelectedWholesaler(null)}
-              className="text-sm font-medium text-emerald-600 hover:text-emerald-700"
+              className="text-sm font-medium text-[var(--saathi-primary)] hover:opacity-80"
             >
               Back to List
             </button>
@@ -132,12 +132,12 @@ export default function WholesalerDiscovery() {
 
           <form onSubmit={handlePropose} className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Select Crop from Inventory</label>
+              <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-2">Select Crop from Inventory</label>
               <select 
                 value={selectedCrop}
                 onChange={(e) => setSelectedCrop(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                className="w-full px-4 py-3 rounded-xl border border-[var(--saathi-border-light)] focus:ring-2 focus:border-[var(--saathi-primary)]"
               >
                 <option value="">Choose a crop...</option>
                 {availableCrops.map(c => (
@@ -148,7 +148,7 @@ export default function WholesalerDiscovery() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Quantity (quintals)</label>
+                <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-2">Quantity (quintals)</label>
                 <input
                   type="number"
                   required
@@ -157,19 +157,19 @@ export default function WholesalerDiscovery() {
                   max={maxAvailable}
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  className="w-full px-4 py-3 rounded-xl border border-[var(--saathi-border-light)] focus:ring-2 focus:border-[var(--saathi-primary)]"
                   placeholder="e.g. 50"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Proposed Price (₹/q)</label>
+                <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-2">Proposed Price (₹/q)</label>
                 <input
                   type="number"
                   required
                   min="1"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  className="w-full px-4 py-3 rounded-xl border border-[var(--saathi-border-light)] focus:ring-2 focus:border-[var(--saathi-primary)]"
                   placeholder="e.g. 2400"
                 />
               </div>
@@ -177,7 +177,7 @@ export default function WholesalerDiscovery() {
 
             <button 
               type="submit"
-              className="w-full mt-6 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30 transition-all active:scale-[0.98]"
+              className="w-full mt-6 bg-[var(--saathi-primary)] text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-md hover:shadow-xl hover:shadow-md transition-all active:scale-[0.98]"
             >
               Send Proposal
             </button>
@@ -186,22 +186,22 @@ export default function WholesalerDiscovery() {
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">
           {wholesalers.length === 0 ? (
-            <div className="col-span-2 text-center py-12 text-gray-500 font-medium">No wholesalers found.</div>
+            <div className="col-span-2 text-center py-12 text-[var(--saathi-text-muted)] font-medium">No wholesalers found.</div>
           ) : (
             wholesalers.map(w => (
-              <div key={w._id} className="bg-white rounded-2xl shadow-sm border border-emerald-100/50 p-5 hover:shadow-md transition-shadow">
+              <div key={w._id} className="bg-white rounded-2xl shadow-sm border border-[var(--saathi-border-light)]/50 p-5 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h3 className="font-bold text-gray-900">{w.firstName} {w.lastName}</h3>
-                    <p className="text-sm text-emerald-600 font-medium mt-0.5">Wholesaler</p>
+                    <h3 className="font-bold text-[var(--saathi-text)]">{w.firstName} {w.lastName}</h3>
+                    <p className="text-sm text-[var(--saathi-primary)] font-medium mt-0.5">Wholesaler</p>
                   </div>
-                  <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 font-bold">
+                  <div className="w-10 h-10 rounded-full bg-[var(--saathi-surface-alt)] flex items-center justify-center text-[var(--saathi-primary)] font-bold">
                     {w.firstName[0]}{w.lastName[0]}
                   </div>
                 </div>
                 
                 <div className="space-y-2 mb-6">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <div className="flex items-center gap-2 text-sm text-[var(--saathi-text-secondary)]">
                     <MapPin className="w-4 h-4 text-gray-400" />
                     <span>Regional Distributor</span>
                   </div>
@@ -209,7 +209,7 @@ export default function WholesalerDiscovery() {
 
                 <button 
                   onClick={() => setSelectedWholesaler(w)}
-                  className="w-full py-2.5 rounded-xl border-2 border-emerald-500 text-emerald-600 font-semibold hover:bg-emerald-50 transition-colors"
+                  className="w-full py-2.5 rounded-xl border-2 border-[var(--saathi-primary)] text-[var(--saathi-primary)] font-semibold hover:bg-[var(--saathi-surface-alt)] transition-colors"
                 >
                   Propose Sale
                 </button>

@@ -160,13 +160,13 @@ export default function Onboarding() {
 
   return (
     <main className="min-h-screen bg-transparent px-4 pb-20 pt-8 sm:flex sm:items-center sm:justify-center sm:p-8 sm:pb-20">
-      <section className="mx-auto w-full max-w-xl rounded-3xl bg-white/90 p-6 shadow-xl shadow-green-900/15 backdrop-blur-xl sm:p-10">
+      <section className="mx-auto w-full max-w-xl rounded-3xl bg-white/90 p-6 shadow-xl shadow-red-900/15 backdrop-blur-xl sm:p-10">
         <div className="mb-10 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#2E7D32] text-2xl text-white">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-dark text-2xl text-white">
             🌾
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Welcome to SAATHI</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
+          <h1 className="text-3xl font-bold tracking-tight text-[var(--saathi-text)]">Welcome to SAATHI</h1>
+          <p className="mt-2 text-sm leading-6 text-[var(--saathi-text-secondary)]">
             Your trusted companion for better farming decisions.
           </p>
         </div>
@@ -175,13 +175,13 @@ export default function Onboarding() {
           {step === 1 && (
             <form onSubmit={handleRegistrationNext} noValidate>
               <div className="mb-7">
-                <p className="text-xl font-semibold text-slate-900">Let&apos;s get to know you</p>
-                <p className="mt-1 text-sm text-slate-600">Enter your farming profile details.</p>
+                <p className="text-xl font-semibold text-[var(--saathi-text)]">Let&apos;s get to know you</p>
+                <p className="mt-1 text-sm text-[var(--saathi-text-secondary)]">Enter your farming profile details.</p>
               </div>
 
               <div className="space-y-5">
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Full Name</span>
+                  <span className="mb-2 block text-sm font-medium text-[var(--saathi-text-secondary)]">Full Name</span>
                   <input
                     type="text"
                     name="name"
@@ -189,12 +189,12 @@ export default function Onboarding() {
                     onChange={handleRegistrationChange}
                     placeholder="Enter your full name"
                     autoComplete="name"
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2E7D32] focus:ring-4 focus:ring-green-100"
+                    className="w-full rounded-xl border border-[var(--saathi-border-light)] px-4 py-3 text-[var(--saathi-text)] outline-none transition placeholder:text-slate-400 focus:border-accent-dark focus:ring-4 focus:ring-red-100"
                   />
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">Mobile Number</span>
+                  <span className="mb-2 block text-sm font-medium text-[var(--saathi-text-secondary)]">Mobile Number</span>
                   <input
                     type="tel"
                     name="mobile"
@@ -204,12 +204,12 @@ export default function Onboarding() {
                     inputMode="numeric"
                     maxLength="10"
                     autoComplete="tel"
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2E7D32] focus:ring-4 focus:ring-green-100"
+                    className="w-full rounded-xl border border-[var(--saathi-border-light)] px-4 py-3 text-[var(--saathi-text)] outline-none transition placeholder:text-slate-400 focus:border-accent-dark focus:ring-4 focus:ring-red-100"
                   />
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">{t('profile.farmerId')}</span>
+                  <span className="mb-2 block text-sm font-medium text-[var(--saathi-text-secondary)]">{t('profile.farmerId')}</span>
                   <input
                     type="text"
                     name="farmerId"
@@ -217,7 +217,7 @@ export default function Onboarding() {
                     onChange={handleRegistrationChange}
                     placeholder="Enter your alphanumeric Farmer ID"
                     autoComplete="off"
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2E7D32] focus:ring-4 focus:ring-green-100"
+                    className="w-full rounded-xl border border-[var(--saathi-border-light)] px-4 py-3 text-[var(--saathi-text)] outline-none transition placeholder:text-slate-400 focus:border-accent-dark focus:ring-4 focus:ring-red-100"
                   />
                 </label>
               </div>
@@ -226,7 +226,7 @@ export default function Onboarding() {
 
               <button
                 type="submit"
-                className="mt-8 w-full rounded-xl bg-[#2E7D32] px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-[#256428] focus:outline-none focus:ring-4 focus:ring-green-200"
+                className="mt-8 w-full rounded-xl bg-primary-dark px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-primary focus:outline-none focus:ring-4 focus:ring-red-200"
               >
                 Next
               </button>
@@ -236,20 +236,20 @@ export default function Onboarding() {
           {step === 2 && (
             <div>
               <div className="mb-7">
-                <p className="text-xl font-semibold text-slate-900">Where is your farm?</p>
-                <p className="mt-1 text-sm text-slate-600">This helps us provide relevant market and weather information.</p>
+                <p className="text-xl font-semibold text-[var(--saathi-text)]">Where is your farm?</p>
+                <p className="mt-1 text-sm text-[var(--saathi-text-secondary)]">This helps us provide relevant market and weather information.</p>
               </div>
 
               {locationMode === 'permission' && (
-                <div className="rounded-2xl border border-green-100 bg-green-50 p-5 text-center">
+                <div className="rounded-2xl border border-red-100 bg-red-50 p-5 text-center">
                   <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-xl shadow-sm">📍</div>
-                  <p className="mt-4 font-semibold text-slate-900">{t('location.permissionTitle')}</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">We&apos;ll only use it to identify your village and nearby services.</p>
+                  <p className="mt-4 font-semibold text-[var(--saathi-text)]">{t('location.permissionTitle')}</p>
+                  <p className="mt-1 text-sm leading-6 text-[var(--saathi-text-secondary)]">We&apos;ll only use it to identify your village and nearby services.</p>
                   <button
                     type="button"
                     onClick={useCurrentLocation}
                     disabled={isLocating}
-                    className="mt-5 w-full rounded-xl bg-[#2E7D32] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#256428] disabled:cursor-not-allowed disabled:opacity-70"
+                    className="mt-5 w-full rounded-xl bg-primary-dark px-5 py-3 text-sm font-semibold text-white transition hover:bg-primary disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {isLocating ? 'Finding location…' : 'Allow Location Access'}
                   </button>
@@ -259,7 +259,7 @@ export default function Onboarding() {
                       setLocationMode('manual');
                       setError('');
                     }}
-                    className="mt-3 text-sm font-semibold text-[#2E7D32] hover:underline"
+                    className="mt-3 text-sm font-semibold text-accent-dark hover:underline"
                   >
                     Select location manually
                   </button>
@@ -267,14 +267,14 @@ export default function Onboarding() {
               )}
 
               {locationMode === 'detected' && (
-                <div className="rounded-2xl border border-green-200 bg-green-50 p-5">
-                  <p className="text-sm font-semibold text-[#2E7D32]">Location found</p>
-                  <p className="mt-2 text-base font-semibold text-slate-900">{location.village}, {location.block}</p>
-                  <p className="mt-1 text-sm text-slate-600">{location.district}, {location.state}</p>
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
+                  <p className="text-sm font-semibold text-accent-dark">Location found</p>
+                  <p className="mt-2 text-base font-semibold text-[var(--saathi-text)]">{location.village}, {location.block}</p>
+                  <p className="mt-1 text-sm text-[var(--saathi-text-secondary)]">{location.district}, {location.state}</p>
                   <button
                     type="button"
                     onClick={() => setLocationMode('manual')}
-                    className="mt-4 text-sm font-semibold text-[#2E7D32] hover:underline"
+                    className="mt-4 text-sm font-semibold text-accent-dark hover:underline"
                   >{t('hero.changeLocation')}</button>
                 </div>
               )}
@@ -282,11 +282,11 @@ export default function Onboarding() {
               {locationMode === 'manual' && (
                 <div className="space-y-5">
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('profile.village')}</span>
+                    <span className="mb-2 block text-sm font-medium text-[var(--saathi-text-secondary)]">{t('profile.village')}</span>
                     <select
                       value={location.village}
                       onChange={handleLocationChange}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-[#2E7D32] focus:ring-4 focus:ring-green-100"
+                      className="w-full rounded-xl border border-[var(--saathi-border-light)] bg-white px-4 py-3 text-[var(--saathi-text)] outline-none focus:border-accent-dark focus:ring-4 focus:ring-red-100"
                     >
                       <option value="">Select Village</option>
                       {uniqueValues(geography, 'village').map((village) => (
@@ -296,12 +296,12 @@ export default function Onboarding() {
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('profile.block')}</span>
+                    <span className="mb-2 block text-sm font-medium text-[var(--saathi-text-secondary)]">{t('profile.block')}</span>
                     <select
                       value={location.block}
                       onChange={(event) => updateManualLocation('block', event.target.value)}
                       disabled={!location.village}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-[#2E7D32] focus:ring-4 focus:ring-green-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                      className="w-full rounded-xl border border-[var(--saathi-border-light)] bg-white px-4 py-3 text-[var(--saathi-text)] outline-none focus:border-accent-dark focus:ring-4 focus:ring-red-100 disabled:cursor-not-allowed disabled:bg-[var(--saathi-surface-alt)] disabled:text-slate-400"
                     >
                       <option value="">Select Block</option>
                       {blockOptions.map((block) => <option key={block} value={block}>{block}</option>)}
@@ -309,12 +309,12 @@ export default function Onboarding() {
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('profile.district')}</span>
+                    <span className="mb-2 block text-sm font-medium text-[var(--saathi-text-secondary)]">{t('profile.district')}</span>
                     <select
                       value={location.district}
                       onChange={(event) => updateManualLocation('district', event.target.value)}
                       disabled={!location.block}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-[#2E7D32] focus:ring-4 focus:ring-green-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                      className="w-full rounded-xl border border-[var(--saathi-border-light)] bg-white px-4 py-3 text-[var(--saathi-text)] outline-none focus:border-accent-dark focus:ring-4 focus:ring-red-100 disabled:cursor-not-allowed disabled:bg-[var(--saathi-surface-alt)] disabled:text-slate-400"
                     >
                       <option value="">Select District</option>
                       {districtOptions.map((district) => <option key={district} value={district}>{district}</option>)}
@@ -322,12 +322,12 @@ export default function Onboarding() {
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-700">{t('profile.state')}</span>
+                    <span className="mb-2 block text-sm font-medium text-[var(--saathi-text-secondary)]">{t('profile.state')}</span>
                     <select
                       value={location.state}
                       onChange={(event) => updateManualLocation('state', event.target.value)}
                       disabled={!location.district}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-[#2E7D32] focus:ring-4 focus:ring-green-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                      className="w-full rounded-xl border border-[var(--saathi-border-light)] bg-white px-4 py-3 text-[var(--saathi-text)] outline-none focus:border-accent-dark focus:ring-4 focus:ring-red-100 disabled:cursor-not-allowed disabled:bg-[var(--saathi-surface-alt)] disabled:text-slate-400"
                     >
                       <option value="">Select State</option>
                       {stateOptions.map((state) => <option key={state} value={state}>{state}</option>)}
@@ -346,14 +346,14 @@ export default function Onboarding() {
                       setStep(1);
                       setError('');
                     }}
-                    className="rounded-xl border border-slate-200 px-5 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    className="rounded-xl border border-[var(--saathi-border-light)] px-5 py-3.5 text-sm font-semibold text-[var(--saathi-text-secondary)] transition hover:bg-[var(--saathi-surface-alt)]"
                   >
                     Back
                   </button>
                   <button
                     type="button"
                     onClick={handleLocationNext}
-                    className="flex-1 rounded-xl bg-[#2E7D32] px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-[#256428] focus:outline-none focus:ring-4 focus:ring-green-200"
+                    className="flex-1 rounded-xl bg-primary-dark px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-primary focus:outline-none focus:ring-4 focus:ring-red-200"
                   >
                     Next
                   </button>
@@ -365,8 +365,8 @@ export default function Onboarding() {
           {step === 3 && (
             <div>
               <div className="mb-7">
-                <p className="text-xl font-semibold text-slate-900">Choose your language</p>
-                <p className="mt-1 text-sm text-slate-600">Recommended for farmers in {location.state}.</p>
+                <p className="text-xl font-semibold text-[var(--saathi-text)]">Choose your language</p>
+                <p className="mt-1 text-sm text-[var(--saathi-text-secondary)]">Recommended for farmers in {location.state}.</p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -375,7 +375,7 @@ export default function Onboarding() {
                     key={language}
                     type="button"
                     onClick={() => handleLanguageSelect(language)}
-                    className="rounded-2xl border-2 border-green-100 bg-green-50 px-5 py-8 text-xl font-bold text-[#2E7D32] transition hover:border-[#2E7D32] hover:bg-green-100 focus:outline-none focus:ring-4 focus:ring-green-200"
+                    className="rounded-2xl border-2 border-red-100 bg-red-50 px-5 py-8 text-xl font-bold text-accent-dark transition hover:border-accent-dark hover:bg-red-100 focus:outline-none focus:ring-4 focus:ring-red-200"
                   >
                     {language}
                   </button>
@@ -385,7 +385,7 @@ export default function Onboarding() {
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="mt-8 text-sm font-semibold text-[#2E7D32] hover:underline"
+                className="mt-8 text-sm font-semibold text-accent-dark hover:underline"
               >
                 Back to location
               </button>

@@ -335,26 +335,26 @@ export default function BuyerRegister() {
 
   if (submitSuccess) {
     return (
-      <div className="min-h-screen bg-[#064E3B] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[var(--saathi-primary)] flex items-center justify-center p-4">
         <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl p-8 text-center">
-          <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 flex items-center justify-center text-3xl">✅</div>
-          <h1 className="mt-4 text-2xl font-extrabold text-slate-900">Application Submitted!</h1>
-          <p className="mt-3 text-sm text-slate-600 leading-relaxed">{submitSuccess.message}</p>
-          <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-4 text-left">
-            <p className="text-xs font-bold uppercase text-slate-500">Application ID</p>
-            <p className="mt-1 text-sm font-mono font-bold text-slate-800">{submitSuccess.applicationId}</p>
-            <p className="mt-2 text-xs text-slate-500">Status: <span className="font-bold text-amber-600">PENDING</span></p>
+          <div className="w-16 h-16 mx-auto rounded-full bg-[var(--saathi-border-light)] flex items-center justify-center text-3xl">✅</div>
+          <h1 className="mt-4 text-2xl font-extrabold text-[var(--saathi-text)]">Application Submitted!</h1>
+          <p className="mt-3 text-sm text-[var(--saathi-text-secondary)] leading-relaxed">{submitSuccess.message}</p>
+          <div className="mt-4 bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] rounded-xl p-4 text-left">
+            <p className="text-xs font-bold uppercase text-[var(--saathi-text-muted)]">Application ID</p>
+            <p className="mt-1 text-sm font-mono font-bold text-[var(--saathi-text)]">{submitSuccess.applicationId}</p>
+            <p className="mt-2 text-xs text-[var(--saathi-text-muted)]">Status: <span className="font-bold text-amber-600">PENDING</span></p>
           </div>
           <div className="mt-6 flex flex-col gap-3">
             <button
               onClick={() => navigate('/buyer-status')}
-              className="w-full py-3 rounded-xl bg-[#2E7D32] text-white font-bold hover:bg-[#256428] transition"
+              className="w-full py-3 rounded-xl bg-[var(--saathi-primary)] text-white font-bold hover:bg-[var(--saathi-primary-hover)] transition"
             >
               Check Application Status
             </button>
             <button
               onClick={() => navigate('/')}
-              className="w-full py-3 rounded-xl border border-slate-300 text-slate-700 font-bold hover:bg-slate-50 transition"
+              className="w-full py-3 rounded-xl border border-[var(--saathi-border)] text-[var(--saathi-text-secondary)] font-bold hover:bg-[var(--saathi-surface-alt)] transition"
             >
               Back to Dashboard
             </button>
@@ -365,7 +365,7 @@ export default function BuyerRegister() {
   }
 
   return (
-    <div className="min-h-screen bg-[#064E3B] pb-12">
+    <div className="min-h-screen bg-[var(--saathi-primary)] pb-12">
       <div className="mx-auto max-w-4xl px-4 pt-8 sm:px-6">
         <header className="text-center mb-8">
           <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-xs font-bold text-emerald-100">
@@ -379,22 +379,22 @@ export default function BuyerRegister() {
 
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
           {/* Step indicator */}
-          <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-4">
+          <div className="bg-[var(--saathi-surface-alt)] border-b border-[var(--saathi-border-light)] px-4 sm:px-6 py-4">
             <div className="flex items-center justify-between gap-1 overflow-x-auto">
               {STEPS.map((label, index) => (
                 <div key={label} className="flex items-center gap-1 shrink-0">
                   <div
                     className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
                       index === step
-                        ? 'bg-[#2E7D32] text-white'
+                        ? 'bg-[var(--saathi-primary)] text-white'
                         : index < step
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-slate-200 text-slate-500'
+                          ? 'bg-[var(--saathi-border-light)] text-[var(--saathi-primary)]'
+                          : 'bg-slate-200 text-[var(--saathi-text-muted)]'
                     }`}
                   >
                     {index < step ? '✓' : index + 1}
                   </div>
-                  <span className={`text-[10px] font-semibold hidden sm:block ${index === step ? 'text-[#2E7D32]' : 'text-slate-500'}`}>
+                  <span className={`text-[10px] font-semibold hidden sm:block ${index === step ? 'text-[var(--saathi-primary)]' : 'text-[var(--saathi-text-muted)]'}`}>
                     {label}
                   </span>
                 </div>
@@ -443,7 +443,7 @@ export default function BuyerRegister() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">
                     Profile Photo <span className="text-slate-400">(Optional)</span>
                   </label>
                   <input
@@ -457,7 +457,7 @@ export default function BuyerRegister() {
                         reader.readAsDataURL(file);
                       }
                     }}
-                    className="w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:text-emerald-700 file:font-semibold hover:file:bg-emerald-100"
+                    className="w-full text-sm text-[var(--saathi-text-secondary)] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-[var(--saathi-surface-alt)] file:text-[var(--saathi-primary)] file:font-semibold hover:file:bg-[var(--saathi-border-light)]"
                   />
                 </div>
               </div>
@@ -475,11 +475,11 @@ export default function BuyerRegister() {
                       onClick={() => setForm((prev) => ({ ...prev, buyerType: type }))}
                       className={`p-4 rounded-xl border-2 text-left transition ${
                         form.buyerType === type
-                          ? 'border-[#2E7D32] bg-emerald-50'
-                          : 'border-slate-200 hover:border-slate-300'
+                          ? 'border-[#2E7D32] bg-[var(--saathi-surface-alt)]'
+                          : 'border-[var(--saathi-border-light)] hover:border-[var(--saathi-border)]'
                       }`}
                     >
-                      <span className="text-sm font-bold text-slate-800">{type}</span>
+                      <span className="text-sm font-bold text-[var(--saathi-text)]">{type}</span>
                     </button>
                   ))}
                 </div>
@@ -511,12 +511,12 @@ export default function BuyerRegister() {
                 />
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Business Type *</label>
+                    <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">Business Type *</label>
                     <select
                       name="businessType"
                       value={form.businessType}
                       onChange={handleChange}
-                      className="w-full h-11 rounded-lg border border-slate-300 px-3 text-sm text-slate-900 focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
+                      className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
                     >
                       <option value="">Select business type</option>
                       {BUSINESS_TYPES.map((type) => (
@@ -550,26 +550,26 @@ export default function BuyerRegister() {
             {step === 3 && (
               <div className="space-y-5">
                 <SectionTitle title="Business Location" subtitle="Where is your business located?" />
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                <div className="bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border)] rounded-xl p-4">
                   <p className="text-sm text-emerald-800 font-semibold">
                     📍 {coordinates ? `Location detected: ${coordinates.latitude.toFixed(4)}, ${coordinates.longitude.toFixed(4)}` : 'No location detected yet'}
                   </p>
                   <button
                     type="button"
                     onClick={handleUseDetectedLocation}
-                    className="mt-2 text-xs font-bold text-[#2E7D32] hover:underline"
+                    className="mt-2 text-xs font-bold text-[var(--saathi-primary)] hover:underline"
                   >
                     Use my detected location
                   </button>
                 </div>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">State *</label>
+                    <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">State *</label>
                     <select
                       name="state"
                       value={form.state}
                       onChange={handleStateChange}
-                      className="w-full h-11 rounded-lg border border-slate-300 px-3 text-sm text-slate-900 focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
+                      className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
                     >
                       <option value="">Select state</option>
                       {locationStates.map((state) => (
@@ -579,13 +579,13 @@ export default function BuyerRegister() {
                     {errors.state && <ErrorText message={errors.state} />}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">District *</label>
+                    <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">District *</label>
                     <select
                       name="district"
                       value={form.district}
                       onChange={handleChange}
                       disabled={!form.state}
-                      className="w-full h-11 rounded-lg border border-slate-300 px-3 text-sm text-slate-900 disabled:bg-slate-50 focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
+                      className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] disabled:bg-[var(--saathi-surface-alt)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
                     >
                       <option value="">Select district</option>
                       {getDistricts(form.state).map((district) => (
@@ -631,7 +631,7 @@ export default function BuyerRegister() {
                 <SectionTitle title="Agricultural Products Purchased" subtitle="Select the crops / commodities you purchase" />
                 {COMMODITY_CATEGORIES.map((cat) => (
                   <div key={cat.category}>
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">{cat.category}</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-[var(--saathi-text-muted)] mb-2">{cat.category}</p>
                     <div className="flex flex-wrap gap-2">
                       {cat.items.map((item) => (
                         <button
@@ -640,8 +640,8 @@ export default function BuyerRegister() {
                           onClick={() => toggleCommodity(item)}
                           className={`px-4 py-2 rounded-full text-sm font-semibold border-2 transition ${
                             selectedCommodities.includes(item)
-                              ? 'bg-[#2E7D32] text-white border-[#2E7D32]'
-                              : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                              ? 'bg-[var(--saathi-primary)] text-white border-[#2E7D32]'
+                              : 'bg-white text-[var(--saathi-text-secondary)] border-[var(--saathi-border-light)] hover:border-[var(--saathi-border)]'
                           }`}
                         >
                           {item}
@@ -652,14 +652,14 @@ export default function BuyerRegister() {
                 ))}
                 {/* Other category - only this reveals free-text input */}
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Other</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-[var(--saathi-text-muted)] mb-2">Other</p>
                   <button
                     type="button"
                     onClick={() => toggleCommodity('Other')}
                     className={`px-4 py-2 rounded-full text-sm font-semibold border-2 transition ${
                       selectedCommodities.includes('Other')
-                        ? 'bg-[#2E7D32] text-white border-[#2E7D32]'
-                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                        ? 'bg-[var(--saathi-primary)] text-white border-[#2E7D32]'
+                        : 'bg-white text-[var(--saathi-text-secondary)] border-[var(--saathi-border-light)] hover:border-[var(--saathi-border)]'
                     }`}
                   >
                     Other
@@ -667,16 +667,16 @@ export default function BuyerRegister() {
                 </div>
                 {selectedCommodities.includes('Other') && (
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Please specify commodity *</label>
+                    <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">Please specify commodity *</label>
                     <input
                       type="text"
                       value={otherCommodity}
                       onChange={(e) => setOtherCommodity(e.target.value)}
                       placeholder="Enter a crop / commodity not listed above"
-                      className={`w-full h-11 rounded-lg border px-3 text-sm text-slate-900 outline-none transition focus:ring-2 ${
+                      className={`w-full h-11 rounded-lg border px-3 text-sm text-[var(--saathi-text)] outline-none transition focus:ring-2 ${
                         errors.otherCommodity
                           ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                          : 'border-slate-300 focus:border-[#2E7D32] focus:ring-emerald-100'
+                          : 'border-[var(--saathi-border)] focus:border-[#2E7D32] focus:ring-emerald-100'
                       }`}
                     />
                     {errors.otherCommodity && <ErrorText message={errors.otherCommodity} />}
@@ -691,12 +691,12 @@ export default function BuyerRegister() {
               <div className="space-y-5">
                 <SectionTitle title="Purchase Requirements" subtitle="How much and how often do you purchase?" />
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Preferred Purchase Radius *</label>
+                  <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">Preferred Purchase Radius *</label>
                   <select
                     name="preferredPurchaseRadius"
                     value={form.preferredPurchaseRadius}
                     onChange={handleChange}
-                    className="w-full h-11 rounded-lg border border-slate-300 px-3 text-sm text-slate-900 focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
+                    className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
                   >
                     <option value="within_10_km">Within 10 km</option>
                     <option value="within_25_km">Within 25 km</option>
@@ -704,11 +704,11 @@ export default function BuyerRegister() {
                     <option value="any_location">Any location</option>
                   </select>
                 </div>
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                  <p className="text-sm font-semibold text-slate-700">
+                <div className="bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] rounded-xl p-4">
+                  <p className="text-sm font-semibold text-[var(--saathi-text-secondary)]">
                     Selected commodities: {getAllSelectedNames().length > 0 ? getAllSelectedNames().join(', ') : 'None'}
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-[var(--saathi-text-muted)]">
                     You can specify detailed quantity and frequency for each commodity after submission, or continue with default settings.
                   </p>
                 </div>
@@ -725,8 +725,8 @@ export default function BuyerRegister() {
                   </p>
                 </div>
                 {getAllSelectedNames().length === 0 ? (
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                    <p className="text-sm font-semibold text-slate-700">
+                  <div className="bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] rounded-xl p-4">
+                    <p className="text-sm font-semibold text-[var(--saathi-text-secondary)]">
                       No commodities selected yet. Go back to the Products step to select commodities first.
                     </p>
                   </div>
@@ -739,26 +739,26 @@ export default function BuyerRegister() {
                       year: 'numeric',
                     });
                     return (
-                      <div key={name} className="border border-slate-200 rounded-xl p-4 space-y-3">
-                        <p className="text-sm font-bold text-slate-800">🌾 {name}</p>
+                      <div key={name} className="border border-[var(--saathi-border-light)] rounded-xl p-4 space-y-3">
+                        <p className="text-sm font-bold text-[var(--saathi-text)]">🌾 {name}</p>
                         <div className="grid gap-3 sm:grid-cols-3">
                           <div>
-                            <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">Offer Price (₹)</label>
+                            <label className="block text-xs font-bold uppercase text-[var(--saathi-text-muted)] mb-1.5">Offer Price (₹)</label>
                             <input
                               type="number"
                               min="0"
                               value={offer.offerPrice ?? ''}
                               onChange={(e) => handleOfferChange(name, 'offerPrice', e.target.value)}
                               placeholder="e.g. 2100"
-                              className="w-full h-11 rounded-lg border border-slate-300 px-3 text-sm text-slate-900 focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
+                              className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">Unit</label>
+                            <label className="block text-xs font-bold uppercase text-[var(--saathi-text-muted)] mb-1.5">Unit</label>
                             <select
                               value={offer.unit || 'quintal'}
                               onChange={(e) => handleOfferChange(name, 'unit', e.target.value)}
-                              className="w-full h-11 rounded-lg border border-slate-300 px-3 text-sm text-slate-900 focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
+                              className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
                             >
                               <option value="quintal">Quintal</option>
                               <option value="ton">Ton</option>
@@ -766,19 +766,19 @@ export default function BuyerRegister() {
                             </select>
                           </div>
                           <div>
-                            <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">Quantity Required</label>
+                            <label className="block text-xs font-bold uppercase text-[var(--saathi-text-muted)] mb-1.5">Quantity Required</label>
                             <input
                               type="number"
                               min="0"
                               value={offer.quantity ?? ''}
                               onChange={(e) => handleOfferChange(name, 'quantity', e.target.value)}
                               placeholder="e.g. 50"
-                              className="w-full h-11 rounded-lg border border-slate-300 px-3 text-sm text-slate-900 focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
+                              className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
                             />
                           </div>
                         </div>
                         {offer.offerPrice && Number(offer.offerPrice) > 0 && (
-                          <p className="text-xs font-semibold text-emerald-700">Price last updated: {todayLabel}</p>
+                          <p className="text-xs font-semibold text-[var(--saathi-primary)]">Price last updated: {todayLabel}</p>
                         )}
                       </div>
                     );
@@ -800,14 +800,14 @@ export default function BuyerRegister() {
                   </p>
                 </div>
                 {DOCUMENT_FIELDS.map((field) => (
-                  <div key={field.key} className="border border-slate-200 rounded-xl p-4">
+                  <div key={field.key} className="border border-[var(--saathi-border-light)] rounded-xl p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-bold text-slate-800">
+                        <p className="text-sm font-bold text-[var(--saathi-text)]">
                           {field.label} {field.required && <span className="text-red-500">*</span>}
                         </p>
                         {documents[field.key] && (
-                          <p className="mt-1 text-xs text-slate-500">
+                          <p className="mt-1 text-xs text-[var(--saathi-text-muted)]">
                             📄 {documents[field.key].name} ({(documents[field.key].size / 1024).toFixed(1)} KB)
                           </p>
                         )}
@@ -822,7 +822,7 @@ export default function BuyerRegister() {
                         </button>
                       ) : (
                         <label className="cursor-pointer">
-                          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2E7D32] text-white text-xs font-bold hover:bg-[#256428] transition">
+                          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--saathi-primary)] text-white text-xs font-bold hover:bg-[var(--saathi-primary-hover)] transition">
                             📤 Upload Document
                           </span>
                           <input
@@ -844,8 +844,8 @@ export default function BuyerRegister() {
             {step === 8 && (
               <div className="space-y-5">
                 <SectionTitle title="Declaration" subtitle="Please review and confirm" />
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                  <p className="text-sm text-slate-700 leading-relaxed">
+                <div className="bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] rounded-xl p-5">
+                  <p className="text-sm text-[var(--saathi-text-secondary)] leading-relaxed">
                     I confirm that the information and documents provided by me are accurate and belong to my business.
                     I understand that Saathi may verify the submitted information before approving my buyer profile.
                   </p>
@@ -856,9 +856,9 @@ export default function BuyerRegister() {
                     name="declaration"
                     checked={form.declaration}
                     onChange={handleChange}
-                    className="mt-1 w-5 h-5 rounded border-slate-300 text-[#2E7D32] focus:ring-[#2E7D32]"
+                    className="mt-1 w-5 h-5 rounded border-[var(--saathi-border)] text-[var(--saathi-primary)] focus:ring-[#2E7D32]"
                   />
-                  <span className="text-sm font-semibold text-slate-700">I agree</span>
+                  <span className="text-sm font-semibold text-[var(--saathi-text-secondary)]">I agree</span>
                 </label>
                 {errors.declaration && <ErrorText message={errors.declaration} />}
               </div>
@@ -870,7 +870,7 @@ export default function BuyerRegister() {
                 type="button"
                 onClick={handleBack}
                 disabled={step === 0}
-                className="px-6 py-3 rounded-xl border border-slate-300 text-slate-700 font-bold text-sm hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-3 rounded-xl border border-[var(--saathi-border)] text-[var(--saathi-text-secondary)] font-bold text-sm hover:bg-[var(--saathi-surface-alt)] transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 ← Back
               </button>
@@ -878,7 +878,7 @@ export default function BuyerRegister() {
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="px-8 py-3 rounded-xl bg-[#2E7D32] text-white font-bold text-sm hover:bg-[#256428] transition"
+                  className="px-8 py-3 rounded-xl bg-[var(--saathi-primary)] text-white font-bold text-sm hover:bg-[var(--saathi-primary-hover)] transition"
                 >
                   Continue →
                 </button>
@@ -887,7 +887,7 @@ export default function BuyerRegister() {
                   type="button"
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="px-8 py-3 rounded-xl bg-[#2E7D32] text-white font-bold text-sm hover:bg-[#256428] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-8 py-3 rounded-xl bg-[var(--saathi-primary)] text-white font-bold text-sm hover:bg-[var(--saathi-primary-hover)] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isSubmitting ? (
                     <>
@@ -910,8 +910,8 @@ export default function BuyerRegister() {
 function SectionTitle({ title, subtitle }) {
   return (
     <div>
-      <h2 className="text-xl font-extrabold text-slate-900">{title}</h2>
-      <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+      <h2 className="text-xl font-extrabold text-[var(--saathi-text)]">{title}</h2>
+      <p className="mt-1 text-sm text-[var(--saathi-text-muted)]">{subtitle}</p>
     </div>
   );
 }
@@ -919,7 +919,7 @@ function SectionTitle({ title, subtitle }) {
 function FormField({ label, name, type = 'text', value, onChange, placeholder, error, maxLength }) {
   return (
     <div>
-      <label className="block text-sm font-semibold text-slate-700 mb-1.5">{label}</label>
+      <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">{label}</label>
       <input
         name={name}
         type={type}
@@ -927,10 +927,10 @@ function FormField({ label, name, type = 'text', value, onChange, placeholder, e
         onChange={onChange}
         placeholder={placeholder}
         maxLength={maxLength}
-        className={`w-full h-11 rounded-lg border px-3 text-sm text-slate-900 outline-none transition focus:ring-2 ${
+        className={`w-full h-11 rounded-lg border px-3 text-sm text-[var(--saathi-text)] outline-none transition focus:ring-2 ${
           error
             ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-            : 'border-slate-300 focus:border-[#2E7D32] focus:ring-emerald-100'
+            : 'border-[var(--saathi-border)] focus:border-[#2E7D32] focus:ring-emerald-100'
         }`}
       />
       {error && <ErrorText message={error} />}

@@ -56,14 +56,14 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 selection:bg-emerald-500 selection:text-white">
+    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 selection:bg-[var(--saathi-primary)] selection:text-white">
       {/* Background glow effects */}
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-emerald-950/40 via-slate-950 to-slate-950 -z-10" />
 
       <div className="w-full max-w-md">
         {/* Header Branding */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-4 shadow-lg shadow-emerald-950/50">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[var(--saathi-primary)]/10 border border-[var(--saathi-primary)]/30 text-emerald-400 mb-4 shadow-lg shadow-md">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
@@ -96,7 +96,7 @@ export default function AdminLogin() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full h-12 bg-slate-950 border border-slate-800 rounded-xl px-4 text-white text-sm font-medium placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+                className="w-full h-12 bg-slate-950 border border-slate-800 rounded-xl px-4 text-white text-sm font-medium placeholder:text-[var(--saathi-text-secondary)] focus:outline-none focus:border-[var(--saathi-primary)] focus:ring-1 focus:ring-[var(--saathi-primary)] transition"
               />
             </div>
 
@@ -110,14 +110,14 @@ export default function AdminLogin() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full h-12 bg-slate-950 border border-slate-800 rounded-xl px-4 text-white text-sm font-medium placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+                className="w-full h-12 bg-slate-950 border border-slate-800 rounded-xl px-4 text-white text-sm font-medium placeholder:text-[var(--saathi-text-secondary)] focus:outline-none focus:border-[var(--saathi-primary)] focus:ring-1 focus:ring-[var(--saathi-primary)] transition"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-bold rounded-xl transition shadow-lg shadow-emerald-950/60 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-12 bg-[var(--saathi-primary)] hover:bg-[var(--saathi-primary)] active:scale-[0.99] text-white font-bold rounded-xl transition shadow-lg shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -133,7 +133,7 @@ export default function AdminLogin() {
           <div className="mt-6 pt-5 border-t border-slate-800/80 text-center">
             <button
               onClick={() => navigate('/')}
-              className="text-xs text-slate-500 hover:text-slate-300 transition"
+              className="text-xs text-[var(--saathi-text-muted)] hover:text-slate-300 transition"
             >
               ← Return to Kisan Marketplace
             </button>

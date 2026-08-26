@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useUser } from '../context/UserContext';
 import { ShoppingBag, CheckCircle, Package, MapPin } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5001/api';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')).replace(/\/$/, '') + '/api';
 
 export default function ConsumerDiscovery() {
   const { token, user } = useUser();
@@ -90,17 +90,17 @@ export default function ConsumerDiscovery() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-emerald-600 font-semibold text-lg animate-pulse">Loading consumers...</div>;
+  if (loading) return <div className="p-8 text-center text-[var(--saathi-primary)] font-semibold text-lg animate-pulse">Loading consumers...</div>;
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 pb-24">
       <div className="flex items-center gap-3 mb-8">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+        <div className="w-10 h-10 rounded-xl bg-[var(--saathi-primary)] flex items-center justify-center shadow-lg shadow-md">
           <ShoppingBag className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Consumer Network</h1>
-          <p className="text-sm text-gray-500 font-medium mt-1">Connect and sell your inventory directly to Consumers</p>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-[var(--saathi-primary)] tracking-tight">Consumer Network</h1>
+          <p className="text-base font-semibold text-[var(--saathi-text-secondary)] mt-1.5">Connect and sell your inventory directly to Consumers</p>
         </div>
       </div>
 
@@ -111,19 +111,19 @@ export default function ConsumerDiscovery() {
       )}
 
       {success && (
-        <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700 font-medium flex items-center gap-2">
+        <div className="mb-6 p-4 rounded-xl bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] text-[var(--saathi-primary)] font-medium flex items-center gap-2">
           <CheckCircle className="w-5 h-5" />
           {success}
         </div>
       )}
 
       {selectedConsumer ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-emerald-100/50 p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-[var(--saathi-border-light)]/50 p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-800">New Sale to {selectedConsumer.firstName} {selectedConsumer.lastName}</h2>
+            <h2 className="text-2xl font-extrabold text-[var(--saathi-text)] tracking-tight">New Sale to {selectedConsumer.firstName} {selectedConsumer.lastName}</h2>
             <button 
               onClick={() => setSelectedConsumer(null)}
-              className="text-sm font-medium text-emerald-600 hover:text-emerald-700"
+              className="text-sm font-medium text-[var(--saathi-primary)] hover:opacity-80"
             >
               Back to List
             </button>
@@ -131,12 +131,12 @@ export default function ConsumerDiscovery() {
 
           <form onSubmit={handlePropose} className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Select Crop from Inventory</label>
+              <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-2">Select Crop from Inventory</label>
               <select 
                 value={selectedCrop}
                 onChange={(e) => setSelectedCrop(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                className="w-full px-4 py-3 rounded-xl border border-[var(--saathi-border-light)] focus:ring-2 focus:border-[var(--saathi-primary)]"
               >
                 <option value="">Choose a crop...</option>
                 {availableCrops.map(c => (
@@ -147,7 +147,7 @@ export default function ConsumerDiscovery() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Quantity (quintals)</label>
+                <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-2">Quantity (quintals)</label>
                 <input 
                   type="number" 
                   step="0.01"
@@ -156,18 +156,18 @@ export default function ConsumerDiscovery() {
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
                   required
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  className="w-full px-4 py-3 rounded-xl border border-[var(--saathi-border-light)] focus:ring-2 focus:border-[var(--saathi-primary)]"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Sale Price (₹)</label>
+                <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-2">Sale Price (₹)</label>
                 <input 
                   type="number"
                   min="0"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   required
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  className="w-full px-4 py-3 rounded-xl border border-[var(--saathi-border-light)] focus:ring-2 focus:border-[var(--saathi-primary)]"
                 />
               </div>
             </div>
@@ -175,7 +175,7 @@ export default function ConsumerDiscovery() {
             <button 
               type="submit"
               disabled={!selectedCrop || parseFloat(quantity) > maxAvailable}
-              className="w-full py-4 mt-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors shadow-lg shadow-emerald-600/20"
+              className="w-full py-4 mt-4 bg-[var(--saathi-primary)] hover:bg-[var(--saathi-primary-hover)] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors shadow-lg shadow-md"
             >
               Propose Sale (Pending Consumer Approval)
             </button>
@@ -184,19 +184,19 @@ export default function ConsumerDiscovery() {
       ) : (
         <div className="grid gap-4">
           {consumers.length === 0 ? (
-            <div className="p-8 text-center bg-gray-50 rounded-2xl border border-gray-100">
-              <p className="text-gray-500 font-medium">No consumers found in the network.</p>
+            <div className="p-8 text-center bg-[var(--saathi-surface-alt)] rounded-2xl border border-gray-100">
+              <p className="text-[var(--saathi-text-muted)] font-medium">No consumers found in the network.</p>
             </div>
           ) : (
             consumers.map(c => (
-              <div key={c._id} className="bg-white p-5 rounded-2xl shadow-sm border border-emerald-50 hover:border-emerald-200 transition-colors flex items-center justify-between">
+              <div key={c._id} className="bg-white p-5 rounded-2xl shadow-sm border border-[var(--saathi-border-light)] hover:border-[var(--saathi-border)] transition-colors flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-lg">
+                  <div className="w-12 h-12 rounded-full bg-[var(--saathi-border-light)] flex items-center justify-center text-[var(--saathi-primary)] font-bold text-lg">
                     {c.firstName[0]}
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg">{c.firstName} {c.lastName}</h3>
-                    <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
+                    <h3 className="font-bold text-[var(--saathi-text)] text-lg">{c.firstName} {c.lastName}</h3>
+                    <div className="flex items-center gap-3 mt-1 text-sm text-[var(--saathi-text-muted)]">
                       <span className="flex items-center gap-1">
                         <MapPin className="w-3.5 h-3.5" /> Consumer
                       </span>
@@ -205,7 +205,7 @@ export default function ConsumerDiscovery() {
                 </div>
                 <button 
                   onClick={() => setSelectedConsumer(c)}
-                  className="px-6 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold rounded-xl transition-colors"
+                  className="px-6 py-2.5 bg-[var(--saathi-surface-alt)] hover:bg-[var(--saathi-border-light)] text-[var(--saathi-primary)] font-semibold rounded-xl transition-colors"
                 >
                   Propose Sale
                 </button>

@@ -1,3 +1,5 @@
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')).replace(/\/$/, '') + '/api';
+
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
@@ -188,19 +190,19 @@ export default function BuyerDiscovery() {
   return (
     <section className="mx-auto w-full max-w-4xl pb-12">
       <header className="mb-6">
-        <p className="text-xs font-extrabold uppercase tracking-widest text-[#2E7D32]">{t('buyer.tagline') || 'Connect with Buyers'}</p>
-        <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">{t('buyer.title') || 'Buyer Discovery'}</h1>
-        <p className="mt-2 text-sm font-semibold text-slate-600">
+        <p className="text-xs font-extrabold uppercase tracking-widest text-[var(--saathi-primary)]">{t('buyer.tagline') || 'Connect with Buyers'}</p>
+        <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[var(--saathi-text)] sm:text-4xl">{t('buyer.title') || 'Buyer Discovery'}</h1>
+        <p className="mt-2 text-sm font-semibold text-[var(--saathi-text-secondary)]">
           Discover verified wholesalers, exporters, and processors currently purchasing crops in your region.
         </p>
       </header>
 
       {/* Verified Buyer Program CTA */}
-      <div className="mb-6 rounded-3xl bg-[#064E3B] p-6 shadow-sm">
+      <div className="mb-6 rounded-3xl bg-[var(--saathi-primary)] p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-widest text-emerald-300">🛡️ SAATHI Verified Buyer Program</p>
-            <p className="mt-1.5 text-sm font-semibold text-emerald-50/90 max-w-md">
+            <p className="text-xs font-extrabold uppercase tracking-widest text-white/80">🛡️ SAATHI Verified Buyer Program</p>
+            <p className="mt-1.5 text-sm font-semibold text-white/90 max-w-md">
               Are you a buyer? Get verified on SAATHI and publish your buying offers directly to farmers.
             </p>
           </div>
@@ -208,7 +210,7 @@ export default function BuyerDiscovery() {
             <button
               type="button"
               onClick={() => navigate('/buyer-register')}
-              className="rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-[#064E3B] transition hover:bg-emerald-50"
+              className="rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-[var(--saathi-primary)] transition hover:bg-slate-50"
             >
               Register as Buyer
             </button>
@@ -224,14 +226,14 @@ export default function BuyerDiscovery() {
       </div>
 
       {/* Filter and Search Panel */}
-      <div className="mb-6 rounded-3xl bg-white p-6 border border-slate-200 shadow-sm">
+      <div className="mb-6 rounded-3xl bg-white p-6 border border-[var(--saathi-border-light)] shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h3 className="text-base font-bold text-slate-900">{t('prices.filterTitle') || 'Filter Listings'}</h3>
+          <h3 className="text-base font-bold text-[var(--saathi-text)]">{t('prices.filterTitle') || 'Filter Listings'}</h3>
           {showResetLocation && (
             <button
               type="button"
               onClick={handleUseDetectedLocation}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#2E7D32] hover:underline bg-green-50/50 hover:bg-green-50 px-2.5 py-1 rounded-lg border border-green-200 transition focus:outline-none"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--saathi-primary)] hover:underline bg-[var(--saathi-surface-alt)] hover:bg-[var(--saathi-border-light)] px-2.5 py-1 rounded-lg border border-[var(--saathi-border-light)] transition focus:outline-none"
             >
               <span>📍</span> {t('prices.useDetectedLoc') || 'Use my detected location'}
             </button>
@@ -241,7 +243,7 @@ export default function BuyerDiscovery() {
         <div className="grid gap-4 sm:grid-cols-3">
           {/* Commodity search */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase mb-2">
+            <label className="block text-xs font-bold text-[var(--saathi-text-secondary)] uppercase mb-2">
               {t('prices.cropCol') || 'Crop'}
             </label>
             <div className="relative">
@@ -251,21 +253,21 @@ export default function BuyerDiscovery() {
                 value={commoditySearch}
                 onChange={(e) => setCommoditySearch(e.target.value)}
                 placeholder={t('buyer.searchPlaceholder') || 'Search crops...'}
-                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-800 outline-none transition focus:border-[#2E7D32]"
+                className="w-full rounded-xl border border-[var(--saathi-border-light)] bg-white py-2.5 pl-9 pr-3 text-sm text-[var(--saathi-text)] outline-none transition focus:border-[var(--saathi-primary)]"
               />
             </div>
           </div>
 
           {/* State select */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase mb-2">
+            <label className="block text-xs font-bold text-[var(--saathi-text-secondary)] uppercase mb-2">
               {t('prices.stateCol') || 'State'}
             </label>
             <select
               value={selectedState}
               onChange={handleStateChange}
               disabled={statesLoading}
-              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm text-slate-800 outline-none transition focus:border-[#2E7D32]"
+              className="w-full rounded-xl border border-[var(--saathi-border-light)] bg-white py-2.5 px-3 text-sm text-[var(--saathi-text)] outline-none transition focus:border-[var(--saathi-primary)]"
             >
               <option value="">
                 {statesLoading ? 'Loading States...' : (t('prices.selectState') || 'All States')}
@@ -278,14 +280,14 @@ export default function BuyerDiscovery() {
 
           {/* District select */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase mb-2">
+            <label className="block text-xs font-bold text-[var(--saathi-text-secondary)] uppercase mb-2">
               {t('prices.districtCol') || 'District'}
             </label>
             <select
               value={selectedDistrict}
               onChange={handleDistrictChange}
               disabled={!selectedState || districtsLoading}
-              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm text-slate-800 outline-none transition disabled:bg-slate-50 focus:border-[#2E7D32]"
+              className="w-full rounded-xl border border-[var(--saathi-border-light)] bg-white py-2.5 px-3 text-sm text-[var(--saathi-text)] outline-none transition disabled:bg-[var(--saathi-surface-alt)] focus:border-[var(--saathi-primary)]"
             >
               <option value="">
                 {!selectedState
@@ -304,7 +306,7 @@ export default function BuyerDiscovery() {
         {/* Clear filters and popular crops */}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="font-bold text-slate-500 uppercase mr-1">{t('buyer.popularCrops') || 'Popular'}:</span>
+            <span className="font-bold text-[var(--saathi-text-muted)] uppercase mr-1">{t('buyer.popularCrops') || 'Popular'}:</span>
             {popularCrops.map(crop => (
               <button
                 key={crop}
@@ -313,7 +315,7 @@ export default function BuyerDiscovery() {
                 className={`rounded-full px-3 py-1 font-semibold border transition ${
                   commoditySearch.toLowerCase() === crop.toLowerCase()
                     ? 'bg-amber-100 border-amber-300 text-amber-800'
-                    : 'bg-white border-slate-200 text-slate-700 hover:border-amber-200 hover:text-amber-700'
+                    : 'bg-white border-[var(--saathi-border-light)] text-[var(--saathi-text-secondary)] hover:border-amber-200 hover:text-amber-700'
                 }`}
               >
                 {crop}
@@ -324,7 +326,7 @@ export default function BuyerDiscovery() {
           {(commoditySearch || selectedState || selectedDistrict) && (
             <button
               onClick={handleClearFilters}
-              className="text-xs font-bold text-slate-500 hover:text-[#2E7D32] hover:underline"
+              className="text-xs font-bold text-[var(--saathi-text-muted)] hover:text-[var(--saathi-primary)] hover:underline"
             >
               {t('buyer.clearFilters') || 'Clear Filters'}
             </button>
@@ -337,7 +339,7 @@ export default function BuyerDiscovery() {
         {loading ? (
           // Skeleton Loader
           Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="animate-pulse rounded-3xl bg-white border border-slate-200 p-6 shadow-sm">
+            <div key={i} className="animate-pulse rounded-3xl bg-white border border-[var(--saathi-border-light)] p-6 shadow-sm">
               <div className="h-6 bg-slate-200 rounded w-1/3 mb-4"></div>
               <div className="h-4 bg-slate-200 rounded w-1/2 mb-2"></div>
               <div className="h-4 bg-slate-200 rounded w-1/4"></div>
@@ -349,16 +351,16 @@ export default function BuyerDiscovery() {
             <p className="mt-2 font-bold">{errorMsg}</p>
           </div>
         ) : listings.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <div className="rounded-3xl border border-dashed border-[var(--saathi-border)] bg-white p-10 text-center">
             <span className="text-4xl">🔎</span>
-            <h3 className="mt-4 text-lg font-bold text-slate-800">{t('buyer.noBuyersFound') || 'No Buyer Listings Found'}</h3>
-            <p className="mt-2 text-sm text-slate-600 max-w-md mx-auto">
+            <h3 className="mt-4 text-lg font-bold text-[var(--saathi-text)]">{t('buyer.noBuyersFound') || 'No Buyer Listings Found'}</h3>
+            <p className="mt-2 text-sm text-[var(--saathi-text-secondary)] max-w-md mx-auto">
               There are no buyers registered for this crop or region right now. Check back soon!
             </p>
           </div>
         ) : (
           listings.map((buyer) => (
-            <article key={buyer._id} className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
+            <article key={buyer._id} className="relative overflow-hidden rounded-3xl border border-[var(--saathi-border-light)] bg-white shadow-sm transition hover:shadow-md">
               {buyer.is_demo && (
                 <div className="bg-amber-50 border-b border-amber-100 px-6 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-800">
                   Demo Listing • Simulated Offer
@@ -368,19 +370,19 @@ export default function BuyerDiscovery() {
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <h2 className="text-xl font-extrabold text-slate-900">{buyer.buyer_name}</h2>
-                      <span className="rounded-full bg-slate-50 border border-slate-200 text-slate-600 px-2 py-0.5 text-xs font-bold">
+                      <h2 className="text-xl font-extrabold text-[var(--saathi-text)]">{buyer.buyer_name}</h2>
+                      <span className="rounded-full bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] text-[var(--saathi-text-secondary)] px-2 py-0.5 text-xs font-bold">
                         {buyer.buyer_type}
                       </span>
                     </div>
-                    <p className="text-sm font-semibold text-slate-600">
-                      Buying: <span className="text-[#2E7D32]">{getRegionalCropName(buyer.commodity)} ({buyer.variety})</span>
+                    <p className="text-sm font-semibold text-[var(--saathi-text-secondary)]">
+                      Buying: <span className="text-[var(--saathi-primary)]">{getRegionalCropName(buyer.commodity)} ({buyer.variety})</span>
                     </p>
-                    <div className="mt-3 flex flex-col gap-1 text-sm text-slate-500">
+                    <div className="mt-3 flex flex-col gap-1 text-sm text-[var(--saathi-text-muted)]">
                       <p className="flex items-center gap-2"><span>📍</span> {buyer.market}, {buyer.district}, {buyer.state}</p>
-                      <p className="flex items-center gap-2"><span>📦</span> Requirement: <span className="font-bold text-slate-700">{buyer.quantity_required}</span></p>
+                      <p className="flex items-center gap-2"><span>📦</span> Requirement: <span className="font-bold text-[var(--saathi-text-secondary)]">{buyer.quantity_required}</span></p>
                       {buyer.remainingQuantity !== undefined && (
-                        <p className="flex items-center gap-2"><span>📉</span> Remaining: <span className="font-bold text-[#2E7D32]">{buyer.remainingQuantity} quintals</span></p>
+                        <p className="flex items-center gap-2"><span>📉</span> Remaining: <span className="font-bold text-[var(--saathi-primary)]">{buyer.remainingQuantity} quintals</span></p>
                       )}
                     </div>
                     <div className="mt-2">
@@ -389,11 +391,11 @@ export default function BuyerDiscovery() {
                   </div>
 
                   {/* Price Block */}
-                  <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100 sm:w-52 w-full shrink-0 flex flex-col justify-center">
+                  <div className="rounded-2xl bg-[var(--saathi-surface-alt)] p-4 border border-slate-100 sm:w-52 w-full shrink-0 flex flex-col justify-center">
                     <p className="text-xs font-bold uppercase text-slate-400">Offered Price</p>
-                    <p className="mt-1 text-2xl font-black text-[#2E7D32]">
+                    <p className="mt-1 text-2xl font-black text-[var(--saathi-primary)]">
                       {formatRupees(buyer.offered_price)}
-                      <span className="text-xs font-semibold text-slate-500 ml-1">/qtl</span>
+                      <span className="text-xs font-semibold text-[var(--saathi-text-muted)] ml-1">/qtl</span>
                     </p>
                   </div>
                 </div>
@@ -407,7 +409,7 @@ export default function BuyerDiscovery() {
                       setProposalQuantity(buyer.remainingQuantity ? String(Math.min(10, buyer.remainingQuantity)) : '10');
                     }}
                     disabled={buyer.fulfillmentStatus === 'FULFILLED'}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-[#2E7D32] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#256428] focus:outline-none disabled:bg-slate-300 disabled:cursor-not-allowed"
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-[var(--saathi-primary)] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[var(--saathi-primary-hover)] focus:outline-none disabled:bg-slate-300 disabled:cursor-not-allowed"
                   >
                     {buyer.fulfillmentStatus === 'FULFILLED' ? 'Fully Fulfilled' : '💬 ' + (t('buyer.contactButton') || 'Contact via SAATHI')}
                   </button>
@@ -427,35 +429,35 @@ export default function BuyerDiscovery() {
           >
             <div className="text-center">
               <span className="text-5xl">🤝</span>
-              <h2 className="mt-4 text-xl font-black text-slate-900">Confirm Sale</h2>
-              <p className="mt-3 text-sm text-slate-600 leading-relaxed">
+              <h2 className="mt-4 text-xl font-black text-[var(--saathi-text)]">Confirm Sale</h2>
+              <p className="mt-3 text-sm text-[var(--saathi-text-secondary)] leading-relaxed">
                 You are about to accept the offer from <span className="font-bold">{activeBuyer.buyer_name}</span>.
               </p>
               
-              <div className="mt-4 bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-left">
+              <div className="mt-4 bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] rounded-2xl p-4 text-left">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-bold uppercase text-emerald-800">Commodity</span>
-                  <span className="font-semibold text-emerald-900">{activeBuyer.commodity}</span>
+                  <span className="text-xs font-bold uppercase text-[var(--saathi-text-secondary)]">Commodity</span>
+                  <span className="font-semibold text-[var(--saathi-text)]">{activeBuyer.commodity}</span>
                 </div>
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-bold uppercase text-emerald-800">Price</span>
-                  <span className="font-black text-[#2E7D32]">{formatRupees(activeBuyer.offered_price)}/qtl</span>
+                  <span className="text-xs font-bold uppercase text-[var(--saathi-text-secondary)]">Price</span>
+                  <span className="font-black text-[var(--saathi-primary)]">{formatRupees(activeBuyer.offered_price)}/qtl</span>
                 </div>
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-bold uppercase text-emerald-800">Remaining</span>
-                  <span className="font-semibold text-emerald-900">{activeBuyer.remainingQuantity} quintals</span>
+                  <span className="text-xs font-bold uppercase text-[var(--saathi-text-secondary)]">Remaining</span>
+                  <span className="font-semibold text-[var(--saathi-text)]">{activeBuyer.remainingQuantity} quintals</span>
                 </div>
               </div>
 
               <div className="mt-4">
-                <label className="block text-left text-sm font-bold text-slate-700 mb-2">Quantity to Propose (Quintals)</label>
+                <label className="block text-left text-sm font-bold text-[var(--saathi-text-secondary)] mb-2">Quantity to Propose (Quintals)</label>
                 <input
                   type="number"
                   min="1"
                   max={activeBuyer.remainingQuantity}
                   value={proposalQuantity}
                   onChange={(e) => setProposalQuantity(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-lg font-bold outline-none focus:border-[#2E7D32]"
+                  className="w-full rounded-xl border border-[var(--saathi-border)] px-4 py-3 text-lg font-bold outline-none focus:border-[var(--saathi-primary)]"
                 />
               </div>
 
@@ -470,7 +472,7 @@ export default function BuyerDiscovery() {
                       }
 
                       const token = localStorage.getItem('saathi_token');
-                      const response = await fetch('http://localhost:5001/api/purchase-orders', {
+                      const response = await fetch('${API_BASE}/api/purchase-orders', {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
@@ -493,13 +495,13 @@ export default function BuyerDiscovery() {
                       alert('Error connecting to backend.');
                     }
                   }}
-                  className="w-full rounded-xl bg-[#2E7D32] py-3 text-sm font-bold text-white transition hover:bg-[#256428]"
+                  className="w-full rounded-xl bg-[var(--saathi-primary)] py-3 text-sm font-bold text-white transition hover:bg-[var(--saathi-primary-hover)]"
                 >
                   Propose Sale
                 </button>
                 <button
                   onClick={() => setActiveBuyer(null)}
-                  className="w-full rounded-xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                  className="w-full rounded-xl border border-[var(--saathi-border-light)] bg-white py-3 text-sm font-bold text-[var(--saathi-text-secondary)] transition hover:bg-[var(--saathi-surface-alt)]"
                 >
                   Cancel
                 </button>

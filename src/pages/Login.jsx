@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useUser } from '../context/UserContext';
 import heroBg from '../assets/hero-bg.jpg';
+import saathiLogo from '../assets/logo.png';
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
@@ -18,13 +20,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(45);
   const navigate = useNavigate();
-  const { login } = useUser();
-
-  useEffect(() => {
-    if (localStorage.getItem('token') || localStorage.getItem('user')) {
-      navigate('/', { replace: true });
-    }
-  }, [navigate]);
+  const { login, user, isLoggedIn } = useUser();
 
   useEffect(() => {
     let interval;
@@ -174,67 +170,106 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col justify-between overflow-x-hidden font-sans selection:bg-green-100 selection:text-green-900">
-      {}
+    <div className="relative min-h-screen flex flex-col justify-between overflow-x-hidden font-sans selection:bg-slate-100 selection:text-[var(--saathi-text)]">
+      {/* Background Image */}
       <img
         src={heroBg}
         alt="Indian agricultural field with farmer"
         className="fixed inset-0 w-full h-full object-cover object-center z-0"
       />
 
-      {}
-      <div className="fixed inset-0 bg-slate-900/65 bg-gradient-to-b from-[#042F24]/80 via-slate-900/60 to-[#042F24]/85 z-0 backdrop-blur-[1px]" />
+      {/* Background Dim Overlay */}
+      <div className="fixed inset-0 bg-slate-950/80 z-0 backdrop-blur-[2px]" />
 
-      {}
+      {/* Header */}
       <header className="relative z-10 p-4 sm:p-6 flex justify-between items-center max-w-7xl mx-auto w-full">
-        <div className="flex items-center gap-2.5 bg-black/40 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/15 text-white shadow-lg">
-          <img src="/logo.png" alt="SAATHI Logo" className="w-6 h-6 rounded-full border border-white/40 p-0.5 object-cover" />
-          <span className="text-xs font-extrabold tracking-widest uppercase text-green-300">SAATHI</span>
-          <span className="text-slate-400 text-xs font-normal">|</span>
-          <span className="text-xs font-medium text-slate-200">Kisan Portal</span>
-        </div>
+        {/* Brand Logo & Name */}
+        <Link
+          to="/"
+          className="flex items-center gap-2.5 group focus:outline-none focus:ring-2 focus:ring-slate-400 rounded-md p-1"
+          title="Return to SAATHI Home"
+        >
+          <img
+            src={saathiLogo}
+            alt="SAATHI Logo"
+            className="w-8 h-8 sm:w-9 sm:h-9 object-contain drop-shadow transition-transform group-hover:scale-105"
+          />
+          <div>
+            <span className="text-base sm:text-lg font-extrabold tracking-wider text-white">
+              SAATHI
+            </span>
+            <span className="hidden sm:block text-[10px] font-bold text-[#52b788] leading-tight">
+              Aapki Aawaz, Aapka Bazaar
+            </span>
+          </div>
+        </Link>
+
+        {/* Back Button */}
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="inline-flex items-center gap-2 rounded-lg bg-white/10 hover:bg-white/20 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition-all focus:outline-none"
+        >
+          <ArrowLeftIcon className="h-4 w-4" />
+          <span>Back to Portal</span>
+        </button>
       </header>
 
-      {}
+      {/* Main Content Area */}
       <main className="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">
-        <div className="w-full max-w-[440px] bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 sm:p-8 transition-all">
+        <div className="w-full max-w-[440px] bg-white rounded-lg shadow-2xl border border-[var(--saathi-border-light)] p-6 sm:p-8 transition-all">
 
-          {}
+          {isLoggedIn && (
+            <div className="mb-4 p-3 rounded-md bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] text-xs text-[var(--saathi-text)] flex items-center justify-between">
+              <div>
+                <span className="font-semibold">Signed in as: </span>
+                <strong>{user?.name || 'Farmer'}</strong>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="font-bold text-[var(--saathi-primary)] hover:underline"
+              >
+                Go to Portal →
+              </button>
+            </div>
+          )}
+
+          {/* Logo & Header */}
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center mb-3">
               <img
-                src="/logo.png"
+                src={saathiLogo}
                 alt="SAATHI Logo"
-                className="w-16 h-16 rounded-full border-2 border-green-100 p-1 shadow-md object-contain"
+                className="w-16 h-16 object-contain drop-shadow"
               />
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--saathi-text)]">
               SAATHI
             </h1>
 
-            <div className="mt-1.5 inline-block px-3 py-1 rounded-full bg-green-50 border border-green-100 text-xs font-extrabold text-[#2E7D32]">
+            <p className="mt-1 text-sm font-extrabold tracking-wide text-[var(--saathi-primary)]">
               "Aapki Aawaz, Aapka Bazaar"
-            </div>
+            </p>
 
-            <div className="mt-5 border-t border-slate-100 pt-4">
-              <h2 className="text-lg font-bold text-slate-800">Welcome back</h2>
-              <p className="text-xs font-medium text-slate-500 mt-0.5">
-                Connect with your farming marketplace
+            <div className="mt-4">
+              <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--saathi-text)]">Welcome back</h2>
+              <p className="text-sm font-medium text-[var(--saathi-text-secondary)] mt-1">
+                Sign in with OTP to access your account
               </p>
             </div>
           </div>
 
-          {}
           <form onSubmit={handleSubmitForm} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                Mobile Number
+              <label className="block text-sm font-bold text-[var(--saathi-text)] mb-1.5">
+                Mobile Number <span className="text-red-600 font-bold ml-0.5">*</span>
               </label>
 
               <div className="flex gap-2">
                 <div className="relative">
-                  <div className="h-12 bg-slate-50 border border-slate-200 text-slate-800 font-bold px-3.5 rounded-xl flex items-center gap-1 text-sm">
+                  <div className="h-12 bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border)] text-[var(--saathi-text)] font-extrabold px-3.5 rounded-lg flex items-center gap-1 text-sm sm:text-base">
                     <span>🇮🇳</span>
                     <span>+91</span>
                   </div>
@@ -243,7 +278,7 @@ export default function Login() {
                 <input
                   type="tel"
                   placeholder="Enter 10-digit number"
-                  className={`flex-1 h-12 bg-slate-50 border ${error ? 'border-red-400 focus:ring-red-100' : 'border-slate-200 focus:border-[#2E7D32] focus:ring-green-100'} text-slate-900 font-semibold px-4 rounded-xl outline-none focus:ring-4 transition disabled:opacity-60 text-base placeholder:text-slate-400`}
+                  className="flex-1 h-12 bg-white border border-[var(--saathi-border)] focus:border-[var(--saathi-accent)] focus:ring-2 focus:ring-red-100 text-[var(--saathi-text)] font-semibold px-4 rounded-lg outline-none transition text-base placeholder:text-slate-400 placeholder:font-normal"
                   value={mobile}
                   onChange={handleMobileChange}
                   maxLength="10"
@@ -252,30 +287,32 @@ export default function Login() {
                 />
               </div>
 
-              {error && <p className="text-red-600 text-xs mt-1.5 font-bold flex items-center gap-1"><span>⚠️</span> {error}</p>}
+              {error && (
+                <p className="text-red-700 text-sm mt-1.5 font-bold flex items-center gap-1">
+                  <span>⚠️</span> {error}
+                </p>
+              )}
 
-              {}
               {otpSent && (
-                <div className="mt-3 p-3 rounded-xl bg-green-50 border border-green-200 text-xs text-[#2E7D32] font-semibold flex items-center justify-between">
+                <div className="mt-3 p-3 rounded-lg bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] text-sm text-[var(--saathi-text)] font-semibold flex items-center justify-between">
                   <span className="flex items-center gap-1">
-                    <span className="text-base">✓</span> Your OTP is:
+                    <span className="text-base font-bold text-[var(--saathi-primary)]">✓</span> Demo OTP:
                   </span>
-                  <span className="font-extrabold text-slate-900 bg-white px-2 py-0.5 rounded border border-green-200 tracking-wider">
+                  <span className="font-extrabold text-[var(--saathi-text)] bg-white px-2.5 py-0.5 rounded border border-[var(--saathi-border)] tracking-wider">
                     123456
                   </span>
                 </div>
               )}
             </div>
 
-            {}
             {otpSent && (
-              <div className="space-y-3 pt-2">
+              <div className="space-y-2.5 pt-1">
                 <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    Enter 6-Digit OTP
+                  <label className="text-sm font-bold text-[var(--saathi-text)]">
+                    Enter 6-Digit OTP <span className="text-red-600 font-bold ml-0.5">*</span>
                   </label>
                   {timer > 0 ? (
-                    <span className="text-xs font-bold text-amber-600">
+                    <span className="text-sm font-bold text-red-600">
                       Resend in {timer}s
                     </span>
                   ) : (
@@ -283,7 +320,7 @@ export default function Login() {
                       type="button"
                       onClick={() => triggerGetOtp(mobile)}
                       disabled={loading}
-                      className="text-xs font-bold text-[#2E7D32] hover:underline"
+                      className="text-sm font-bold text-red-600 hover:underline cursor-pointer"
                     >
                       Resend OTP
                     </button>
@@ -297,7 +334,7 @@ export default function Login() {
                       id={`otp-input-${index}`}
                       type="text"
                       maxLength="1"
-                      className="w-11 h-12 text-center text-xl font-extrabold bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#2E7D32] focus:ring-4 focus:ring-green-100 text-slate-900 transition"
+                      className="w-12 h-12 text-center text-2xl font-extrabold bg-white border border-[var(--saathi-border)] rounded-lg outline-none focus:border-[var(--saathi-accent)] focus:ring-2 focus:ring-red-100 text-[var(--saathi-text)] transition"
                       value={digit}
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(index, e)}
@@ -309,48 +346,35 @@ export default function Login() {
               </div>
             )}
 
-            {}
             <button
               type="submit"
               disabled={loading || mobile.length !== 10}
-              className="w-full h-12 mt-2 bg-[#2E7D32] text-white rounded-xl font-extrabold text-base hover:bg-[#256428] active:scale-[0.99] transition shadow-md shadow-green-900/10 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#2E7D32]"
+              className="w-full h-12 sm:h-13 mt-3 bg-[var(--saathi-accent)] hover:bg-[var(--saathi-accent-dark)] text-white rounded-lg font-extrabold text-base sm:text-lg active:scale-[0.99] transition shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {loading ? (
                 <span className="inline-block animate-spin border-2 border-white border-t-transparent rounded-full w-5 h-5" />
               ) : (
                 <>
-                  {otpSent ? 'Verify OTP & Login' : 'Get OTP'}
-                  <span className="text-lg">→</span>
+                  <span>{otpSent ? 'Verify OTP & Login' : 'Get OTP'}</span>
+                  <span className="text-xl">→</span>
                 </>
               )}
             </button>
           </form>
 
-          {}
-          <div className="mt-6 border-t border-slate-100 pt-4 text-center">
-            <p className="text-xs font-medium text-slate-400">
-              Simple access to markets, buyers and farming information.
-            </p>
-          </div>
-
-          {}
-          <div className="mt-3 text-center">
+          <div className="mt-5 text-center">
             <button
+              type="button"
               onClick={() => navigate('/register')}
-              className="text-xs font-bold text-slate-700 hover:text-[#2E7D32] transition hover:underline"
+              className="text-sm font-medium text-[var(--saathi-text-secondary)] hover:text-[var(--saathi-text)] transition cursor-pointer"
             >
-              New User? <span className="text-[#2E7D32]">Register Profile</span>
+              New User? <span className="font-extrabold text-red-600 hover:underline ml-0.5">Register Profile</span>
             </button>
           </div>
         </div>
       </main>
 
-      {}
-      <footer className="relative z-10 py-4 px-4 text-center">
-        <p className="text-xs font-medium text-slate-300 drop-shadow">
-          Connecting farmers with buyers, prices and trusted market information.
-        </p>
-      </footer>
+      <div className="h-6" />
     </div>
   );
 }
