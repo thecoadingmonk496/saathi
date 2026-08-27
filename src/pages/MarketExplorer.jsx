@@ -23,6 +23,233 @@ import {
 } from 'lucide-react';
 import { marketService } from '../api/marketService';
 
+const MOCK_JOURNEYS = {
+  Wheat: {
+    product: "Wheat",
+    batchId: "SAATHI-TXN-28491",
+    journey: {
+      farmers: [
+        {
+          status: "verified",
+          data: {
+            transactionId: "TXN-WHT-FARM-01",
+            seller: "Rajesh Kumar",
+            location: "Chandauli, UP",
+            quantity: 500,
+            unit: "quintal",
+            price: 2150,
+            date: "2026-08-15T08:30:00Z"
+          }
+        }
+      ],
+      wholesaler: {
+        status: "verified",
+        data: {
+          transactionId: "TXN-WHT-WHOL-02",
+          buyer: "Kisan Agro Trading",
+          location: "Varanasi Mandi, UP",
+          quantity: 500,
+          unit: "quintal",
+          price: 2250,
+          date: "2026-08-16T10:15:00Z"
+        }
+      },
+      distributor: {
+        status: "verified",
+        data: {
+          transactionId: "TXN-WHT-DIST-03",
+          buyer: "UP State Logistics",
+          location: "Lucknow Depot, UP",
+          quantity: 500,
+          unit: "quintal",
+          price: 2350,
+          date: "2026-08-18T14:45:00Z"
+        }
+      },
+      retailer: {
+        status: "verified",
+        data: {
+          transactionId: "TXN-WHT-RET-04",
+          buyer: "FreshMart Supermarket",
+          location: "Gomti Nagar, Lucknow",
+          quantity: 50,
+          unit: "quintal",
+          price: 2500,
+          date: "2026-08-20T09:20:00Z"
+        }
+      }
+    }
+  },
+  Rice: {
+    product: "Rice",
+    batchId: "SAATHI-TXN-15943",
+    journey: {
+      farmers: [
+        {
+          status: "verified",
+          data: {
+            transactionId: "TXN-RCE-FARM-01",
+            seller: "Suresh Patil",
+            location: "Pune, MH",
+            quantity: 200,
+            unit: "quintal",
+            price: 2900,
+            date: "2026-08-12T07:15:00Z"
+          }
+        }
+      ],
+      wholesaler: {
+        status: "verified",
+        data: {
+          transactionId: "TXN-RCE-WHOL-02",
+          buyer: "Maha Agri Corp",
+          location: "APMC Pune, MH",
+          quantity: 200,
+          unit: "quintal",
+          price: 3100,
+          date: "2026-08-13T11:00:00Z"
+        }
+      },
+      distributor: {
+        status: "verified",
+        data: {
+          transactionId: "TXN-RCE-DIST-03",
+          buyer: "Western Supply Chain",
+          location: "Mumbai Port Depot",
+          quantity: 200,
+          unit: "quintal",
+          price: 3300,
+          date: "2026-08-15T16:30:00Z"
+        }
+      },
+      retailer: {
+        status: "verified",
+        data: {
+          transactionId: "TXN-RCE-RET-04",
+          buyer: "Sahakari Bhandar",
+          location: "Dadar, Mumbai",
+          quantity: 20,
+          unit: "quintal",
+          price: 3500,
+          date: "2026-08-17T10:45:00Z"
+        }
+      }
+    }
+  },
+  Potato: {
+    product: "Potato",
+    batchId: "SAATHI-TXN-59281",
+    journey: {
+      farmers: [
+        {
+          status: "verified",
+          data: {
+            transactionId: "TXN-POT-FARM-01",
+            seller: "Amit Singh",
+            location: "Agra, UP",
+            quantity: 150,
+            unit: "quintal",
+            price: 1100,
+            date: "2026-08-20T06:00:00Z"
+          }
+        }
+      ],
+      wholesaler: {
+        status: "verified",
+        data: {
+          transactionId: "TXN-POT-WHOL-02",
+          buyer: "Agra Cold Storage",
+          location: "Agra Mandi, UP",
+          quantity: 150,
+          unit: "quintal",
+          price: 1300,
+          date: "2026-08-21T09:30:00Z"
+        }
+      },
+      distributor: {
+        status: "verified",
+        data: {
+          transactionId: "TXN-POT-DIST-03",
+          buyer: "Delhi Fast Movers",
+          location: "Azadpur Mandi, Delhi",
+          quantity: 150,
+          unit: "quintal",
+          price: 1550,
+          date: "2026-08-22T23:00:00Z"
+        }
+      },
+      retailer: {
+        status: "verified",
+        data: {
+          transactionId: "TXN-POT-RET-04",
+          buyer: "Daily Needs Grocery",
+          location: "Karol Bagh, Delhi",
+          quantity: 10,
+          unit: "quintal",
+          price: 1800,
+          date: "2026-08-24T08:15:00Z"
+        }
+      }
+    }
+  },
+  Tomato: {
+    product: "Tomato",
+    batchId: "SAATHI-TXN-73412",
+    journey: {
+      farmers: [
+        {
+          status: "verified",
+          data: {
+            transactionId: "TXN-TOM-FARM-01",
+            seller: "Lakshmi Narayana",
+            location: "Madanapalle, AP",
+            quantity: 80,
+            unit: "quintal",
+            price: 2000,
+            date: "2026-08-25T05:30:00Z"
+          }
+        }
+      ],
+      wholesaler: {
+        status: "verified",
+        data: {
+          transactionId: "TXN-TOM-WHOL-02",
+          buyer: "AP Fresh Traders",
+          location: "Madanapalle Mandi, AP",
+          quantity: 80,
+          unit: "quintal",
+          price: 2400,
+          date: "2026-08-25T11:00:00Z"
+        }
+      },
+      distributor: {
+        status: "verified",
+        data: {
+          transactionId: "TXN-TOM-DIST-03",
+          buyer: "South Logistics",
+          location: "Chennai Hub, TN",
+          quantity: 80,
+          unit: "quintal",
+          price: 2800,
+          date: "2026-08-26T04:00:00Z"
+        }
+      },
+      retailer: {
+        status: "verified",
+        data: {
+          transactionId: "TXN-TOM-RET-04",
+          buyer: "Koyambedu Vegetables",
+          location: "Koyambedu, Chennai",
+          quantity: 5,
+          unit: "quintal",
+          price: 3200,
+          date: "2026-08-26T07:30:00Z"
+        }
+      }
+    }
+  }
+};
+
 // -- Helper components --
 
 const VerificationBadge = ({ status }) => {
@@ -175,6 +402,15 @@ export default function MarketExplorer() {
   // Fetch batch journey if batchId exists
   useEffect(() => {
     if (batchId) {
+      if (batchId.startsWith('SAATHI-TXN-')) {
+        const cropKey = Object.keys(MOCK_JOURNEYS).find(k => MOCK_JOURNEYS[k].batchId === batchId);
+        if (cropKey) {
+          setBatchJourneyData(MOCK_JOURNEYS[cropKey].journey);
+          setProductName(MOCK_JOURNEYS[cropKey].product);
+          return;
+        }
+      }
+
       setLoadingData(true);
       fetch(`${API_BASE}/api/transactions/journey/${batchId}`)
         .then(res => res.json())
@@ -311,11 +547,11 @@ export default function MarketExplorer() {
         <div className="max-w-5xl mx-auto relative z-10">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
                 <span className="bg-[var(--saathi-primary)]/20 text-emerald-300 border border-[var(--saathi-primary)]/30 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
                   <Shield className="w-3.5 h-3.5" /> Immutable Record
                 </span>
-                {batchId?.includes('DEMO') && (
+                {(batchId?.includes('DEMO') || batchId?.startsWith('SAATHI-TXN-')) && (
                   <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
                     SIMULATED DEMO
                   </span>
@@ -331,7 +567,6 @@ export default function MarketExplorer() {
               </div>
             </div>
             
-            {/* Quick Status Badge */}
             {batchJourneyData && (
               <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-center min-w-[200px]">
                 <p className="text-emerald-200 text-xs font-bold uppercase tracking-wider mb-1">Current Location</p>
@@ -341,6 +576,14 @@ export default function MarketExplorer() {
                 </div>
                 {currentStageTime && (
                   <p className="text-[10px] text-emerald-100/60 mt-1 font-medium">Last moved: {new Date(currentStageTime).toLocaleDateString()}</p>
+                )}
+                
+                {batchId?.startsWith('SAATHI-TXN-') && (
+                  <div className="mt-3 pt-3 border-t border-white/10 text-left">
+                    <p className="text-emerald-300 text-[10px] font-bold uppercase mb-1 flex items-center gap-1"><Shield className="w-3 h-3"/> Blockchain Verification</p>
+                    <p className="text-xs text-white flex justify-between">Status: <span className="font-bold text-emerald-400">Verified ✓</span></p>
+                    <p className="text-xs text-white/80 flex justify-between">Network: <span className="font-mono">Permissioned</span></p>
+                  </div>
                 )}
               </div>
             )}
@@ -359,12 +602,35 @@ export default function MarketExplorer() {
             <p className="text-[var(--saathi-text-muted)]">Please verify the Batch ID and try again.</p>
           </div>
         ) : !batchJourneyData ? (
-          <div className="bg-white rounded-2xl shadow-xl p-10 text-center border border-gray-100 max-w-2xl mx-auto mt-10">
+          <div className="bg-white rounded-2xl shadow-xl p-10 text-center border border-gray-100 max-w-3xl mx-auto mt-10">
              <div className="w-16 h-16 bg-[var(--saathi-surface-alt)] rounded-full flex items-center justify-center mx-auto mb-4">
                <MapPin className="w-8 h-8 text-[var(--saathi-primary)]" />
              </div>
              <h2 className="text-xl font-bold text-[var(--saathi-text)] mb-2">Track Your Crop</h2>
-             <p className="text-[var(--saathi-text-muted)] mb-6">Enter a valid Batch ID or Transaction ID to view the complete traceability journey.</p>
+             <p className="text-[var(--saathi-text-muted)] mb-8">Select a demo crop below to simulate a blockchain verification process, or enter a valid Batch ID.</p>
+             
+             {/* Demo Crops Section */}
+             <div className="mb-10">
+               <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Simulate Crop Journey</div>
+               <div className="flex flex-wrap items-center justify-center gap-3">
+                 {Object.keys(MOCK_JOURNEYS).map(crop => (
+                   <button
+                     key={crop}
+                     onClick={() => window.location.href = `/explorer?batchId=${MOCK_JOURNEYS[crop].batchId}`}
+                     className="px-5 py-2.5 rounded-xl border-2 border-[var(--saathi-primary)] text-[var(--saathi-primary)] font-bold hover:bg-[var(--saathi-surface-alt)] transition-colors flex items-center gap-2"
+                   >
+                     <Leaf className="w-4 h-4" /> {crop}
+                   </button>
+                 ))}
+               </div>
+             </div>
+             
+             <div className="flex items-center gap-4 max-w-sm mx-auto mb-6">
+               <div className="h-px bg-gray-200 flex-1"></div>
+               <span className="text-xs font-bold text-gray-400">OR</span>
+               <div className="h-px bg-gray-200 flex-1"></div>
+             </div>
+
              <form 
                onSubmit={(e) => {
                  e.preventDefault();
@@ -378,7 +644,7 @@ export default function MarketExplorer() {
                <input 
                  name="batchInput"
                  type="text" 
-                 placeholder="e.g. 6a8d3e3..."
+                 placeholder="Enter Batch ID..."
                  className="flex-1 w-full rounded-xl border border-[var(--saathi-border-light)] bg-[var(--saathi-surface-alt)] px-4 py-2.5 text-sm font-semibold text-[var(--saathi-text)] outline-none focus:border-[var(--saathi-primary)] focus:ring-4 focus:ring-[var(--saathi-primary)]"
                />
                <button type="submit" className="w-full sm:w-auto bg-[var(--saathi-primary)] hover:bg-[var(--saathi-primary-hover)] text-white px-5 py-2.5 rounded-xl font-bold text-sm transition">
