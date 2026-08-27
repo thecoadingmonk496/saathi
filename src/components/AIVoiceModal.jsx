@@ -45,6 +45,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
   const [voices, setVoices] = useState([]);
 
   const recognitionRef = useRef(null);
+  const audioRef = useRef(null);
   const langTag = languageTagMap[preferredLanguage] || 'hi-IN';
 
   useEffect(() => {
@@ -136,6 +137,10 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
           recognitionRef.current.abort();
         } catch { }
       }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
@@ -179,6 +184,11 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
     if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) {
       setStatus('done');
       return;
+    }
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
     }
 
     try {
@@ -269,19 +279,29 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
           const ttsData = await ttsRes.json();
           if (ttsData.audio_base64) {
             setStatus('speaking');
+            
+            if (audioRef.current) {
+              audioRef.current.pause();
+            }
+            
             const audio = new Audio(`data:${ttsData.mime_type};base64,${ttsData.audio_base64}`);
+            audioRef.current = audio;
+            
             audio.onended = () => {
               setStatus('done');
               isProcessingRef.current = false;
+              if (audioRef.current === audio) audioRef.current = null;
             };
             audio.onerror = () => {
               console.warn('Failed to play premium TTS audio');
               speakText(aiResponse); // fallback to browser TTS
               isProcessingRef.current = false;
+              if (audioRef.current === audio) audioRef.current = null;
             };
             audio.play().catch((err) => {
               console.warn('Audio play rejected (likely autoplay policy):', err);
               speakText(aiResponse);
+              if (audioRef.current === audio) audioRef.current = null;
             });
             return;
           }
@@ -313,6 +333,10 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
   const handleRestartListening = () => {
     isProcessingRef.current = false;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
