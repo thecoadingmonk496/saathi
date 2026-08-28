@@ -61,6 +61,7 @@ async function registerUser(req, res) {
         lastName: user.lastName,
         email: user.email,
         phone: user.phone,
+        role: user.role,
       },
     });
   } catch (error) {
@@ -97,6 +98,7 @@ async function loginUser(req, res) {
         lastName: user.lastName,
         email: user.email,
         phone: user.phone,
+        role: user.role,
       },
     });
   } catch (error) {
@@ -163,6 +165,7 @@ async function verifyOtp(req, res) {
         lastName: user.lastName,
         email: user.email,
         phone: user.phone,
+        role: user.role,
       },
     });
   } catch (error) {
@@ -214,6 +217,7 @@ async function updateProfile(req, res) {
         lastName: user.lastName,
         email: user.email,
         phone: user.phone,
+        role: user.role,
         farmerId: user.farmerId,
         village: user.village,
         block: user.block,

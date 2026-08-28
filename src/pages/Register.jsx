@@ -11,6 +11,7 @@ const initialForm = {
   email: '',
   phone: '',
   password: '',
+  role: 'FARMER', // default role
 };
 
 const API_BASE_URL = (
@@ -257,8 +258,29 @@ export default function Register() {
               />
             </div>
 
+            {/* Role Selection */}
+            <div className="space-y-1.5 mt-4">
+              <label className="text-[var(--saathi-text-secondary)] text-sm font-bold flex justify-between">
+                Account Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="role"
+                value={form.role}
+                onChange={handleChange}
+                required
+                className="w-full h-12 bg-white border border-[var(--saathi-border)] focus:border-[var(--saathi-accent)] focus:ring-2 focus:ring-red-100 text-[var(--saathi-text)] font-semibold px-4 rounded-lg outline-none transition text-base"
+              >
+                <option value="FARMER">Farmer</option>
+                <option value="BUYER">Buyer</option>
+                <option value="WHOLESALER">Wholesaler</option>
+                <option value="DISTRIBUTOR">Distributor</option>
+                <option value="RETAILER">Retailer</option>
+                <option value="CONSUMER">Consumer</option>
+              </select>
+            </div>
+
             {/* Password Field */}
-            <div>
+            <div className="space-y-1.5 mt-4">
               <label className="block text-sm font-bold text-[var(--saathi-text)] mb-1.5">
                 Password <span className="text-red-600 font-bold ml-0.5">*</span>
               </label>
