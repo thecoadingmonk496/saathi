@@ -50,6 +50,8 @@ export default function BuyerDashboard() {
     if (data.success) {
       setNewRequest({ crop: '', quantity: '', offeredPrice: '', location: '', description: '' });
       fetchData();
+    } else {
+      alert(data.message || 'Error creating request');
     }
   };
 

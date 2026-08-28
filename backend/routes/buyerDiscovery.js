@@ -7,6 +7,8 @@ const Deal = require('../models/Deal');
 const DealReport = require('../models/DealReport');
 const cropQualityService = require('../services/cropQualityService');
 
+const User = require('../models/User');
+
 // Middleware for role checking
 const requireRole = (role) => (req, res, next) => {
   if (req.user && req.user.role === role) {
