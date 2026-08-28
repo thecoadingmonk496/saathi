@@ -94,6 +94,8 @@ async function registerUser(req, res) {
         businessType: user.businessType,
         gstNumber: user.gstNumber,
         targetCrops: user.targetCrops,
+        isPublicProfile: user.isPublicProfile,
+        documents: user.documents,
       },
     });
   } catch (error) {
@@ -150,6 +152,8 @@ async function loginUser(req, res) {
         businessType: user.businessType,
         gstNumber: user.gstNumber,
         targetCrops: user.targetCrops,
+        isPublicProfile: user.isPublicProfile,
+        documents: user.documents,
       },
     });
   } catch (error) {
@@ -236,6 +240,8 @@ async function verifyOtp(req, res) {
         businessType: user.businessType,
         gstNumber: user.gstNumber,
         targetCrops: user.targetCrops,
+        isPublicProfile: user.isPublicProfile,
+        documents: user.documents,
       },
     });
   } catch (error) {
@@ -250,7 +256,8 @@ async function updateProfile(req, res) {
     const { 
       name, mobile, village, block, district, state, profileImage, 
       landHolding, primaryCrops, irrigation, farmingType, annualYield, harvestSeason, soilType, certifications,
-      businessName, businessType, gstNumber, targetCrops
+      businessName, businessType, gstNumber, targetCrops,
+      isPublicProfile, documents
     } = req.body;
     
     // Parse name into firstName and lastName if provided
@@ -282,6 +289,8 @@ async function updateProfile(req, res) {
     if (businessType !== undefined) updates.businessType = businessType;
     if (gstNumber !== undefined) updates.gstNumber = gstNumber;
     if (targetCrops !== undefined) updates.targetCrops = targetCrops;
+    if (isPublicProfile !== undefined) updates.isPublicProfile = isPublicProfile;
+    if (documents !== undefined) updates.documents = documents;
 
     const user = await User.findByIdAndUpdate(userId, updates, { new: true });
     
@@ -321,6 +330,8 @@ async function updateProfile(req, res) {
         businessType: user.businessType,
         gstNumber: user.gstNumber,
         targetCrops: user.targetCrops,
+        isPublicProfile: user.isPublicProfile,
+        documents: user.documents,
       }
     });
   } catch (error) {

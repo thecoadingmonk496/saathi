@@ -58,6 +58,16 @@ const userSchema = new mongoose.Schema(
     businessType: { type: String, trim: true },
     gstNumber: { type: String, trim: true },
     targetCrops: { type: String, trim: true },
+    
+    // Privacy
+    isPublicProfile: { type: Boolean, default: true },
+    
+    // Document Vault
+    documents: {
+      aadhaar: { type: String },
+      gstCertificate: { type: String },
+      otherDocument: { type: String }
+    },
   },
   { timestamps: true },
 );
