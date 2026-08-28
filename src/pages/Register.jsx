@@ -272,10 +272,6 @@ export default function Register() {
               >
                 <option value="FARMER">Farmer</option>
                 <option value="BUYER">Buyer</option>
-                <option value="WHOLESALER">Wholesaler</option>
-                <option value="DISTRIBUTOR">Distributor</option>
-                <option value="RETAILER">Retailer</option>
-                <option value="CONSUMER">Consumer</option>
               </select>
             </div>
 
