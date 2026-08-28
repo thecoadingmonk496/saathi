@@ -43,13 +43,26 @@ async function registerUser(req, res) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const role = req.body.role || 'USER';
+    
+    let farmerId = undefined;
+    let buyerId = undefined;
+    
+    if (role === 'FARMER') {
+      farmerId = FARM-;
+    } else if (role === 'BUYER') {
+      buyerId = BUYER-;
+    }
+
     const user = await User.create({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       email: normalizedEmail,
       phone: normalizedPhone,
       password: hashedPassword,
-      role: req.body.role || 'USER',
+      role: role,
+      farmerId,
+      buyerId,
     });
 
     return res.status(201).json({
@@ -62,6 +75,25 @@ async function registerUser(req, res) {
         email: user.email,
         phone: user.phone,
         role: user.role,
+        farmerId: user.farmerId,
+        buyerId: user.buyerId,
+        village: user.village,
+        block: user.block,
+        district: user.district,
+        state: user.state,
+        profileImage: user.profileImage,
+        landHolding: user.landHolding,
+        primaryCrops: user.primaryCrops,
+        irrigation: user.irrigation,
+        farmingType: user.farmingType,
+        annualYield: user.annualYield,
+        harvestSeason: user.harvestSeason,
+        soilType: user.soilType,
+        certifications: user.certifications,
+        businessName: user.businessName,
+        businessType: user.businessType,
+        gstNumber: user.gstNumber,
+        targetCrops: user.targetCrops,
       },
     });
   } catch (error) {
@@ -99,6 +131,25 @@ async function loginUser(req, res) {
         email: user.email,
         phone: user.phone,
         role: user.role,
+        farmerId: user.farmerId,
+        buyerId: user.buyerId,
+        village: user.village,
+        block: user.block,
+        district: user.district,
+        state: user.state,
+        profileImage: user.profileImage,
+        landHolding: user.landHolding,
+        primaryCrops: user.primaryCrops,
+        irrigation: user.irrigation,
+        farmingType: user.farmingType,
+        annualYield: user.annualYield,
+        harvestSeason: user.harvestSeason,
+        soilType: user.soilType,
+        certifications: user.certifications,
+        businessName: user.businessName,
+        businessType: user.businessType,
+        gstNumber: user.gstNumber,
+        targetCrops: user.targetCrops,
       },
     });
   } catch (error) {
@@ -166,6 +217,25 @@ async function verifyOtp(req, res) {
         email: user.email,
         phone: user.phone,
         role: user.role,
+        farmerId: user.farmerId,
+        buyerId: user.buyerId,
+        village: user.village,
+        block: user.block,
+        district: user.district,
+        state: user.state,
+        profileImage: user.profileImage,
+        landHolding: user.landHolding,
+        primaryCrops: user.primaryCrops,
+        irrigation: user.irrigation,
+        farmingType: user.farmingType,
+        annualYield: user.annualYield,
+        harvestSeason: user.harvestSeason,
+        soilType: user.soilType,
+        certifications: user.certifications,
+        businessName: user.businessName,
+        businessType: user.businessType,
+        gstNumber: user.gstNumber,
+        targetCrops: user.targetCrops,
       },
     });
   } catch (error) {
@@ -177,7 +247,11 @@ async function verifyOtp(req, res) {
 async function updateProfile(req, res) {
   try {
     const userId = req.user._id; // from authMiddleware
-    const { name, mobile, farmerId, village, block, district, state, profileImage, landHolding, primaryCrops, irrigation, farmingType } = req.body;
+    const { 
+      name, mobile, village, block, district, state, profileImage, 
+      landHolding, primaryCrops, irrigation, farmingType, annualYield, harvestSeason, soilType, certifications,
+      businessName, businessType, gstNumber, targetCrops
+    } = req.body;
     
     // Parse name into firstName and lastName if provided
     let firstName, lastName;
@@ -191,7 +265,6 @@ async function updateProfile(req, res) {
     if (firstName) updates.firstName = firstName;
     if (lastName !== undefined) updates.lastName = lastName;
     if (mobile) updates.phone = mobile;
-    if (farmerId !== undefined) updates.farmerId = farmerId;
     if (village !== undefined) updates.village = village;
     if (block !== undefined) updates.block = block;
     if (district !== undefined) updates.district = district;
@@ -201,6 +274,14 @@ async function updateProfile(req, res) {
     if (primaryCrops !== undefined) updates.primaryCrops = primaryCrops;
     if (irrigation !== undefined) updates.irrigation = irrigation;
     if (farmingType !== undefined) updates.farmingType = farmingType;
+    if (annualYield !== undefined) updates.annualYield = annualYield;
+    if (harvestSeason !== undefined) updates.harvestSeason = harvestSeason;
+    if (soilType !== undefined) updates.soilType = soilType;
+    if (certifications !== undefined) updates.certifications = certifications;
+    if (businessName !== undefined) updates.businessName = businessName;
+    if (businessType !== undefined) updates.businessType = businessType;
+    if (gstNumber !== undefined) updates.gstNumber = gstNumber;
+    if (targetCrops !== undefined) updates.targetCrops = targetCrops;
 
     const user = await User.findByIdAndUpdate(userId, updates, { new: true });
     
@@ -217,8 +298,12 @@ async function updateProfile(req, res) {
         lastName: user.lastName,
         email: user.email,
         phone: user.phone,
+        lastName: user.lastName,
+        email: user.email,
+        phone: user.phone,
         role: user.role,
         farmerId: user.farmerId,
+        buyerId: user.buyerId,
         village: user.village,
         block: user.block,
         district: user.district,
@@ -228,6 +313,14 @@ async function updateProfile(req, res) {
         primaryCrops: user.primaryCrops,
         irrigation: user.irrigation,
         farmingType: user.farmingType,
+        annualYield: user.annualYield,
+        harvestSeason: user.harvestSeason,
+        soilType: user.soilType,
+        certifications: user.certifications,
+        businessName: user.businessName,
+        businessType: user.businessType,
+        gstNumber: user.gstNumber,
+        targetCrops: user.targetCrops,
       }
     });
   } catch (error) {

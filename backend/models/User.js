@@ -41,10 +41,23 @@ const userSchema = new mongoose.Schema(
     district: { type: String, trim: true },
     state: { type: String, trim: true },
     profileImage: { type: String },
+    
+    // Farmer Specific Fields
     landHolding: { type: String, trim: true },
     primaryCrops: { type: String, trim: true },
     irrigation: { type: String, trim: true },
     farmingType: { type: String, trim: true },
+    annualYield: { type: String, trim: true },
+    harvestSeason: { type: String, trim: true },
+    soilType: { type: String, trim: true },
+    certifications: { type: String, trim: true },
+    
+    // Buyer Specific Fields
+    buyerId: { type: String, trim: true },
+    businessName: { type: String, trim: true },
+    businessType: { type: String, trim: true },
+    gstNumber: { type: String, trim: true },
+    targetCrops: { type: String, trim: true },
   },
   { timestamps: true },
 );
