@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useUser } from '../context/UserContext';
 import heroBg from '../assets/hero-bg.jpg';
@@ -21,6 +21,7 @@ const apiUrl = (path) => `${API_BASE_URL}${path}`;
 
 export default function Register() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login, user, isLoggedIn } = useUser();
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState('');
@@ -70,7 +71,8 @@ export default function Register() {
             mobile: registeredUser.phone,
           });
         }
-        navigate('/');
+        const redirect = searchParams.get('redirect') || '/';
+        navigate(redirect);
       } else {
         setError(data.message || 'Registration failed. Please try again.');
       }

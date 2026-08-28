@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import { UserProvider, useUser } from './context/UserContext';
 import { LocationProvider } from './context/LocationContext';
@@ -37,9 +37,10 @@ import BuyerUpdate from './pages/BuyerUpdate';
 
 function ProtectedPage({ children }) {
   const { isLoggedIn } = useUser();
+  const location = useLocation();
 
   if (!isLoggedIn) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`} replace />;
   }
 
   return <Layout>{children}</Layout>;
