@@ -331,10 +331,10 @@ export default function Profile() {
           </div>
           
           <div className="grid gap-4 sm:grid-cols-3">
-            {['aadhaar', 'gstCertificate', 'otherDocument'].map(docKey => (
+            {(user.role === 'BUYER' ? ['aadhaar', 'gstCertificate', 'otherDocument'] : ['aadhaar', 'landRecord', 'otherDocument']).map(docKey => (
               <div key={docKey} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-[var(--saathi-border)]">
                 <span className="text-3xl mb-3">📄</span>
-                <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">{docKey.replace(/([A-Z])/g, ' ').trim()}</span>
+                <span className="text-xs font-extrabold text-[var(--saathi-text-secondary)] uppercase tracking-wider">{docKey.replace(/([A-Z])/g, ' $1').trim()}</span>
                 
                 {documents[docKey] ? (
                   <div className="mt-4 flex items-center gap-2">

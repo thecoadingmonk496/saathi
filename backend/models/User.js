@@ -66,6 +66,7 @@ const userSchema = new mongoose.Schema(
     documents: {
       aadhaar: { type: String },
       gstCertificate: { type: String },
+      landRecord: { type: String },
       otherDocument: { type: String }
     },
   },
