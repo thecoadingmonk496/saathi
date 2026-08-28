@@ -364,19 +364,7 @@ export default function BuyerRegister({ embedded = false }) {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[var(--saathi-primary)] pb-12">
-      <div className="mx-auto max-w-4xl px-4 pt-8 sm:px-6">
-        <header className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-xs font-bold text-emerald-100">
-            🛡️ SAATHI Verified Buyer Program
-          </div>
-          <h1 className="mt-4 text-3xl sm:text-4xl font-extrabold text-white">Register as Buyer</h1>
-          <p className="mt-2 text-sm text-emerald-100/80 max-w-xl mx-auto">
-            Join Saathi as a verified buyer and connect with farmers.
-          </p>
-        </header>
-
+  const content = (
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
           {/* Step indicator */}
           <div className="bg-[var(--saathi-surface-alt)] border-b border-[var(--saathi-border-light)] px-4 sm:px-6 py-4">
@@ -902,6 +890,23 @@ export default function BuyerRegister({ embedded = false }) {
             </div>
           </div>
         </div>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <div className="min-h-screen bg-[var(--saathi-primary)] pb-12">
+      <div className="mx-auto max-w-4xl px-4 pt-8 sm:px-6">
+        <header className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-xs font-bold text-emerald-100">
+            🛡️ SAATHI Verified Buyer Program
+          </div>
+          <h1 className="mt-4 text-3xl sm:text-4xl font-extrabold text-white">Register as Buyer</h1>
+          <p className="mt-2 text-sm text-emerald-100/80 max-w-xl mx-auto">
+            Join Saathi as a verified buyer and connect with farmers.
+          </p>
+        </header>
+        {content}
       </div>
     </div>
   );
