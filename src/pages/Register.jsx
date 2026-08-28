@@ -4,6 +4,7 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useUser } from '../context/UserContext';
 import heroBg from '../assets/hero-bg.jpg';
 import saathiLogo from '../assets/logo.png';
+import BuyerRegister from './BuyerRegister';
 
 const initialForm = {
   firstName: '',
@@ -27,6 +28,7 @@ export default function Register() {
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [registerMode, setRegisterMode] = useState('FARMER');
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -131,10 +133,20 @@ export default function Register() {
       </header>
 
       {/* Main Content Area */}
-      <main className="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">
-        <div className="w-full max-w-[460px] bg-white rounded-lg shadow-2xl border border-[var(--saathi-border-light)] p-6 sm:p-8 transition-all">
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-4 sm:p-6 my-auto w-full">
+        {/* Toggle */}
+        <div className="mb-6 flex items-center bg-white/20 backdrop-blur-md p-1.5 rounded-full border border-white/30 shadow-lg">
+          <button type="button" onClick={() => setRegisterMode('FARMER')} className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${registerMode === 'FARMER' ? 'bg-white text-[var(--saathi-primary)] shadow-md' : 'text-white hover:bg-white/10'}`}>Register as Farmer</button>
+          <button type="button" onClick={() => setRegisterMode('BUYER')} className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${registerMode === 'BUYER' ? 'bg-white text-[var(--saathi-primary)] shadow-md' : 'text-white hover:bg-white/10'}`}>Register as Buyer</button>
+        </div>
 
-          {/* Already logged in notice if applicable */}
+        <div className={`w-full transition-all duration-500 ease-in-out ${registerMode === 'FARMER' ? 'max-w-[460px]' : 'max-w-4xl'}`}>
+          {registerMode === 'BUYER' ? (
+            <BuyerRegister embedded={true} />
+          ) : (
+            <div className="w-full bg-white rounded-lg shadow-2xl border border-[var(--saathi-border-light)] p-6 sm:p-8 transition-all">
+
+              {/* Already logged in notice if applicable */}
           {isLoggedIn && (
             <div className="mb-4 p-3 rounded-md bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] text-xs text-[var(--saathi-text)] flex items-center justify-between">
               <div>
@@ -258,22 +270,7 @@ export default function Register() {
               />
             </div>
 
-            {/* Role Selection */}
-            <div className="space-y-1.5 mt-4">
-              <label className="text-[var(--saathi-text-secondary)] text-sm font-bold flex justify-between">
-                Account Type <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="role"
-                value={form.role}
-                onChange={handleChange}
-                required
-                className="w-full h-12 bg-white border border-[var(--saathi-border)] focus:border-[var(--saathi-accent)] focus:ring-2 focus:ring-red-100 text-[var(--saathi-text)] font-semibold px-4 rounded-lg outline-none transition text-base"
-              >
-                <option value="FARMER">Farmer</option>
-                <option value="BUYER">Buyer</option>
-              </select>
-            </div>
+
 
             {/* Password Field */}
             <div className="space-y-1.5 mt-4">
@@ -319,6 +316,8 @@ export default function Register() {
               Already have an account? <span className="font-extrabold text-red-600 hover:underline ml-0.5">Login with OTP</span>
             </button>
           </div>
+            </div>
+          )}
         </div>
       </main>
 

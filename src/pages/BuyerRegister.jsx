@@ -91,7 +91,7 @@ const initialForm = {
   declaration: false,
 };
 
-export default function BuyerRegister() {
+export default function BuyerRegister({ embedded = false }) {
   const navigate = useNavigate();
   const { coordinates, address, requestLocation } = useLocationContext();
   const [step, setStep] = useState(0);
