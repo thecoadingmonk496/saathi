@@ -348,7 +348,7 @@ export default function BuyerRegister({ embedded = false }) {
           <div className="mt-6 flex flex-col gap-3">
             <button
               onClick={() => navigate('/buyer-status')}
-              className="w-full py-3 rounded-xl bg-[var(--saathi-primary)] text-white font-bold hover:bg-[var(--saathi-primary-hover)] transition"
+              className="w-full py-3 rounded-xl bg-[var(--saathi-accent)] text-white font-bold hover:bg-[var(--saathi-accent-dark)] transition"
             >
               Check Application Status
             </button>
@@ -866,7 +866,7 @@ export default function BuyerRegister({ embedded = false }) {
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="px-8 py-3 rounded-xl bg-[var(--saathi-primary)] text-white font-bold text-sm hover:bg-[var(--saathi-primary-hover)] transition"
+                  className="px-8 py-3 rounded-xl bg-[var(--saathi-accent)] text-white font-bold text-sm hover:bg-[var(--saathi-accent-dark)] transition"
                 >
                   Continue →
                 </button>
@@ -875,7 +875,7 @@ export default function BuyerRegister({ embedded = false }) {
                   type="button"
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="px-8 py-3 rounded-xl bg-[var(--saathi-primary)] text-white font-bold text-sm hover:bg-[var(--saathi-primary-hover)] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-8 py-3 rounded-xl bg-[var(--saathi-accent)] text-white font-bold text-sm hover:bg-[var(--saathi-accent-dark)] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isSubmitting ? (
                     <>
@@ -946,3 +946,4 @@ function FormField({ label, name, type = 'text', value, onChange, placeholder, e
 function ErrorText({ message }) {
   return <p className="mt-1 text-xs font-semibold text-red-600">⚠️ {message}</p>;
 }
+
