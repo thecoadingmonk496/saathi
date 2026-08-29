@@ -298,7 +298,6 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
               try { audioRef.current.stop(); } catch (e) {}
               try { audioRef.current.disconnect(); } catch (e) {}
             }
-            
             if (window.sharedAudioContext) {
               try {
                 const binaryString = window.atob(ttsData.audio_base64);
@@ -308,7 +307,13 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
                   bytes[i] = binaryString.charCodeAt(i);
                 }
                 
-                window.sharedAudioContext.decodeAudioData(bytes.buffer, (buffer) => {
+                try {
+                  const buffer = await window.sharedAudioContext.decodeAudioData(bytes.buffer);
+                  // Ensure browser TTS is absolutely stopped before playing backend audio
+                  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                  }
+                  
                   const source = window.sharedAudioContext.createBufferSource();
                   source.buffer = buffer;
                   source.connect(window.sharedAudioContext.destination);
@@ -321,14 +326,16 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
                   
                   audioRef.current = source;
                   source.start(0);
-                }, (err) => {
-                  console.warn('Decode error', err);
-                  speakText(aiResponse);
-                  isProcessingRef.current = false;
-                });
-                return;
+                  
+                  // Successfully played backend voice, explicitly return to prevent fallback
+                  return; 
+                } catch (decodeErr) {
+                  console.warn('Decode error', decodeErr);
+                  // Allow fall through to speakText
+                }
               } catch (e) {
                 console.warn('Web Audio playback failed:', e);
+                // Allow fall through to speakText
               }
             }
           }
@@ -337,7 +344,10 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
         console.warn('Premium TTS fetch failed:', ttsErr);
       }
       
-      // Fallback to browser TTS if backend TTS failed or Web Audio failed
+      // Fallback to browser TTS if backend TTS failed, Web Audio failed, or decode failed
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // Prevent collision with any stuck browser TTS
+      }
       speakText(aiResponse);
       isProcessingRef.current = false;
 
