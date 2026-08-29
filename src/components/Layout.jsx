@@ -37,6 +37,12 @@ export default function Layout({ children }) {
   }, [location.pathname]);
 
   const openVoiceModal = () => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      // Warm up speech synthesis on explicit user interaction to bypass autoplay blocks
+      const warmup = new SpeechSynthesisUtterance('');
+      warmup.volume = 0;
+      window.speechSynthesis.speak(warmup);
+    }
     setIsVoiceModalOpen(true);
   };
 

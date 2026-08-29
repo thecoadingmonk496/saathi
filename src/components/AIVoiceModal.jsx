@@ -163,14 +163,14 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       matched = voices.find((v) => v.lang === targetLangTag || v.lang.replace('_', '-') === targetLangTag || v.lang.startsWith(baseLang));
     }
 
-    if (!matched || !isFemaleVoice(matched)) {
+    if (!matched) {
       const indianFemaleFallback = voices.find((v) => (v.lang.startsWith('hi') || v.lang.includes('IN')) && isFemaleVoice(v));
       if (indianFemaleFallback) {
         matched = indianFemaleFallback;
       }
     }
 
-    if (!matched || !isFemaleVoice(matched)) {
+    if (!matched) {
       const globalFemale = voices.find(isFemaleVoice);
       if (globalFemale) {
         matched = globalFemale;
