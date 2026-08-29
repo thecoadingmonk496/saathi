@@ -285,10 +285,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             text: aiResponse,
-            language_code: data.detected_language_bcp47 || langTag,
-            gender: 'FEMALE',
-            voice_gender: 'FEMALE',
-            ssmlGender: 'FEMALE'
+            language_code: data.detected_language_bcp47 || langTag
           })
         });
         
