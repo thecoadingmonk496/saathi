@@ -246,20 +246,31 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
     setStatus('thinking');
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
       const res = await fetch('https://saathi-backend-7t91.onrender.com/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({ 
           message: queryText,
+          language: preferredLanguage,
           history: [],
           profile: {} 
         })
       });
       
+      clearTimeout(timeoutId);
+
       if (!res.ok) throw new Error('Live AI backend request failed');
       
       const data = await res.json();
-      const aiResponse = data.ai_response;
+      let aiResponse = data.ai_response;
+
+      if (aiResponse && aiResponse.toLowerCase().includes('server is busy')) {
+        throw new Error('Backend returned busy message');
+      }
       
       setResponseText(aiResponse);
       onResponse?.(aiResponse);
@@ -318,7 +329,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       console.warn('Live AI failed, falling back to local engine:', e);
       // Fallback to local rule-based engine
       const { response, action } = processVoiceQuery(queryText, preferredLanguage);
-      setResponseText(`[DEBUG ERROR: ${e.message}] ` + response);
+      setResponseText(response);
       onResponse?.(response);
       speakText(response);
       isProcessingRef.current = false;
