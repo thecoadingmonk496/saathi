@@ -723,17 +723,17 @@ export const mockGovernmentUpdates = [
 ];
 
 export const mockMandis = [
-  { id: 1, name: 'Chandauli Mandi', latitude: 25.2638, longitude: 83.2647, state: 'Uttar Pradesh' },
-  { id: 2, name: 'Mughalsarai Mandi', latitude: 25.2776, longitude: 83.1149, state: 'Uttar Pradesh' },
-  { id: 3, name: 'Varanasi Mandi', latitude: 25.3176, longitude: 82.9739, state: 'Uttar Pradesh' },
-  { id: 4, name: 'Ghazipur Mandi', latitude: 25.5786, longitude: 83.5782, state: 'Uttar Pradesh' },
-  { id: 5, name: 'Mirzapur Mandi', latitude: 25.1450, longitude: 82.5684, state: 'Uttar Pradesh' },
-  { id: 6, name: 'Chakia Mandi', latitude: 25.0475, longitude: 83.2706, state: 'Uttar Pradesh' },
-  { id: 7, name: 'Bhopal Mandi', latitude: 23.2599, longitude: 77.4126, state: 'Madhya Pradesh' },
-  { id: 8, name: 'Indore Mandi', latitude: 22.7196, longitude: 75.8577, state: 'Madhya Pradesh' },
-  { id: 9, name: 'Ludhiana Mandi', latitude: 30.9010, longitude: 75.8573, state: 'Punjab' },
-  { id: 10, name: 'Karnal Mandi', latitude: 29.6857, longitude: 76.9905, state: 'Haryana' },
-  { id: 11, name: 'Jaipur Mandi', latitude: 26.9124, longitude: 75.7873, state: 'Rajasthan' },
-  { id: 12, name: 'Nashik Mandi', latitude: 19.9975, longitude: 73.7898, state: 'Maharashtra' }
+  { id: 1, name: 'Chandauli Mandi', district: 'Chandauli', latitude: 25.2638, longitude: 83.2647, state: 'Uttar Pradesh' },
+  { id: 2, name: 'Mughalsarai Mandi', district: 'Chandauli', latitude: 25.2776, longitude: 83.1149, state: 'Uttar Pradesh' },
+  { id: 3, name: 'Varanasi Mandi', district: 'Varanasi', latitude: 25.3176, longitude: 82.9739, state: 'Uttar Pradesh' },
+  { id: 4, name: 'Ghazipur Mandi', district: 'Ghazipur', latitude: 25.5786, longitude: 83.5782, state: 'Uttar Pradesh' },
+  { id: 5, name: 'Mirzapur Mandi', district: 'Mirzapur', latitude: 25.1450, longitude: 82.5684, state: 'Uttar Pradesh' },
+  { id: 6, name: 'Chakia Mandi', district: 'Chandauli', latitude: 25.0475, longitude: 83.2706, state: 'Uttar Pradesh' },
+  { id: 7, name: 'Bhopal Mandi', district: 'Bhopal', latitude: 23.2599, longitude: 77.4126, state: 'Madhya Pradesh' },
+  { id: 8, name: 'Indore Mandi', district: 'Indore', latitude: 22.7196, longitude: 75.8577, state: 'Madhya Pradesh' },
+  { id: 9, name: 'Ludhiana Mandi', district: 'Ludhiana', latitude: 30.9010, longitude: 75.8573, state: 'Punjab' },
+  { id: 10, name: 'Karnal Mandi', district: 'Karnal', latitude: 29.6857, longitude: 76.9905, state: 'Haryana' },
+  { id: 11, name: 'Jaipur Mandi', district: 'Jaipur', latitude: 26.9124, longitude: 75.7873, state: 'Rajasthan' },
+  { id: 12, name: 'Nashik Mandi', district: 'Nashik', latitude: 19.9975, longitude: 73.7898, state: 'Maharashtra' }
 ];
 

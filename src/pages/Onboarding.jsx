@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
-
+import { requestGeolocation, reverseGeocode } from '../utils/locationService';
 const geography = [
   { village: 'Ramgarh', block: 'Patiala', district: 'Patiala', state: 'Punjab' },
   { village: 'Bhadson', block: 'Nabha', district: 'Patiala', state: 'Punjab' },
@@ -63,7 +63,7 @@ export default function Onboarding() {
     setStep(2);
   };
 
-  const useCurrentLocation = () => {
+  const useCurrentLocation = async () => {
     if (!navigator.geolocation) {
       setLocationMode('manual');
       setError('Location is not supported on this device. Please choose your location manually.');
@@ -73,27 +73,28 @@ export default function Onboarding() {
     setIsLocating(true);
     setError('');
 
-    navigator.geolocation.getCurrentPosition(
-      () => {
-        const detectedLocation = {
-          village: 'Ramgarh',
-          block: 'Patiala',
-          district: 'Patiala',
-          state: 'Punjab',
-        };
+    try {
+      const coords = await requestGeolocation();
+      const address = await reverseGeocode(coords.latitude, coords.longitude);
 
-        setLocation(detectedLocation);
-        updateLocation(detectedLocation);
-        setLocationMode('detected');
-        setIsLocating(false);
-      },
-      () => {
-        setLocationMode('manual');
-        setError('Location permission was not granted. Please select your location manually.');
-        setIsLocating(false);
-      },
-      { enableHighAccuracy: false, timeout: 10000 },
-    );
+      const detectedLocation = {
+        village: address.locality || address.city || '',
+        block: address.city || address.locality || '',
+        district: address.district || '',
+        state: address.state || '',
+      };
+
+      setLocation(detectedLocation);
+      updateLocation(detectedLocation);
+      setLocationMode('detected');
+    } catch (err) {
+      setLocationMode('manual');
+      setError(
+        err.message || 'Location permission was not granted or location could not be determined. Please select your location manually.'
+      );
+    } finally {
+      setIsLocating(false);
+    }
   };
 
   const handleLocationChange = (event) => {
