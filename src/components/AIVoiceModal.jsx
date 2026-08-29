@@ -69,6 +69,19 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+    // Pre-warm the backend AI and TTS engine to eliminate cold-start latency
+    fetch('https://saathi-backend-7t91.onrender.com/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: 'ping', language: 'en-IN' })
+    }).catch(() => {});
+    
+    fetch('https://saathi-backend-7t91.onrender.com/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: ' ', language_code: 'en-IN' })
+    }).catch(() => {});
+
     if (!SpeechRecognition) {
       setIsSupported(false);
       setStatus('error');
