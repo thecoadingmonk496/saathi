@@ -87,7 +87,7 @@ const initialForm = {
   tehsilBlock: '',
   villageCity: '',
   pincode: '',
-  preferredPurchaseRadius: 'within_25_km',
+  preferredPurchaseRadius: '25',
   declaration: false,
 };
 
@@ -162,15 +162,44 @@ export default function BuyerRegister({ embedded = false }) {
     });
   };
 
-  const handleUseDetectedLocation = () => {
+  const handleUseDetectedLocation = async () => {
     requestLocation();
-    if (address?.state) {
-      setForm((prev) => ({
-        ...prev,
-        state: address.state,
-        district: address.district || prev.district,
-        villageCity: address.locality || address.city || prev.villageCity,
-      }));
+    // Use browser Geolocation API directly and reverse geocode via Nominatim
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`);
+          const data = await res.json();
+          if (data?.address) {
+            const addr = data.address;
+            const detectedState = addr.state || '';
+            const detectedDistrict = addr.county || addr.state_district || addr.city_district || '';
+            const detectedVillage = addr.village || addr.town || addr.city || addr.suburb || '';
+            const detectedPincode = addr.postcode || '';
+            const detectedBlock = addr.suburb || addr.hamlet || addr.neighbourhood || '';
+            setForm((prev) => ({
+              ...prev,
+              state: detectedState,
+              district: detectedDistrict,
+              villageCity: detectedVillage,
+              pincode: detectedPincode,
+              tehsilBlock: detectedBlock,
+            }));
+          }
+        } catch (e) {
+          console.error('Reverse geocode failed:', e);
+          // Fallback to context address
+          if (address?.state) {
+            setForm((prev) => ({
+              ...prev,
+              state: address.state,
+              district: address.district || prev.district,
+              villageCity: address.locality || address.city || prev.villageCity,
+            }));
+          }
+        }
+      });
     }
   };
 
@@ -317,17 +346,28 @@ export default function BuyerRegister({ embedded = false }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
+      
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        console.error('Non-JSON response:', text.substring(0, 500));
+        setSubmitError(`Server error (${response.status}). The server may be starting up. Please try again in a moment.`);
+        return;
+      }
+      
       if (response.ok && data.success) {
         setSubmitSuccess({
           applicationId: data.applicationId,
           message: data.message,
         });
       } else {
-        setSubmitError(data.message || 'Unable to submit application');
+        setSubmitError(data.message || `Unable to submit application (${response.status})`);
       }
     } catch (err) {
-      setSubmitError('Unable to connect to the server. Please try again.');
+      console.error('Submit error:', err);
+      setSubmitError('Unable to connect to the server. Please check that the backend is running and try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -553,33 +593,38 @@ export default function BuyerRegister({ embedded = false }) {
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">State *</label>
-                    <select
+                    <input
+                      list="state-options"
                       name="state"
                       value={form.state}
-                      onChange={handleStateChange}
+                      onChange={(e) => {
+                        setForm((prev) => ({ ...prev, state: e.target.value, district: '' }));
+                      }}
+                      placeholder="Type or select state"
                       className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
-                    >
-                      <option value="">Select state</option>
+                    />
+                    <datalist id="state-options">
                       {locationStates.map((state) => (
-                        <option key={state} value={state}>{state}</option>
+                        <option key={state} value={state} />
                       ))}
-                    </select>
+                    </datalist>
                     {errors.state && <ErrorText message={errors.state} />}
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">District *</label>
-                    <select
+                    <input
+                      list="district-options"
                       name="district"
                       value={form.district}
                       onChange={handleChange}
-                      disabled={!form.state}
-                      className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] disabled:bg-[var(--saathi-surface-alt)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
-                    >
-                      <option value="">Select district</option>
+                      placeholder="Type or select district"
+                      className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
+                    />
+                    <datalist id="district-options">
                       {getDistricts(form.state).map((district) => (
-                        <option key={district} value={district}>{district}</option>
+                        <option key={district} value={district} />
                       ))}
-                    </select>
+                    </datalist>
                     {errors.district && <ErrorText message={errors.district} />}
                   </div>
                 </div>
@@ -679,18 +724,44 @@ export default function BuyerRegister({ embedded = false }) {
               <div className="space-y-5">
                 <SectionTitle title="Purchase Requirements" subtitle="How much and how often do you purchase?" />
                 <div>
-                  <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">Preferred Purchase Radius *</label>
-                  <select
-                    name="preferredPurchaseRadius"
-                    value={form.preferredPurchaseRadius}
-                    onChange={handleChange}
-                    className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
-                  >
-                    <option value="within_10_km">Within 10 km</option>
-                    <option value="within_25_km">Within 25 km</option>
-                    <option value="within_50_km">Within 50 km</option>
-                    <option value="any_location">Any location</option>
-                  </select>
+                  <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-3">Preferred Purchase Radius *</label>
+                  <div className="bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-[var(--saathi-text-muted)]">5 km</span>
+                      <span className="text-lg font-extrabold text-[var(--saathi-primary)]">
+                        {form.preferredPurchaseRadius === 'any_location' ? 'Any Location' : `${form.preferredPurchaseRadius} km`}
+                      </span>
+                      <span className="text-xs font-bold text-[var(--saathi-text-muted)]">500+ km</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="5"
+                      max="510"
+                      step="5"
+                      value={form.preferredPurchaseRadius === 'any_location' ? 510 : Number(form.preferredPurchaseRadius) || 25}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setForm(prev => ({
+                          ...prev,
+                          preferredPurchaseRadius: val >= 510 ? 'any_location' : String(val)
+                        }));
+                      }}
+                      className="w-full h-2 bg-slate-200 rounded-full appearance-none cursor-pointer accent-[var(--saathi-accent)]"
+                    />
+                    <div className="flex justify-between mt-2 text-[10px] font-bold text-[var(--saathi-text-muted)]">
+                      <span>Local</span>
+                      <span>|</span>
+                      <span>25 km</span>
+                      <span>|</span>
+                      <span>50 km</span>
+                      <span>|</span>
+                      <span>100 km</span>
+                      <span>|</span>
+                      <span>200 km</span>
+                      <span>|</span>
+                      <span>Any</span>
+                    </div>
+                  </div>
                 </div>
                 <div className="bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] rounded-xl p-4">
                   <p className="text-sm font-semibold text-[var(--saathi-text-secondary)]">
