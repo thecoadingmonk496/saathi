@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocationContext } from '../context/LocationContext';
+import { useUser } from '../context/UserContext';
 import { locationStates, getDistricts } from '../utils/locationOptions';
 
 const API_BASE_URL = (
@@ -75,6 +76,7 @@ const initialForm = {
   applicantName: '',
   phone: '',
   email: '',
+  password: '',
   profilePhoto: '',
   buyerType: '',
   otherBuyerType: '',
@@ -93,6 +95,7 @@ const initialForm = {
 
 export default function BuyerRegister({ embedded = false }) {
   const navigate = useNavigate();
+  const { login } = useUser();
   const { coordinates, address, requestLocation } = useLocationContext();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(initialForm);
@@ -203,14 +206,15 @@ export default function BuyerRegister({ embedded = false }) {
     }
   };
 
-  const validateStep = () => {
-    const newErrors = {};
-    if (step === 0) {
-      if (!form.applicantName.trim()) newErrors.applicantName = 'Full name is required';
-      if (!/^[6-9]\d{9}$/.test(form.phone)) newErrors.phone = 'Enter a valid 10-digit Indian mobile number';
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) newErrors.email = 'Enter a valid email address';
-    }
-    if (step === 1) {
+    const validateStep = () => {
+      const newErrors = {};
+      if (step === 0) {
+        if (!form.applicantName.trim()) newErrors.applicantName = 'Full name is required';
+        if (!/^[6-9]\d{9}$/.test(form.phone)) newErrors.phone = 'Enter a valid 10-digit Indian mobile number';
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) newErrors.email = 'Enter a valid email address';
+        if (!form.password || form.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+      }
+      if (step === 1) {
       if (!form.buyerType) newErrors.buyerType = 'Please select a buyer type';
       if (form.buyerType === 'Other' && !form.otherBuyerType.trim()) newErrors.otherBuyerType = 'Please specify your buyer type';
     }
@@ -306,7 +310,7 @@ export default function BuyerRegister({ embedded = false }) {
       };
     });
 
-  const handleSubmit = async () => {
+    const handleSubmit = async () => {
     if (!validateStep()) return;
     setIsSubmitting(true);
     setSubmitError('');
@@ -341,9 +345,36 @@ export default function BuyerRegister({ embedded = false }) {
     };
 
     try {
-      const response = await fetch(apiUrl('/api/buyers/apply'), {
+      // 1. Create the user account via auth/register
+      const authPayload = {
+        firstName: form.applicantName.split(' ')[0] || '',
+        lastName: form.applicantName.split(' ').slice(1).join(' ') || ' ',
+        email: form.email,
+        phone: form.phone,
+        password: form.password,
+        role: 'BUYER'
+      };
+
+      const authResponse = await fetch(apiUrl('/api/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(authPayload),
+      });
+
+      const authData = await authResponse.json();
+      if (!authResponse.ok) {
+        setSubmitError(authData.message || 'Failed to create user account.');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Save the token so the buyer application is linked
+      if (authData.token) localStorage.setItem('token', authData.token);
+
+      // 2. Submit the Buyer Application
+      const response = await fetch(apiUrl('/api/buyers/apply'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authData.token}` },
         body: JSON.stringify(payload),
       });
       
@@ -353,16 +384,26 @@ export default function BuyerRegister({ embedded = false }) {
         data = JSON.parse(text);
       } catch (parseErr) {
         console.error('Non-JSON response:', text.substring(0, 500));
+        console.error('Non-JSON response:', text.substring(0, 500));
         setSubmitError(`Server error (${response.status}). The server may be starting up. Please try again in a moment.`);
         return;
       }
       
+
       if (response.ok && data.success) {
+        if (authData.user) {
+          login({
+            ...authData.user,
+            name: `${authData.user.firstName} ${authData.user.lastName}`,
+            mobile: authData.user.phone,
+          });
+        }
         setSubmitSuccess({
           applicationId: data.applicationId,
           message: data.message,
         });
-      } else {
+      }
+ else {
         setSubmitError(data.message || `Unable to submit application (${response.status})`);
       }
     } catch (err) {
@@ -460,16 +501,25 @@ export default function BuyerRegister({ embedded = false }) {
                     error={errors.phone}
                     maxLength={10}
                   />
-                  <FormField
-                    label="Email Address *"
-                    name="email"
-                    type="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    placeholder="Enter your email"
-                    error={errors.email}
-                  />
-                </div>
+                    <FormField
+                      label="Email Address *"
+                      name="email"
+                      type="email"
+                      value={form.email}
+                      onChange={handleChange}
+                      placeholder="Enter your email"
+                      error={errors.email}
+                    />
+                    <FormField
+                      label="Password *"
+                      name="password"
+                      type="password"
+                      value={form.password}
+                      onChange={handleChange}
+                      placeholder="Create a secure password"
+                      error={errors.password}
+                    />
+                  </div>
                 <div>
                   <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">
                     Profile Photo <span className="text-slate-400">(Optional)</span>

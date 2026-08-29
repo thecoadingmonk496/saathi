@@ -4,6 +4,7 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useUser } from '../context/UserContext';
 import heroBg from '../assets/hero-bg.jpg';
 import saathiLogo from '../assets/logo.png';
+import BuyerRegister from './BuyerRegister';
 
 const initialForm = {
   firstName: '',
@@ -197,6 +198,11 @@ export default function Register() {
           )}
 
           {/* Registration Form */}
+          {registerMode === 'BUYER' ? (
+            <div className="mt-6 border-t border-[var(--saathi-border-light)] pt-6">
+              <BuyerRegister embedded={true} />
+            </div>
+          ) : (
           <form onSubmit={handleRegister} className="space-y-4 mt-2">
             {/* Name Fields in 2 Columns */}
             <div className="grid grid-cols-2 gap-3">
@@ -303,6 +309,7 @@ export default function Register() {
               )}
             </button>
           </form>
+          )}
 
           {/* Already registered switch */}
           <div className="mt-5 text-center">
