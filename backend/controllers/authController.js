@@ -49,10 +49,10 @@ async function registerUser(req, res) {
     let buyerId = undefined;
     
     if (role === 'FARMER') {
-      farmerId = FARM-;
-    } else if (role === 'BUYER') {
-      buyerId = BUYER-;
-    }
+        farmerId = `FARM-${Math.floor(1000 + Math.random() * 9000)}`;
+      } else if (role === 'BUYER') {
+        buyerId = `BUYER-${Math.floor(1000 + Math.random() * 9000)}`;
+      }
 
     const user = await User.create({
       firstName: firstName.trim(),
