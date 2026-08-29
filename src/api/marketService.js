@@ -70,6 +70,8 @@ export const marketService = {
       console.error('Error fetching price history:', error);
       return [];
     }
+  },
+
   getGovernmentMandiStates: async () => {
     try {
       const response = await fetch(`${apiBaseUrl}/api/mandi-prices/states`).catch(() => null);
