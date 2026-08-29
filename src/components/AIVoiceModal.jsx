@@ -318,9 +318,18 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
                 for (let i = 0; i < len; i++) {
                   bytes[i] = binaryString.charCodeAt(i);
                 }
-                
                 try {
-                  const buffer = await window.sharedAudioContext.decodeAudioData(bytes.buffer);
+                  const buffer = await new Promise((resolve, reject) => {
+                    try {
+                      const decodePromise = window.sharedAudioContext.decodeAudioData(bytes.buffer, resolve, reject);
+                      if (decodePromise && typeof decodePromise.then === 'function') {
+                        decodePromise.then(resolve).catch(reject);
+                      }
+                    } catch (err) {
+                      reject(err);
+                    }
+                  });
+                  
                   // Ensure browser TTS is absolutely stopped before playing backend audio
                   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
                     window.speechSynthesis.cancel();
