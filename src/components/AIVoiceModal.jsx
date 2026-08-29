@@ -138,7 +138,8 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
         } catch { }
       }
       if (audioRef.current) {
-        audioRef.current.pause();
+        try { audioRef.current.stop(); } catch (e) {}
+        try { audioRef.current.disconnect(); } catch (e) {}
         audioRef.current = null;
       }
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -187,7 +188,8 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
     }
 
     if (audioRef.current) {
-      audioRef.current.pause();
+      try { audioRef.current.stop(); } catch (e) {}
+      try { audioRef.current.disconnect(); } catch (e) {}
       audioRef.current = null;
     }
 
@@ -292,40 +294,49 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             setStatus('speaking');
             
             if (audioRef.current) {
-              audioRef.current.pause();
+              try { audioRef.current.stop(); } catch (e) {}
+              try { audioRef.current.disconnect(); } catch (e) {}
             }
             
-            const audio = document.getElementById('shared-ai-audio') || new Audio();
-            audio.src = `data:${ttsData.mime_type};base64,${ttsData.audio_base64}`;
-            audioRef.current = audio;
-            
-            audio.onended = () => {
-              setStatus('done');
-              isProcessingRef.current = false;
-              if (audioRef.current === audio) audioRef.current = null;
-            };
-            audio.onerror = () => {
-              console.warn('Failed to play premium TTS audio');
-              speakText(aiResponse); // fallback to browser TTS
-              isProcessingRef.current = false;
-              if (audioRef.current === audio) audioRef.current = null;
-            };
-            
-            // The audio object was unlocked by the user click in Layout.jsx!
-            // It will auto-play even if this fetch took 15 seconds.
-            audio.play().catch((err) => {
-              console.warn('Audio play rejected (likely autoplay policy):', err);
-              speakText(aiResponse);
-              if (audioRef.current === audio) audioRef.current = null;
-            });
-            return;
+            if (window.sharedAudioContext) {
+              try {
+                const binaryString = window.atob(ttsData.audio_base64);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                  bytes[i] = binaryString.charCodeAt(i);
+                }
+                
+                window.sharedAudioContext.decodeAudioData(bytes.buffer, (buffer) => {
+                  const source = window.sharedAudioContext.createBufferSource();
+                  source.buffer = buffer;
+                  source.connect(window.sharedAudioContext.destination);
+                  
+                  source.onended = () => {
+                    setStatus('done');
+                    isProcessingRef.current = false;
+                    if (audioRef.current === source) audioRef.current = null;
+                  };
+                  
+                  audioRef.current = source;
+                  source.start(0);
+                }, (err) => {
+                  console.warn('Decode error', err);
+                  speakText(aiResponse);
+                  isProcessingRef.current = false;
+                });
+                return;
+              } catch (e) {
+                console.warn('Web Audio playback failed:', e);
+              }
+            }
           }
         }
       } catch (ttsErr) {
         console.warn('Premium TTS fetch failed:', ttsErr);
       }
       
-      // Fallback to browser TTS if backend TTS failed
+      // Fallback to browser TTS if backend TTS failed or Web Audio failed
       speakText(aiResponse);
       isProcessingRef.current = false;
 
@@ -349,18 +360,17 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
   const handleRestartListening = () => {
     isProcessingRef.current = false;
     if (audioRef.current) {
-      audioRef.current.pause();
+      try { audioRef.current.stop(); } catch (e) {}
+      try { audioRef.current.disconnect(); } catch (e) {}
       audioRef.current = null;
     }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
     
-    // Unlock HTML5 Audio again on manual restart
-    const audioEl = document.getElementById('shared-ai-audio');
-    if (audioEl) {
-      audioEl.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-      audioEl.play().catch(() => {});
+    // Unlock Audio Context again on manual restart
+    if (window.sharedAudioContext && window.sharedAudioContext.state === 'suspended') {
+      window.sharedAudioContext.resume();
     }
 
     setTranscript('');
