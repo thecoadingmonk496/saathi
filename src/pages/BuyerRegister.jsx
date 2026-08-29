@@ -356,15 +356,26 @@ export default function BuyerRegister({ embedded = false }) {
         role: 'BUYER'
       };
 
-      const authResponse = await fetch(apiUrl('/api/auth/register'), {
+      let authResponse = await fetch(apiUrl('/api/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(authPayload),
       });
 
-      const authData = await authResponse.json();
+      let authData = await authResponse.json();
+      
+      // If user already exists, try to log them in!
+      if (!authResponse.ok && authData.message && authData.message.includes('already exists')) {
+        authResponse = await fetch(apiUrl('/api/auth/login'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: form.phone, password: form.password }),
+        });
+        authData = await authResponse.json();
+      }
+
       if (!authResponse.ok) {
-        setSubmitError(authData.message || 'Failed to create user account.');
+        setSubmitError(authData.message || 'Failed to create or login to user account.');
         setIsSubmitting(false);
         return;
       }
