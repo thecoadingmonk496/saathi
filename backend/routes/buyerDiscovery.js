@@ -34,7 +34,8 @@ router.post('/requests', requireAuth, requireRole('BUYER'), async (req, res) => 
       offeredPrice,
       location,
       description,
-      status: 'PENDING_REVIEW'
+      status: 'PUBLISHED',
+      publishedAt: new Date()
     });
     res.status(201).json({ success: true, data: newRequest });
   } catch (error) {
