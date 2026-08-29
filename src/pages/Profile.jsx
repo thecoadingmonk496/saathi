@@ -10,7 +10,7 @@ export default function Profile() {
   const { address, permissionStatus, source, requestLocation } = useLocationContext();
 
   const [profile, setProfile] = useState({
-    name: user.name || user.firstName + ' ' + user.lastName || '',
+    name: user.name || (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : (user.firstName || user.lastName || '')),
     mobile: user.mobile || user.phone || '',
     farmerId: user.farmerId || '',
     buyerId: user.buyerId || '',
@@ -161,7 +161,7 @@ export default function Profile() {
 
   const handleReset = () => {
     setProfile({
-      name: user.name || user.firstName + ' ' + user.lastName || '',
+      name: user.name || (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : (user.firstName || user.lastName || '')),
       mobile: user.mobile || user.phone || '',
       farmerId: user.farmerId || '',
       buyerId: user.buyerId || '',

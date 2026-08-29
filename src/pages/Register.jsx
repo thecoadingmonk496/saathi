@@ -4,7 +4,6 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useUser } from '../context/UserContext';
 import heroBg from '../assets/hero-bg.jpg';
 import saathiLogo from '../assets/logo.png';
-import BuyerRegister from './BuyerRegister';
 
 const initialForm = {
   firstName: '',
@@ -56,10 +55,15 @@ export default function Register() {
     setIsLoading(true);
 
     try {
+      const payload = {
+        ...form,
+        role: registerMode,
+      };
+      
       const response = await fetch(apiUrl('/api/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -193,12 +197,7 @@ export default function Register() {
           )}
 
           {/* Registration Form */}
-          {registerMode === 'BUYER' ? (
-            <div className="mt-6 border-t border-[var(--saathi-border-light)] pt-6">
-              <BuyerRegister embedded={true} />
-            </div>
-          ) : (
-          <form onSubmit={handleRegister} className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-4 mt-2">
             {/* Name Fields in 2 Columns */}
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -264,14 +263,12 @@ export default function Register() {
               <input
                 name="email"
                 type="email"
-                placeholder="farmer@example.com"
+                placeholder={registerMode === 'FARMER' ? 'farmer@example.com' : 'buyer@example.com'}
                 value={form.email}
                 onChange={handleChange}
                 className="w-full h-12 bg-white border border-[var(--saathi-border)] focus:border-[var(--saathi-accent)] focus:ring-2 focus:ring-red-100 text-[var(--saathi-text)] font-semibold px-4 rounded-lg outline-none transition text-base placeholder:text-slate-400 placeholder:font-normal"
               />
             </div>
-
-
 
             {/* Password Field */}
             <div className="space-y-1.5 mt-4">
@@ -300,13 +297,12 @@ export default function Register() {
                 <span className="inline-block animate-spin border-2 border-white border-t-transparent rounded-full w-5 h-5" />
               ) : (
                 <>
-                  <span>Create Farmer Account</span>
-                  <span className="text-xl">→</span>
+                  <span>Create {registerMode === 'FARMER' ? 'Farmer' : 'Buyer'} Account</span>
+                  <span className="text-xl">➔</span>
                 </>
               )}
             </button>
           </form>
-          )}
 
           {/* Already registered switch */}
           <div className="mt-5 text-center">

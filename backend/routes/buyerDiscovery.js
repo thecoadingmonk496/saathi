@@ -222,15 +222,15 @@ router.get('/deals', requireAuth, async (req, res) => {
     const query = req.user.role === 'BUYER' ? { buyerId: req.user._id } : { farmerId: req.user._id };
     
     let deals = await Deal.find(query)
-      .populate('buyerId', 'firstName lastName')
-      .populate('farmerId', 'firstName lastName')
+      .populate('buyerId', 'firstName lastName phone email village block district state')
+      .populate('farmerId', 'firstName lastName phone email village block district state')
       .populate('buyerRequestId', 'crop quantity unit offeredPrice location description')
       .sort('-createdAt');
       
-    // Enforce Privacy: Remove contact details unless VERIFIED or beyond
+    // Enforce Privacy: Remove contact details unless ACCEPTED, VERIFIED or beyond
     deals = deals.map(deal => {
       const dealObj = deal.toObject();
-      if (!['VERIFIED', 'COMPLETED', 'DISPUTED'].includes(deal.status)) {
+      if (!['ACCEPTED', 'VERIFIED', 'COMPLETED', 'DISPUTED'].includes(deal.status)) {
         // Strip sensitive info
         if (dealObj.buyerId) {
           delete dealObj.buyerId.phone;
