@@ -21,8 +21,7 @@ const languageTagMap = {
 const naturalFemaleVoiceKeywords = [
   'female', 'woman', 'natural', 'neural', 'swara', 'heera', 'neerja', 'kalpana', 'veena',
   'kavya', 'shruti', 'ananya', 'geeta', 'meera', 'zira', 'samantha', 'jenny',
-  'victoria', 'google हिन्दी', 'google us english', 'google uk english female',
-  'en-in-x-enc', 'en-in-x-end', 'en-in-x-ene' // Android Google TTS common female defaults
+  'victoria', 'google हिन्दी', 'google us english', 'google uk english female'
 ];
 
 function prepareNaturalSpeechText(text, langTag) {
