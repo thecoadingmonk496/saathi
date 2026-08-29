@@ -22,6 +22,7 @@ const naturalFemaleVoiceKeywords = [
   'female', 'woman', 'natural', 'neural', 'swara', 'heera', 'neerja', 'kalpana', 'veena',
   'kavya', 'shruti', 'ananya', 'geeta', 'meera', 'zira', 'samantha', 'jenny',
   'victoria', 'google हिन्दी', 'google us english', 'google uk english female',
+  'en-in-x-enc', 'en-in-x-end', 'en-in-x-ene' // Android Google TTS common female defaults
 ];
 
 function prepareNaturalSpeechText(text, langTag) {
@@ -284,7 +285,10 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             text: aiResponse,
-            language_code: data.detected_language_bcp47 || langTag
+            language_code: data.detected_language_bcp47 || langTag,
+            gender: 'FEMALE',
+            voice_gender: 'FEMALE',
+            ssmlGender: 'FEMALE'
           })
         });
         
