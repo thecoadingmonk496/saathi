@@ -455,7 +455,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
         <header className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <span
-              className={`flex h-12 w-12 items-center justify-center rounded-full overflow-hidden text-primary-dark shadow-lg ${
+              className={`flex h-12 w-12 items-center justify-center rounded-full overflow-hidden text-white shadow-lg ${
                 status === 'listening'
                   ? 'animate-pulse bg-[var(--saathi-primary)] shadow-red-900/30 ring-4 ring-red-200'
                   : status === 'speaking'
@@ -543,7 +543,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
           />
           <button
             type="submit"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--saathi-primary)] text-primary-dark shadow-sm transition hover:bg-[var(--saathi-primary-hover)] focus:outline-none focus:ring-2 focus:ring-red-200"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--saathi-primary)] text-white shadow-sm transition hover:bg-[var(--saathi-primary-hover)] focus:outline-none focus:ring-2 focus:ring-red-200"
             aria-label="Send question"
           >
             <PaperAirplaneIcon className="h-4 w-4" />
@@ -559,7 +559,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row">
           {status === 'listening' ? (
             <button
-              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md bg-red-600 px-5 text-sm font-bold text-primary-dark transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-200"
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md bg-red-600 px-5 text-sm font-bold text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-200"
               type="button"
               onClick={() => {
                 if (recognitionRef.current) {
@@ -575,7 +575,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             </button>
           ) : (
             <button
-              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--saathi-primary)] px-5 text-sm font-bold text-primary-dark transition hover:bg-[var(--saathi-primary-hover)] focus:outline-none focus:ring-4 focus:ring-red-200"
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--saathi-primary)] px-5 text-sm font-bold text-white transition hover:bg-[var(--saathi-primary-hover)] focus:outline-none focus:ring-4 focus:ring-red-200"
               type="button"
               onClick={handleRestartListening}
             >
