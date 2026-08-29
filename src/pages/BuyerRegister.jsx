@@ -73,7 +73,8 @@ const STEPS = [
 ];
 
 const initialForm = {
-  applicantName: '',
+  firstName: '',
+  lastName: '',
   phone: '',
   email: '',
   password: '',
@@ -320,7 +321,7 @@ export default function BuyerRegister({ embedded = false }) {
       : { type: 'Point', coordinates: [] };
 
     const payload = {
-      applicantName: form.applicantName,
+      applicantName: `${form.firstName} ${form.lastName}`.trim(),
       phone: form.phone,
       email: form.email,
       profilePhoto: form.profilePhoto,
@@ -347,8 +348,8 @@ export default function BuyerRegister({ embedded = false }) {
     try {
       // 1. Create the user account via auth/register
       const authPayload = {
-        firstName: form.applicantName.split(' ')[0] || '',
-        lastName: form.applicantName.split(' ').slice(1).join(' ') || ' ',
+        firstName: form.firstName,
+        lastName: form.lastName,
         email: form.email,
         phone: form.phone,
         password: form.password,
@@ -482,14 +483,24 @@ export default function BuyerRegister({ embedded = false }) {
             {step === 0 && (
               <div className="space-y-5">
                 <SectionTitle title="Applicant Information" subtitle="Your personal details" />
-                <FormField
-                  label="Full Name *"
-                  name="applicantName"
-                  value={form.applicantName}
-                  onChange={handleChange}
-                  placeholder="Enter your full name"
-                  error={errors.applicantName}
-                />
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <FormField
+                    label="First Name *"
+                    name="firstName"
+                    value={form.firstName}
+                    onChange={handleChange}
+                    placeholder="First name"
+                    error={errors.firstName}
+                  />
+                  <FormField
+                    label="Last Name *"
+                    name="lastName"
+                    value={form.lastName}
+                    onChange={handleChange}
+                    placeholder="Last name"
+                    error={errors.lastName}
+                  />
+                </div>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <FormField
                     label="Mobile Number *"
