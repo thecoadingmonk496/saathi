@@ -275,53 +275,6 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       setResponseText(aiResponse);
       onResponse?.(aiResponse);
 
-      // Try fetching premium TTS from backend
-      try {
-        const ttsRes = await fetch('https://saathi-backend-7t91.onrender.com/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            text: aiResponse,
-            language_code: data.detected_language_bcp47 || langTag
-          })
-        });
-        
-        if (ttsRes.ok) {
-          const ttsData = await ttsRes.json();
-          if (ttsData.audio_base64) {
-            setStatus('speaking');
-            
-            if (audioRef.current) {
-              audioRef.current.pause();
-            }
-            
-            const audio = new Audio(`data:${ttsData.mime_type};base64,${ttsData.audio_base64}`);
-            audioRef.current = audio;
-            
-            audio.onended = () => {
-              setStatus('done');
-              isProcessingRef.current = false;
-              if (audioRef.current === audio) audioRef.current = null;
-            };
-            audio.onerror = () => {
-              console.warn('Failed to play premium TTS audio');
-              speakText(aiResponse); // fallback to browser TTS
-              isProcessingRef.current = false;
-              if (audioRef.current === audio) audioRef.current = null;
-            };
-            audio.play().catch((err) => {
-              console.warn('Audio play rejected (likely autoplay policy):', err);
-              speakText(aiResponse);
-              if (audioRef.current === audio) audioRef.current = null;
-            });
-            return;
-          }
-        }
-      } catch (ttsErr) {
-        console.warn('Premium TTS fetch failed:', ttsErr);
-      }
-      
-      // Fallback to browser TTS if backend TTS failed
       speakText(aiResponse);
       isProcessingRef.current = false;
 
