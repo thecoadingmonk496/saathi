@@ -37,11 +37,19 @@ export default function Layout({ children }) {
   }, [location.pathname]);
 
   const openVoiceModal = () => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      // Warm up speech synthesis on explicit user interaction to bypass autoplay blocks
-      const warmup = new SpeechSynthesisUtterance('');
-      warmup.volume = 0;
-      window.speechSynthesis.speak(warmup);
+    if (typeof window !== 'undefined') {
+      if (window.speechSynthesis) {
+        // Warm up speech synthesis on explicit user interaction to bypass autoplay blocks
+        const warmup = new SpeechSynthesisUtterance('');
+        warmup.volume = 0;
+        window.speechSynthesis.speak(warmup);
+      }
+      // Unlock HTML5 Audio for delayed backend TTS
+      const audioEl = document.getElementById('shared-ai-audio');
+      if (audioEl) {
+        audioEl.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+        audioEl.play().catch(() => {});
+      }
     }
     setIsVoiceModalOpen(true);
   };
@@ -116,6 +124,9 @@ export default function Layout({ children }) {
           }}
         />
       )}
+      
+      {/* Hidden audio element unlocked on user interaction to enable background TTS auto-play */}
+      <audio id="shared-ai-audio" preload="auto" className="hidden" />
     </div>
   );
 }
