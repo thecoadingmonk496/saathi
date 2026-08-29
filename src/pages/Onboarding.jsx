@@ -78,8 +78,8 @@ export default function Onboarding() {
       const address = await reverseGeocode(coords.latitude, coords.longitude);
 
       const detectedLocation = {
-        village: address.locality || address.city || '',
-        block: address.city || address.locality || '',
+        village: address.village || address.block || '',
+        block: address.block || address.village || '',
         district: address.district || '',
         state: address.state || '',
       };

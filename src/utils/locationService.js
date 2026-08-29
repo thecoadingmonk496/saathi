@@ -59,7 +59,7 @@ export async function reverseGeocode(latitude, longitude) {
     const data = await response.json();
     const addr = data.address || {};
 
-    const locality =
+    const village =
       addr.village ||
       addr.hamlet ||
       addr.suburb ||
@@ -67,31 +67,30 @@ export async function reverseGeocode(latitude, longitude) {
       addr.locality ||
       '';
 
-    const city =
+    const block =
+      addr.county ||
       addr.town ||
       addr.city ||
       addr.municipality ||
-      addr.county ||
       '';
 
     const district =
-      addr.county ||
-      addr.district ||
       addr.state_district ||
-      city ||
+      addr.district ||
+      block ||
       '';
 
     const state = addr.state || '';
     const country = addr.country || 'India';
 
-    const parts = [locality, city, district, state].filter(
+    const parts = [village, block, district, state].filter(
       (p, i, arr) => p && arr.indexOf(p) === i 
     );
     const formatted = parts.join(', ') || data.display_name?.split(',').slice(0, 3).join(',') || '';
 
     return {
-      locality,
-      city,
+      village,
+      block,
       district,
       state,
       country,
@@ -101,8 +100,8 @@ export async function reverseGeocode(latitude, longitude) {
   } catch (err) {
 
     return {
-      locality: '',
-      city: '',
+      village: '',
+      block: '',
       district: '',
       state: '',
       country: 'India',
