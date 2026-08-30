@@ -119,11 +119,7 @@ async function applyBuyer(req, res) {
     if (cleanedCommodities.length === 0) return res.status(400).json({ success: false, message: 'Please select at least one valid crop / commodity' });
 
     // --- Preferred Purchase Radius ---
-    const preferredPurchaseRadius = clean(body.preferredPurchaseRadius || 'within_25_km');
-    const allowedRadii = ['within_10_km', 'within_25_km', 'within_50_km', 'any_location'];
-    if (!allowedRadii.includes(preferredPurchaseRadius)) {
-      return res.status(400).json({ success: false, message: 'Please select a valid purchase radius' });
-    }
+    const preferredPurchaseRadius = clean(body.preferredPurchaseRadius || '25');
 
     // --- Documents ---
     const documents = {

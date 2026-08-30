@@ -210,7 +210,8 @@ export default function BuyerRegister({ embedded = false }) {
     const validateStep = () => {
       const newErrors = {};
       if (step === 0) {
-        if (!form.applicantName.trim()) newErrors.applicantName = 'Full name is required';
+        if (!form.firstName?.trim()) newErrors.firstName = 'First name is required';
+        if (!form.lastName?.trim()) newErrors.lastName = 'Last name is required';
         if (!/^[6-9]\d{9}$/.test(form.phone)) newErrors.phone = 'Enter a valid 10-digit Indian mobile number';
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) newErrors.email = 'Enter a valid email address';
         if (!form.password || form.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
@@ -369,7 +370,7 @@ export default function BuyerRegister({ embedded = false }) {
         authResponse = await fetch(apiUrl('/api/auth/login'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: form.phone, password: form.password }),
+          body: JSON.stringify({ email: form.email, password: form.password }),
         });
         authData = await authResponse.json();
       }
