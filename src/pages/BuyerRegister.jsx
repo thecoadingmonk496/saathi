@@ -77,8 +77,7 @@ const initialForm = {
   lastName: '',
   phone: '',
   email: '',
-  password: '',
-  profilePhoto: '',
+    profilePhoto: '',
   buyerType: '',
   otherBuyerType: '',
   businessName: '',
@@ -96,10 +95,16 @@ const initialForm = {
 
 export default function BuyerRegister({ embedded = false }) {
   const navigate = useNavigate();
-  const { login } = useUser();
+  const { user, login } = useUser();
   const { coordinates, address, requestLocation } = useLocationContext();
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState({
+    ...initialForm,
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    phone: user?.phone || user?.mobile || '',
+    email: user?.email || '',
+  });
   const [selectedCommodities, setSelectedCommodities] = useState([]);
   const [otherCommodity, setOtherCommodity] = useState('');
   const [offers, setOffers] = useState({});
@@ -214,7 +219,6 @@ export default function BuyerRegister({ embedded = false }) {
         if (!form.lastName?.trim()) newErrors.lastName = 'Last name is required';
         if (!/^[6-9]\d{9}$/.test(form.phone)) newErrors.phone = 'Enter a valid 10-digit Indian mobile number';
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) newErrors.email = 'Enter a valid email address';
-        if (!form.password || form.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
       }
       if (step === 1) {
       if (!form.buyerType) newErrors.buyerType = 'Please select a buyer type';
@@ -347,47 +351,15 @@ export default function BuyerRegister({ embedded = false }) {
     };
 
     try {
-      // 1. Create the user account via auth/register
-      const authPayload = {
-        firstName: form.firstName,
-        lastName: form.lastName,
-        email: form.email,
-        phone: form.phone,
-        password: form.password,
-        role: 'BUYER'
-      };
-
-      let authResponse = await fetch(apiUrl('/api/auth/register'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(authPayload),
-      });
-
-      let authData = await authResponse.json();
       
-      // If user already exists, try to log them in!
-      if (!authResponse.ok && authData.message && authData.message.includes('already exists')) {
-        authResponse = await fetch(apiUrl('/api/auth/login'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: form.email, password: form.password }),
-        });
-        authData = await authResponse.json();
-      }
 
-      if (!authResponse.ok) {
-        setSubmitError(authData.message || 'Failed to create or login to user account.');
-        setIsSubmitting(false);
-        return;
-      }
-      
-      // Save the token so the buyer application is linked
-      if (authData.token) localStorage.setItem('token', authData.token);
-
-      // 2. Submit the Buyer Application
+      const token = localStorage.getItem('token');
       const response = await fetch(apiUrl('/api/buyers/apply'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authData.token}` },
+        headers: { 
+          'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${token}` 
+        },
         body: JSON.stringify(payload),
       });
       
@@ -404,13 +376,6 @@ export default function BuyerRegister({ embedded = false }) {
       
 
       if (response.ok && data.success) {
-        if (authData.user) {
-          login({
-            ...authData.user,
-            name: `${authData.user.firstName} ${authData.user.lastName}`,
-            mobile: authData.user.phone,
-          });
-        }
         setSubmitSuccess({
           applicationId: data.applicationId,
           message: data.message,
@@ -533,15 +498,7 @@ export default function BuyerRegister({ embedded = false }) {
                       placeholder="Enter your email"
                       error={errors.email}
                     />
-                    <FormField
-                      label="Password *"
-                      name="password"
-                      type="password"
-                      value={form.password}
-                      onChange={handleChange}
-                      placeholder="Create a secure password"
-                      error={errors.password}
-                    />
+                    
                   </div>
                 <div>
                   <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">
