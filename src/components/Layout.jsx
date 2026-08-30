@@ -37,6 +37,24 @@ export default function Layout({ children }) {
   }, [location.pathname]);
 
   const openVoiceModal = () => {
+    if (typeof window !== 'undefined') {
+      if (window.speechSynthesis) {
+        const warmup = new SpeechSynthesisUtterance('');
+        warmup.volume = 0;
+        window.speechSynthesis.speak(warmup);
+      }
+      
+      // Initialize and unlock a global Web Audio Context for delayed backend TTS
+      if (!window.sharedAudioContext) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          window.sharedAudioContext = new AudioContext();
+        }
+      }
+      if (window.sharedAudioContext && window.sharedAudioContext.state === 'suspended') {
+        window.sharedAudioContext.resume();
+      }
+    }
     setIsVoiceModalOpen(true);
   };
 

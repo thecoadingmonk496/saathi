@@ -5,6 +5,7 @@ import {
   ArrowUpIcon,
   CheckIcon,
   XMarkIcon,
+  MapPinIcon,
 } from '@heroicons/react/24/outline';
 import AccessibilityPanel from './AccessibilityPanel';
 import { useUser } from '../../context/UserContext';
@@ -175,6 +176,17 @@ export default function FloatingTools({ onOpenLanguageModal, onVoiceStart }) {
       {/* Individual Separated Floating Tabs on Right Viewport Edge */}
       <div className="fixed right-0 top-1/2 -translate-y-1/2 z-40 flex flex-col items-end space-y-1.5 select-none">
         
+        {/* 0. Location Settings Tab */}
+        <button
+          type="button"
+          onClick={() => navigate('/profile')}
+          aria-label="Location Settings"
+          title="Location"
+          className="flex h-[46px] w-[46px] items-center justify-center rounded-l-xl bg-black/25 hover:bg-black/45 text-white shadow-lg active:scale-95 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-slate-300 cursor-pointer group backdrop-blur-md"
+        >
+          <MapPinIcon className="h-5 w-5 sm:h-6 sm:w-6 stroke-[1.8] text-white drop-shadow group-hover:scale-110 transition-transform" />
+        </button>
+
         {/* 1. Ask SAATHI Voice Assistant Tab */}
         <button
           type="button"

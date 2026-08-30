@@ -1,5 +1,6 @@
 import { mockCrops, mockPriceHistory, mockMandis } from '../utils/mockData';
 import { calculateDistance } from '../utils/distanceUtils';
+import { getStates, getDistricts } from '../utils/indiaLocations';
 
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 const apiBaseUrl = configuredBaseUrl.replace(/\/api\/auth\/?$/, '').replace(/\/$/, '');
@@ -76,13 +77,13 @@ export const marketService = {
       const response = await fetch(`${apiBaseUrl}/api/mandi-prices/states`).catch(() => null);
       if (!response || !response.ok) {
         console.warn(`States API unavailable. Falling back to mock states.`);
-        const states = [...new Set(mockMandis.map(m => m.state))].filter(Boolean);
+        const states = getStates();
         return states.length ? states : ['Maharashtra', 'Uttar Pradesh', 'Punjab'];
       }
       return await response.json();
     } catch (error) {
       console.error('Error fetching government mandi states:', error);
-      return ['Maharashtra', 'Uttar Pradesh', 'Punjab'];
+      return getStates();
     }
   },
 
@@ -92,13 +93,13 @@ export const marketService = {
       const response = await fetch(`${apiBaseUrl}/api/mandi-prices/districts?state=${encodeURIComponent(state)}`).catch(() => null);
       if (!response || !response.ok) {
         console.warn(`Districts API unavailable. Falling back to mock districts.`);
-        const districts = [...new Set(mockMandis.filter(m => m.state === state).map(m => m.district))].filter(Boolean);
+        const districts = getDistricts(state);
         return districts.length ? districts : ['Pune', 'Nashik', 'Mumbai'];
       }
       return await response.json();
     } catch (error) {
       console.error('Error fetching government mandi districts:', error);
-      return ['Pune', 'Nashik', 'Mumbai'];
+      return getDistricts(state);
     }
   },
 

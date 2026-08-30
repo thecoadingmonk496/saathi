@@ -21,7 +21,7 @@ const languageTagMap = {
 const naturalFemaleVoiceKeywords = [
   'female', 'woman', 'natural', 'neural', 'swara', 'heera', 'neerja', 'kalpana', 'veena',
   'kavya', 'shruti', 'ananya', 'geeta', 'meera', 'zira', 'samantha', 'jenny',
-  'victoria', 'google हिन्दी', 'google us english', 'google uk english female',
+  'victoria', 'google हिन्दी', 'google us english', 'google uk english female'
 ];
 
 function prepareNaturalSpeechText(text, langTag) {
@@ -67,6 +67,19 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    // Pre-warm the backend AI and TTS engine to eliminate cold-start latency
+    fetch('https://saathi-backend-7t91.onrender.com/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: 'ping', language: 'en-IN' })
+    }).catch(() => {});
+    
+    fetch('https://saathi-backend-7t91.onrender.com/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: ' ', language_code: 'en-IN' })
+    }).catch(() => {});
 
     if (!SpeechRecognition) {
       setIsSupported(false);
@@ -138,7 +151,8 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
         } catch { }
       }
       if (audioRef.current) {
-        audioRef.current.pause();
+        try { audioRef.current.stop(); } catch (e) {}
+        try { audioRef.current.disconnect(); } catch (e) {}
         audioRef.current = null;
       }
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -163,14 +177,14 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       matched = voices.find((v) => v.lang === targetLangTag || v.lang.replace('_', '-') === targetLangTag || v.lang.startsWith(baseLang));
     }
 
-    if (!matched || !isFemaleVoice(matched)) {
+    if (!matched) {
       const indianFemaleFallback = voices.find((v) => (v.lang.startsWith('hi') || v.lang.includes('IN')) && isFemaleVoice(v));
       if (indianFemaleFallback) {
         matched = indianFemaleFallback;
       }
     }
 
-    if (!matched || !isFemaleVoice(matched)) {
+    if (!matched) {
       const globalFemale = voices.find(isFemaleVoice);
       if (globalFemale) {
         matched = globalFemale;
@@ -187,7 +201,8 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
     }
 
     if (audioRef.current) {
-      audioRef.current.pause();
+      try { audioRef.current.stop(); } catch (e) {}
+      try { audioRef.current.disconnect(); } catch (e) {}
       audioRef.current = null;
     }
 
@@ -246,20 +261,31 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
     setStatus('thinking');
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
       const res = await fetch('https://saathi-backend-7t91.onrender.com/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({ 
           message: queryText,
+          language: preferredLanguage,
           history: [],
           profile: {} 
         })
       });
       
+      clearTimeout(timeoutId);
+
       if (!res.ok) throw new Error('Live AI backend request failed');
       
       const data = await res.json();
-      const aiResponse = data.ai_response;
+      let aiResponse = data.ai_response;
+
+      if (aiResponse && aiResponse.toLowerCase().includes('server is busy')) {
+        throw new Error('Backend returned busy message');
+      }
       
       setResponseText(aiResponse);
       onResponse?.(aiResponse);
@@ -281,36 +307,68 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             setStatus('speaking');
             
             if (audioRef.current) {
-              audioRef.current.pause();
+              try { audioRef.current.stop(); } catch (e) {}
+              try { audioRef.current.disconnect(); } catch (e) {}
             }
-            
-            const audio = new Audio(`data:${ttsData.mime_type};base64,${ttsData.audio_base64}`);
-            audioRef.current = audio;
-            
-            audio.onended = () => {
-              setStatus('done');
-              isProcessingRef.current = false;
-              if (audioRef.current === audio) audioRef.current = null;
-            };
-            audio.onerror = () => {
-              console.warn('Failed to play premium TTS audio');
-              speakText(aiResponse); // fallback to browser TTS
-              isProcessingRef.current = false;
-              if (audioRef.current === audio) audioRef.current = null;
-            };
-            audio.play().catch((err) => {
-              console.warn('Audio play rejected (likely autoplay policy):', err);
-              speakText(aiResponse);
-              if (audioRef.current === audio) audioRef.current = null;
-            });
-            return;
+            if (window.sharedAudioContext) {
+              try {
+                const binaryString = window.atob(ttsData.audio_base64);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                  bytes[i] = binaryString.charCodeAt(i);
+                }
+                try {
+                  const buffer = await new Promise((resolve, reject) => {
+                    try {
+                      const decodePromise = window.sharedAudioContext.decodeAudioData(bytes.buffer, resolve, reject);
+                      if (decodePromise && typeof decodePromise.then === 'function') {
+                        decodePromise.then(resolve).catch(reject);
+                      }
+                    } catch (err) {
+                      reject(err);
+                    }
+                  });
+                  
+                  // Ensure browser TTS is absolutely stopped before playing backend audio
+                  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                  }
+                  
+                  const source = window.sharedAudioContext.createBufferSource();
+                  source.buffer = buffer;
+                  source.connect(window.sharedAudioContext.destination);
+                  
+                  source.onended = () => {
+                    setStatus('done');
+                    isProcessingRef.current = false;
+                    if (audioRef.current === source) audioRef.current = null;
+                  };
+                  
+                  audioRef.current = source;
+                  source.start(0);
+                  
+                  // Successfully played backend voice, explicitly return to prevent fallback
+                  return; 
+                } catch (decodeErr) {
+                  console.warn('Decode error', decodeErr);
+                  // Allow fall through to speakText
+                }
+              } catch (e) {
+                console.warn('Web Audio playback failed:', e);
+                // Allow fall through to speakText
+              }
+            }
           }
         }
       } catch (ttsErr) {
         console.warn('Premium TTS fetch failed:', ttsErr);
       }
       
-      // Fallback to browser TTS if backend TTS failed
+      // Fallback to browser TTS if backend TTS failed, Web Audio failed, or decode failed
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // Prevent collision with any stuck browser TTS
+      }
       speakText(aiResponse);
       isProcessingRef.current = false;
 
@@ -318,7 +376,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       console.warn('Live AI failed, falling back to local engine:', e);
       // Fallback to local rule-based engine
       const { response, action } = processVoiceQuery(queryText, preferredLanguage);
-      setResponseText(`[DEBUG ERROR: ${e.message}] ` + response);
+      setResponseText(response);
       onResponse?.(response);
       speakText(response);
       isProcessingRef.current = false;
@@ -334,12 +392,19 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
   const handleRestartListening = () => {
     isProcessingRef.current = false;
     if (audioRef.current) {
-      audioRef.current.pause();
+      try { audioRef.current.stop(); } catch (e) {}
+      try { audioRef.current.disconnect(); } catch (e) {}
       audioRef.current = null;
     }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
+    
+    // Unlock Audio Context again on manual restart
+    if (window.sharedAudioContext && window.sharedAudioContext.state === 'suspended') {
+      window.sharedAudioContext.resume();
+    }
+
     setTranscript('');
     setInterimTranscript('');
     setResponseText('');
