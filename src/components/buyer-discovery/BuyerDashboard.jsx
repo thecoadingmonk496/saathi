@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '../../context/UserContext';
 import DealTracker from './DealTracker';
+import BuyerRegister from '../../pages/BuyerRegister';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')).replace(/\/$/, '') + '/api';
 
@@ -12,11 +13,25 @@ export default function BuyerDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('requests'); // 'requests', 'deals'
   const [activeOffers, setActiveOffers] = useState(null); // Which request's offers to show
+  const [appStatus, setAppStatus] = useState('LOADING'); // 'LOADING', 'NOT_FOUND', 'FOUND'
+
 
   const fetchData = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
+      
+      // Check buyer application
+      const phone = user?.mobile || user?.phone || '';
+      const appRes = await fetch(`${API_BASE}/buyers/my-application?phone=${phone}`);
+      if (appRes.status === 404) {
+        setAppStatus('NOT_FOUND');
+        setLoading(false);
+        return;
+      } else {
+        setAppStatus('FOUND');
+      }
+
       
       const reqRes = await fetch(`${API_BASE}/buyer-discovery/requests/mine`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -41,6 +56,18 @@ export default function BuyerDashboard() {
   const handleCreateRequest = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
+      
+      // Check buyer application
+      const phone = user?.mobile || user?.phone || '';
+      const appRes = await fetch(`${API_BASE}/buyers/my-application?phone=${phone}`);
+      if (appRes.status === 404) {
+        setAppStatus('NOT_FOUND');
+        setLoading(false);
+        return;
+      } else {
+        setAppStatus('FOUND');
+      }
+
     const res = await fetch(`${API_BASE}/buyer-discovery/requests`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -57,6 +84,18 @@ export default function BuyerDashboard() {
 
   const loadOffers = async (requestId) => {
     const token = localStorage.getItem('token');
+      
+      // Check buyer application
+      const phone = user?.mobile || user?.phone || '';
+      const appRes = await fetch(`${API_BASE}/buyers/my-application?phone=${phone}`);
+      if (appRes.status === 404) {
+        setAppStatus('NOT_FOUND');
+        setLoading(false);
+        return;
+      } else {
+        setAppStatus('FOUND');
+      }
+
     const res = await fetch(`${API_BASE}/buyer-discovery/requests/${requestId}/offers`, {
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -68,6 +107,18 @@ export default function BuyerDashboard() {
 
   const handleOfferAction = async (offerId, action) => { // action: 'accept', 'reject', 'ignore'
     const token = localStorage.getItem('token');
+      
+      // Check buyer application
+      const phone = user?.mobile || user?.phone || '';
+      const appRes = await fetch(`${API_BASE}/buyers/my-application?phone=${phone}`);
+      if (appRes.status === 404) {
+        setAppStatus('NOT_FOUND');
+        setLoading(false);
+        return;
+      } else {
+        setAppStatus('FOUND');
+      }
+
     await fetch(`${API_BASE}/buyer-discovery/offers/${offerId}/${action}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` }
@@ -89,7 +140,23 @@ export default function BuyerDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex border-b border-[var(--saathi-border-light)]">
+      {appStatus === 'LOADING' && <div className="text-center py-12">Loading...</div>}
+      
+      {appStatus === 'NOT_FOUND' && (
+        <div className="bg-white p-6 rounded-lg shadow-xl border border-amber-200 bg-amber-50">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-amber-800">Business Profile Required</h2>
+            <p className="text-amber-700 mt-2">You must complete your business verification profile before accessing the SAATHI Marketplace.</p>
+          </div>
+          <div className="bg-white rounded-xl shadow p-2">
+            <BuyerRegister embedded={true} />
+          </div>
+        </div>
+      )}
+
+      {appStatus === 'FOUND' && (
+        <>
+          <div className="flex border-b border-[var(--saathi-border-light)]">
         <button 
           className={`px-4 py-2 ${activeTab === 'requests' ? 'border-b-2 border-[var(--saathi-primary)] font-bold text-[var(--saathi-primary)]' : 'text-gray-500'}`}
           onClick={() => setActiveTab('requests')}
@@ -197,6 +264,8 @@ export default function BuyerDashboard() {
             deals.map(deal => <DealTracker key={deal._id} deal={deal} userRole="BUYER" onRefresh={fetchData} />)
           }
         </div>
+      )}
+        </>
       )}
     </div>
   );

@@ -4,7 +4,6 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useUser } from '../context/UserContext';
 import heroBg from '../assets/hero-bg.jpg';
 import saathiLogo from '../assets/logo.png';
-import BuyerRegister from './BuyerRegister';
 
 const initialForm = {
   firstName: '',
@@ -145,7 +144,7 @@ export default function Register() {
           <button type="button" onClick={() => setRegisterMode('BUYER')} className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${registerMode === 'BUYER' ? 'bg-white text-[var(--saathi-primary)] shadow-md' : 'text-white hover:bg-white/10'}`}>Register as Buyer</button>
         </div>
 
-        <div className={`w-full bg-white rounded-lg shadow-2xl border border-[var(--saathi-border-light)] p-6 sm:p-8 transition-all duration-500 ease-in-out ${registerMode === 'FARMER' ? 'max-w-[460px]' : 'max-w-4xl'}`}>
+        <div className={`w-full bg-white rounded-lg shadow-2xl border border-[var(--saathi-border-light)] p-6 sm:p-8 transition-all duration-500 ease-in-out max-w-[460px]`}>
 
               {/* Already logged in notice if applicable */}
           {isLoggedIn && (
@@ -198,11 +197,6 @@ export default function Register() {
           )}
 
           {/* Registration Form */}
-          {registerMode === 'BUYER' ? (
-            <div className="mt-6 border-t border-[var(--saathi-border-light)] pt-6">
-              <BuyerRegister embedded={true} />
-            </div>
-          ) : (
           <form onSubmit={handleRegister} className="space-y-4 mt-2">
             {/* Name Fields in 2 Columns */}
             <div className="grid grid-cols-2 gap-3">
@@ -309,7 +303,6 @@ export default function Register() {
               )}
             </button>
           </form>
-          )}
 
           {/* Already registered switch */}
           <div className="mt-5 text-center">
