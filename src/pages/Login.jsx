@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useUser } from '../context/UserContext';
 import heroBg from '../assets/hero-bg.jpg';
@@ -20,7 +20,15 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(45);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login, user, isLoggedIn } = useUser();
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      const redirect = searchParams.get('redirect') || '/';
+      navigate(redirect);
+    }
+  }, [isLoggedIn, navigate, searchParams]);
 
   useEffect(() => {
     let interval;
@@ -102,7 +110,8 @@ export default function Login() {
       if (response.ok && data.success) {
         localStorage.setItem('token', data.token);
         login(data.user);
-        navigate('/');
+        const redirect = searchParams.get('redirect') || '/';
+        navigate(redirect);
       } else {
         setError(data.message || 'Invalid OTP. Please try again.');
       }

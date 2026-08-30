@@ -10,23 +10,41 @@ export default function Profile() {
   const { address, permissionStatus, source, requestLocation } = useLocationContext();
 
   const [profile, setProfile] = useState({
-    name: user.name || 'Ramesh Kumar',
-    mobile: user.mobile || '6666666666',
-    farmerId: user.farmerId || 'FARM-3124',
-    village: user.village || address?.locality || 'Chakia',
-    block: user.block || address?.locality || 'Chakia',
-    district: user.district || address?.district || 'Chandauli',
-    state: user.state || address?.state || 'Uttar Pradesh',
+    name: user.name || (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : (user.firstName || user.lastName || '')),
+    mobile: user.mobile || user.phone || '',
+    farmerId: user.farmerId || '',
+    buyerId: user.buyerId || '',
+    village: user.village || address?.locality || '',
+    block: user.block || address?.locality || '',
+    district: user.district || address?.district || '',
+    state: user.state || address?.state || '',
+    isPublicProfile: user.isPublicProfile !== undefined ? user.isPublicProfile : true,
+  });
+  const [documents, setDocuments] = useState(user.documents || {
+    aadhaar: '',
+    gstCertificate: '',
+    otherDocument: ''
   });
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [isFarmDetailsModalOpen, setIsFarmDetailsModalOpen] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [profileImage, setProfileImage] = useState(user.profileImage || '');
   const [farmDetails, setFarmDetails] = useState({
-    landHolding: user.landHolding || '3.5 Acres',
-    primaryCrops: user.primaryCrops || 'Wheat, Rice',
-    irrigation: user.irrigation || 'Tube Well',
-    farmingType: user.farmingType || 'Mixed Farming',
+    landHolding: user.landHolding || '',
+    primaryCrops: user.primaryCrops || '',
+    irrigation: user.irrigation || '',
+    farmingType: user.farmingType || '',
+    annualYield: user.annualYield || '',
+    harvestSeason: user.harvestSeason || '',
+    soilType: user.soilType || '',
+    certifications: user.certifications || '',
+  });
+
+  const [businessDetails, setBusinessDetails] = useState({
+    businessName: user.businessName || '',
+    businessType: user.businessType || '',
+    gstNumber: user.gstNumber || '',
+    targetCrops: user.targetCrops || '',
   });
 
   useEffect(() => {
@@ -42,6 +60,44 @@ export default function Profile() {
     setProfile((currentProfile) => ({ ...currentProfile, ...fetchedProfile }));
     updateUser(fetchedProfile);
   }, [address, permissionStatus, source, updateUser]);
+
+  const calculateProgress = () => {
+    let fields = 0;
+    let filled = 0;
+    
+    const baseFields = ['name', 'mobile', 'village', 'district', 'state'];
+    fields += baseFields.length;
+    baseFields.forEach(f => { if (profile[f]) filled++; });
+    
+    if (user.role === 'BUYER') {
+      const bFields = ['businessName', 'businessType', 'gstNumber', 'targetCrops'];
+      fields += bFields.length;
+      bFields.forEach(f => { if (businessDetails[f]) filled++; });
+    } else {
+      const fFields = ['landHolding', 'primaryCrops', 'irrigation', 'farmingType', 'annualYield', 'harvestSeason', 'soilType', 'certifications'];
+      fields += fFields.length;
+      fFields.forEach(f => { if (farmDetails[f]) filled++; });
+    }
+    
+    return Math.round((filled / fields) * 100);
+  };
+
+  const handleDocumentUpload = (key, event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    if (file.size > 5 * 1024 * 1024) {
+      setSaveMessage('Document must be smaller than 5 MB.');
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = () => {
+      setDocuments(prev => ({ ...prev, [key]: reader.result }));
+      setSaveMessage(`${key} uploaded successfully. Don't forget to save changes.`);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const updateProfileField = (event) => {
     const { name, value } = event.target;
@@ -95,6 +151,7 @@ export default function Profile() {
       district: profile.district.trim(),
       state: profile.state.trim(),
       profileImage,
+      documents,
     };
 
     updateUser(savedProfile);
@@ -104,13 +161,14 @@ export default function Profile() {
 
   const handleReset = () => {
     setProfile({
-      name: user.name || 'Ramesh Kumar',
-      mobile: user.mobile || '6666666666',
-      farmerId: user.farmerId || 'FARM-3124',
-      village: user.village || address?.locality || 'Chakia',
-      block: user.block || address?.locality || 'Chakia',
-      district: user.district || address?.district || 'Chandauli',
-      state: user.state || address?.state || 'Uttar Pradesh',
+      name: user.name || (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : (user.firstName || user.lastName || '')),
+      mobile: user.mobile || user.phone || '',
+      farmerId: user.farmerId || '',
+      buyerId: user.buyerId || '',
+      village: user.village || address?.locality || '',
+      block: user.block || address?.locality || '',
+      district: user.district || address?.district || '',
+      state: user.state || address?.state || '',
     });
     setProfileImage(user.profileImage || '');
     setSaveMessage('Changes reset.');
@@ -123,11 +181,26 @@ export default function Profile() {
 
   return (
     <section className="mx-auto w-full max-w-5xl">
-      <header className="rounded-[28px] bg-primary-dark p-6 sm:p-8 text-white shadow-xl flex flex-col sm:flex-row items-center sm:items-start gap-6 relative overflow-hidden">
-        {/* Background Decorative Element */}
-        <div className="absolute -right-20 -top-20 opacity-10 pointer-events-none">
-          <svg width="250" height="250" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 22h20L12 2zm0 4.5l6.5 13h-13L12 6.5z"/></svg>
+      {(!profile.village || !profile.district) && (
+        <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 shadow-sm">
+          <span className="text-xl">⚠️</span>
+          <div>
+            <h3 className="text-amber-800 font-bold text-sm">Your profile is incomplete</h3>
+            <p className="text-amber-700 text-xs font-semibold mt-0.5">Please complete your profile by filling your address or using GPS to connect with the SAATHI network.</p>
+          </div>
         </div>
+      )}
+
+      <header className="bg-white rounded-lg shadow-2xl border border-[var(--saathi-border-light)] p-6 sm:p-8 transition-all relative overflow-hidden">
+        {/* Progress Bar */}
+        <div className="absolute top-0 left-0 w-full h-1.5 bg-slate-100">
+          <div 
+            className={`h-full transition-all duration-1000 ease-out ${calculateProgress() === 100 ? 'bg-[#10B981]' : 'bg-[var(--saathi-primary)]'}`} 
+            style={{ width: `${calculateProgress()}%` }} 
+          />
+        </div>
+        
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mt-2">
 
         {/* Profile Image & Upload Button */}
         <div className="relative shrink-0 z-10 group">
@@ -147,118 +220,102 @@ export default function Profile() {
 
         {/* User Info */}
         <div className="flex-1 text-center sm:text-left z-10 pt-2">
-          <h1 className="text-3xl font-extrabold sm:text-4xl text-white tracking-tight">{profile.name}</h1>
+          <h1 className="text-3xl font-extrabold sm:text-4xl text-[var(--saathi-text)] tracking-tight">{profile.name}</h1>
           <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
-            <span className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white border border-white/10 backdrop-blur-sm">
-              <span className="opacity-75">Farmer ID:</span> {profile.farmerId}
-            </span>
-            <span className="flex items-center gap-1.5 rounded-full bg-[#10B981]/20 px-3 py-1 text-xs font-bold text-[#34D399] border border-[#10B981]/30">
-              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>
-              VERIFIED FARMER
+            <span className="flex items-center gap-1.5 rounded-full bg-[var(--saathi-surface-alt)] px-3 py-1 text-xs font-bold text-[var(--saathi-text-secondary)] border border-[var(--saathi-border)]">
+              {user.role === 'BUYER' ? (
+                <><span className="opacity-75">Buyer ID:</span> {profile.buyerId || 'N/A'}</>
+              ) : (
+                <><span className="opacity-75">Farmer ID:</span> {profile.farmerId || 'N/A'}</>
+              )}
             </span>
           </div>
-          <p className="mt-3 text-sm font-medium text-slate-300 flex items-center justify-center sm:justify-start gap-1.5">
+          <p className="mt-3 text-sm font-medium text-[var(--saathi-text-secondary)] flex items-center justify-center sm:justify-start gap-1.5">
             <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-            {profile.village}, {profile.district}, {profile.state}
+            {profile.village ? `${profile.village}, ` : ''}{profile.district ? `${profile.district}, ` : ''}{profile.state}
           </p>
+        </div>
         </div>
       </header>
 
       {}
       <section className="mt-8">
-        <h2 className="text-2xl font-extrabold text-primary-dark mb-5 pb-2 border-b-2 border-slate-100/60">{t('profile.personalDetails')}</h2>
+        <h2 className="text-2xl font-extrabold text-[var(--saathi-text)] mb-5 pb-2 border-b-2 border-slate-100/60">{t('profile.personalDetails')}</h2>
         <div className="grid gap-5 sm:grid-cols-2">
           <TextField label="Full Name" name="name" value={profile.name} onChange={updateProfileField} />
           <TextField label="Mobile Number" name="mobile" type="tel" value={profile.mobile} onChange={updateProfileField} />
-          <TextField label={t('profile.farmerId')} name="farmerId" value={profile.farmerId} onChange={updateProfileField} />
-          <TextField label={t('')} name="village" value={profile.village} onChange={updateProfileField} />
-          <TextField label={t('')} name="block" value={profile.block} onChange={updateProfileField} />
-          <TextField label={t('')} name="district" value={profile.district} onChange={updateProfileField} />
-          <TextField label={t('')} name="state" value={profile.state} onChange={updateProfileField} disabled />
+          {user.role === 'BUYER' ? (
+            <TextField label="Buyer ID" name="buyerId" value={profile.buyerId} disabled />
+          ) : (
+            <TextField label="Farmer ID" name="farmerId" value={profile.farmerId} disabled />
+          )}
+          <TextField label="Village / Town" name="village" value={profile.village} onChange={updateProfileField} />
+          <TextField label="Block" name="block" value={profile.block} onChange={updateProfileField} />
+          <TextField label="District" name="district" value={profile.district} onChange={updateProfileField} />
+          <TextField label="State" name="state" value={profile.state} onChange={updateProfileField} disabled />
         </div>
       </section>
 
       {}
-      <section className="mt-10">
-        <h2 className="text-2xl font-extrabold text-primary-dark mb-5 pb-2 border-b-2 border-slate-100/60">
-          Farm Details
-        </h2>
-        <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
-          <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
-            <span className="text-3xl mb-3">📏</span>
-            <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Land Holding</span>
-            <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{farmDetails.landHolding}</span>
-          </button>
-          <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
-            <span className="text-3xl mb-3">🌾</span>
-            <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Primary Crops</span>
-            <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{farmDetails.primaryCrops}</span>
-          </button>
-          <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
-            <span className="text-3xl mb-3">💧</span>
-            <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Irrigation</span>
-            <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{farmDetails.irrigation}</span>
-          </button>
-          <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
-            <span className="text-3xl mb-3">🚜</span>
-            <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Farming Type</span>
-            <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{farmDetails.farmingType}</span>
-          </button>
-        </div>
-      </section>
-
-      {}
-      <div className="mt-10 grid gap-6 sm:grid-cols-2">
-        {}
-        <section>
-          <h2 className="text-2xl font-extrabold text-primary-dark mb-5 pb-2 border-b-2 border-slate-100/60">{t('explorer.location')}</h2>
-          <div className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm h-[calc(100%-3rem)] flex flex-col justify-between">
-            <div>
-              <p className="text-xs font-extrabold text-secondary uppercase tracking-wider">Current Location</p>
-              <p className="mt-2 text-lg font-bold text-[var(--saathi-text)] leading-tight">
-                {permissionStatus === 'granted' && address ? address.formatted : `${profile.village}, ${profile.district}, ${profile.state}`}
-              </p>
-              <div className="mt-4 flex items-center gap-3">
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-extrabold ${
-                  permissionStatus === 'granted' 
-                    ? 'bg-red-50 text-primary-dark border-red-200' 
-                    : 'bg-red-50 text-red-800 border-red-200'
-                }`}>
-                  {permissionStatus === 'granted' ? '✓ Location detected' : 'Saved location'}
-                </span>
-                <span className="text-xs text-[var(--saathi-text-muted)] font-bold">Source: {permissionStatus === 'granted' ? 'GPS' : 'Manual entry'}</span>
-              </div>
-            </div>
-            <button 
-              onClick={requestLocation}
-              className="mt-6 w-full flex items-center justify-center gap-2 bg-[var(--saathi-surface-alt)] hover:bg-slate-100 border border-[var(--saathi-border-light)] px-4 py-3 rounded-xl text-sm font-bold text-[var(--saathi-text-secondary)] transition"
-            >
-              <span className="text-lg">📍</span>{t('location.refresh')}</button>
-          </div>
-        </section>
-
-        {}
-        <section>
-          <h2 className="text-2xl font-extrabold text-primary-dark mb-5 pb-2 border-b-2 border-slate-100/60">
-            Language Preference
+      {user.role === 'FARMER' ? (
+        <section className="mt-10">
+          <h2 className="text-2xl font-extrabold text-[var(--saathi-text)] mb-5 pb-2 border-b-2 border-slate-100/60">
+            Farm Details
           </h2>
-          <div className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm h-[calc(100%-3rem)] flex flex-col justify-between">
-            <div>
-              <p className="text-xs font-extrabold text-secondary uppercase tracking-wider">Selected Language</p>
-              <p className="mt-2 text-2xl font-extrabold text-[var(--saathi-text)]">{preferredLanguage}</p>
-              <p className="mt-3 text-sm text-[var(--saathi-text-muted)] font-semibold leading-relaxed">
-                This language will be used across the entire SAATHI platform and for the AI Voice Assistant.
-              </p>
-            </div>
-            <button
-              onClick={() => setIsLanguageModalOpen(true)}
-              className="mt-6 w-full flex items-center justify-center gap-2 bg-background hover:bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border)] text-secondary px-4 py-3 rounded-xl text-sm font-extrabold transition shadow-sm"
-            >
-              🌐 Change Language
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
+            <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
+              <span className="text-3xl mb-3">📏</span>
+              <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Land Holding</span>
+              <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{farmDetails.landHolding || 'Not specified'}</span>
+            </button>
+            <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
+              <span className="text-3xl mb-3">🌾</span>
+              <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Primary Crops</span>
+              <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{farmDetails.primaryCrops || 'Not specified'}</span>
+            </button>
+            <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
+              <span className="text-3xl mb-3">📦</span>
+              <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Annual Yield</span>
+              <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{farmDetails.annualYield || 'Not specified'}</span>
+            </button>
+            <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
+              <span className="text-3xl mb-3">📅</span>
+              <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Harvest Season</span>
+              <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{farmDetails.harvestSeason || 'Not specified'}</span>
             </button>
           </div>
         </section>
-      </div>
+      ) : user.role === 'BUYER' ? (
+        <section className="mt-10">
+          <h2 className="text-2xl font-extrabold text-[var(--saathi-text)] mb-5 pb-2 border-b-2 border-slate-100/60">
+            Business Details
+          </h2>
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
+            <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
+              <span className="text-3xl mb-3">🏢</span>
+              <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Business Name</span>
+              <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{businessDetails.businessName || 'Not specified'}</span>
+            </button>
+            <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
+              <span className="text-3xl mb-3">🏷️</span>
+              <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Type</span>
+              <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{businessDetails.businessType || 'Not specified'}</span>
+            </button>
+            <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
+              <span className="text-3xl mb-3">🧾</span>
+              <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">GST Number</span>
+              <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{businessDetails.gstNumber || 'Not specified'}</span>
+            </button>
+            <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
+              <span className="text-3xl mb-3">🎯</span>
+              <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Target Crops</span>
+              <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{businessDetails.targetCrops || 'Not specified'}</span>
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {}
 
       {}
       <div className="mt-12 flex flex-col sm:flex-row items-center gap-4 pt-8 border-t-2 border-slate-100/60">
@@ -332,16 +389,31 @@ export default function Profile() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" role="presentation" onClick={() => setIsFarmDetailsModalOpen(false)}>
           <section className="w-full max-w-lg rounded-[28px] bg-white p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="farm-details-dialog-title" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between gap-4">
-              <h2 id="farm-details-dialog-title" className="text-2xl font-extrabold text-[var(--saathi-text)]">Edit Farm Details</h2>
-              <button type="button" onClick={() => setIsFarmDetailsModalOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 font-bold text-[var(--saathi-text-muted)] hover:bg-slate-200" aria-label="Close farm details">✕</button>
+              <h2 id="farm-details-dialog-title" className="text-2xl font-extrabold text-[var(--saathi-text)]">Edit {user.role === 'BUYER' ? 'Business Details' : 'Farm Details'}</h2>
+              <button type="button" onClick={() => setIsFarmDetailsModalOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 font-bold text-[var(--saathi-text-muted)] hover:bg-slate-200" aria-label="Close details">✕</button>
             </div>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <FarmDetailField label="Land Holding" name="landHolding" value={farmDetails.landHolding} onChange={setFarmDetails} />
-              <FarmDetailField label="Primary Crops" name="primaryCrops" value={farmDetails.primaryCrops} onChange={setFarmDetails} />
-              <FarmDetailField label="Irrigation" name="irrigation" value={farmDetails.irrigation} onChange={setFarmDetails} />
-              <FarmDetailField label="Farming Type" name="farmingType" value={farmDetails.farmingType} onChange={setFarmDetails} />
+              {user.role === 'BUYER' ? (
+                <>
+                  <FarmDetailField label="Business Name" name="businessName" value={businessDetails.businessName} onChange={setBusinessDetails} />
+                  <FarmDetailField label="Business Type" name="businessType" value={businessDetails.businessType} onChange={setBusinessDetails} />
+                  <FarmDetailField label="GST Number" name="gstNumber" value={businessDetails.gstNumber} onChange={setBusinessDetails} />
+                  <FarmDetailField label="Target Crops" name="targetCrops" value={businessDetails.targetCrops} onChange={setBusinessDetails} />
+                </>
+              ) : (
+                <>
+                  <FarmDetailField label="Land Holding" name="landHolding" value={farmDetails.landHolding} onChange={setFarmDetails} />
+                  <FarmDetailField label="Primary Crops" name="primaryCrops" value={farmDetails.primaryCrops} onChange={setFarmDetails} />
+                  <FarmDetailField label="Irrigation" name="irrigation" value={farmDetails.irrigation} onChange={setFarmDetails} />
+                  <FarmDetailField label="Farming Type" name="farmingType" value={farmDetails.farmingType} onChange={setFarmDetails} />
+                  <FarmDetailField label="Annual Yield" name="annualYield" value={farmDetails.annualYield} onChange={setFarmDetails} />
+                  <FarmDetailField label="Harvest Season" name="harvestSeason" value={farmDetails.harvestSeason} onChange={setFarmDetails} />
+                  <FarmDetailField label="Soil Type" name="soilType" value={farmDetails.soilType} onChange={setFarmDetails} />
+                  <FarmDetailField label="Certifications" name="certifications" value={farmDetails.certifications} onChange={setFarmDetails} />
+                </>
+              )}
             </div>
-            <button type="button" onClick={() => { updateUser(farmDetails); setIsFarmDetailsModalOpen(false); setSaveMessage('Farm details saved successfully.'); }} className="mt-6 w-full rounded-xl bg-primary-dark px-4 py-3.5 text-sm font-extrabold text-white transition hover:bg-primary">Save Farm Details</button>
+            <button type="button" onClick={() => { updateUser(user.role === 'BUYER' ? businessDetails : farmDetails); setIsFarmDetailsModalOpen(false); setSaveMessage('Details saved successfully.'); }} className="mt-6 w-full rounded-xl bg-[var(--saathi-primary)] px-4 py-3.5 text-sm font-extrabold text-white transition hover:bg-blue-900">Save Details</button>
           </section>
         </div>
       )}

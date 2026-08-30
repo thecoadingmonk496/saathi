@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useUser } from '../context/UserContext';
 import heroBg from '../assets/hero-bg.jpg';
 import saathiLogo from '../assets/logo.png';
+import BuyerRegister from './BuyerRegister';
 
 const initialForm = {
   firstName: '',
@@ -11,6 +12,7 @@ const initialForm = {
   email: '',
   phone: '',
   password: '',
+  role: 'FARMER', // default role
 };
 
 const API_BASE_URL = (
@@ -21,10 +23,12 @@ const apiUrl = (path) => `${API_BASE_URL}${path}`;
 
 export default function Register() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login, user, isLoggedIn } = useUser();
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [registerMode, setRegisterMode] = useState('FARMER');
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -52,10 +56,15 @@ export default function Register() {
     setIsLoading(true);
 
     try {
+      const payload = {
+        ...form,
+        role: registerMode,
+      };
+      
       const response = await fetch(apiUrl('/api/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -70,7 +79,8 @@ export default function Register() {
             mobile: registeredUser.phone,
           });
         }
-        navigate('/');
+        const redirect = searchParams.get('redirect') || '/';
+        navigate(redirect);
       } else {
         setError(data.message || 'Registration failed. Please try again.');
       }
@@ -128,10 +138,16 @@ export default function Register() {
       </header>
 
       {/* Main Content Area */}
-      <main className="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">
-        <div className="w-full max-w-[460px] bg-white rounded-lg shadow-2xl border border-[var(--saathi-border-light)] p-6 sm:p-8 transition-all">
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-4 sm:p-6 my-auto w-full">
+        {/* Toggle */}
+        <div className="mb-6 flex items-center bg-white/20 backdrop-blur-md p-1.5 rounded-full border border-white/30 shadow-lg">
+          <button type="button" onClick={() => setRegisterMode('FARMER')} className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${registerMode === 'FARMER' ? 'bg-white text-[var(--saathi-primary)] shadow-md' : 'text-white hover:bg-white/10'}`}>Register as Farmer</button>
+          <button type="button" onClick={() => setRegisterMode('BUYER')} className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${registerMode === 'BUYER' ? 'bg-white text-[var(--saathi-primary)] shadow-md' : 'text-white hover:bg-white/10'}`}>Register as Buyer</button>
+        </div>
 
-          {/* Already logged in notice if applicable */}
+        <div className={`w-full bg-white rounded-lg shadow-2xl border border-[var(--saathi-border-light)] p-6 sm:p-8 transition-all duration-500 ease-in-out ${registerMode === 'FARMER' ? 'max-w-[460px]' : 'max-w-4xl'}`}>
+
+              {/* Already logged in notice if applicable */}
           {isLoggedIn && (
             <div className="mb-4 p-3 rounded-md bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] text-xs text-[var(--saathi-text)] flex items-center justify-between">
               <div>
@@ -167,9 +183,9 @@ export default function Register() {
             </p>
 
             <div className="mt-4">
-              <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--saathi-text)]">Create Farmer Account</h2>
+              <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--saathi-text)]">Create {registerMode === 'FARMER' ? 'Farmer' : 'Buyer'} Account</h2>
               <p className="text-sm font-medium text-[var(--saathi-text-secondary)] mt-1">
-                Register to access market intelligence and buyers
+                Register to access market intelligence and {registerMode === 'FARMER' ? 'buyers' : 'farmers'}
               </p>
             </div>
           </div>
@@ -182,7 +198,12 @@ export default function Register() {
           )}
 
           {/* Registration Form */}
-          <form onSubmit={handleRegister} className="space-y-4">
+          {registerMode === 'BUYER' ? (
+            <div className="mt-6 border-t border-[var(--saathi-border-light)] pt-6">
+              <BuyerRegister embedded={true} />
+            </div>
+          ) : (
+          <form onSubmit={handleRegister} className="space-y-4 mt-2">
             {/* Name Fields in 2 Columns */}
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -248,7 +269,7 @@ export default function Register() {
               <input
                 name="email"
                 type="email"
-                placeholder="farmer@example.com"
+                placeholder={registerMode === 'FARMER' ? 'farmer@example.com' : 'buyer@example.com'}
                 value={form.email}
                 onChange={handleChange}
                 className="w-full h-12 bg-white border border-[var(--saathi-border)] focus:border-[var(--saathi-accent)] focus:ring-2 focus:ring-red-100 text-[var(--saathi-text)] font-semibold px-4 rounded-lg outline-none transition text-base placeholder:text-slate-400 placeholder:font-normal"
@@ -256,7 +277,7 @@ export default function Register() {
             </div>
 
             {/* Password Field */}
-            <div>
+            <div className="space-y-1.5 mt-4">
               <label className="block text-sm font-bold text-[var(--saathi-text)] mb-1.5">
                 Password <span className="text-red-600 font-bold ml-0.5">*</span>
               </label>
@@ -282,12 +303,13 @@ export default function Register() {
                 <span className="inline-block animate-spin border-2 border-white border-t-transparent rounded-full w-5 h-5" />
               ) : (
                 <>
-                  <span>Create Farmer Account</span>
-                  <span className="text-xl">→</span>
+                  <span>Create {registerMode === 'FARMER' ? 'Farmer' : 'Buyer'} Account</span>
+                  <span className="text-xl">➔</span>
                 </>
               )}
             </button>
           </form>
+          )}
 
           {/* Already registered switch */}
           <div className="mt-5 text-center">

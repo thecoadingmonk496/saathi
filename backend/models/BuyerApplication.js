@@ -42,7 +42,7 @@ const buyerApplicationSchema = new mongoose.Schema({
     pincode: { type: String, required: true, trim: true },
   },
   commodities: { type: [commoditySchema], default: [] },
-  preferredPurchaseRadius: { type: String, enum: ['within_10_km', 'within_25_km', 'within_50_km', 'any_location'], default: 'within_25_km' },
+  preferredPurchaseRadius: { type: String, default: '25' },
   documents: {
     identityProof: { type: String, default: '' },
     businessProof: { type: String, default: '' },

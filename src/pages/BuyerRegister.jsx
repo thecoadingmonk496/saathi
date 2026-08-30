@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocationContext } from '../context/LocationContext';
+import { useUser } from '../context/UserContext';
 import { locationStates, getDistricts } from '../utils/locationOptions';
 
 const API_BASE_URL = (
@@ -72,9 +73,11 @@ const STEPS = [
 ];
 
 const initialForm = {
-  applicantName: '',
+  firstName: '',
+  lastName: '',
   phone: '',
   email: '',
+  password: '',
   profilePhoto: '',
   buyerType: '',
   otherBuyerType: '',
@@ -87,12 +90,13 @@ const initialForm = {
   tehsilBlock: '',
   villageCity: '',
   pincode: '',
-  preferredPurchaseRadius: 'within_25_km',
+  preferredPurchaseRadius: '25',
   declaration: false,
 };
 
-export default function BuyerRegister() {
+export default function BuyerRegister({ embedded = false }) {
   const navigate = useNavigate();
+  const { login } = useUser();
   const { coordinates, address, requestLocation } = useLocationContext();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(initialForm);
@@ -162,26 +166,57 @@ export default function BuyerRegister() {
     });
   };
 
-  const handleUseDetectedLocation = () => {
+  const handleUseDetectedLocation = async () => {
     requestLocation();
-    if (address?.state) {
-      setForm((prev) => ({
-        ...prev,
-        state: address.state,
-        district: address.district || prev.district,
-        villageCity: address.locality || address.city || prev.villageCity,
-      }));
+    // Use browser Geolocation API directly and reverse geocode via Nominatim
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`);
+          const data = await res.json();
+          if (data?.address) {
+            const addr = data.address;
+            const detectedState = addr.state || '';
+            const detectedDistrict = addr.county || addr.state_district || addr.city_district || '';
+            const detectedVillage = addr.village || addr.town || addr.city || addr.suburb || '';
+            const detectedPincode = addr.postcode || '';
+            const detectedBlock = addr.suburb || addr.hamlet || addr.neighbourhood || '';
+            setForm((prev) => ({
+              ...prev,
+              state: detectedState,
+              district: detectedDistrict,
+              villageCity: detectedVillage,
+              pincode: detectedPincode,
+              tehsilBlock: detectedBlock,
+            }));
+          }
+        } catch (e) {
+          console.error('Reverse geocode failed:', e);
+          // Fallback to context address
+          if (address?.state) {
+            setForm((prev) => ({
+              ...prev,
+              state: address.state,
+              district: address.district || prev.district,
+              villageCity: address.locality || address.city || prev.villageCity,
+            }));
+          }
+        }
+      });
     }
   };
 
-  const validateStep = () => {
-    const newErrors = {};
-    if (step === 0) {
-      if (!form.applicantName.trim()) newErrors.applicantName = 'Full name is required';
-      if (!/^[6-9]\d{9}$/.test(form.phone)) newErrors.phone = 'Enter a valid 10-digit Indian mobile number';
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) newErrors.email = 'Enter a valid email address';
-    }
-    if (step === 1) {
+    const validateStep = () => {
+      const newErrors = {};
+      if (step === 0) {
+        if (!form.firstName?.trim()) newErrors.firstName = 'First name is required';
+        if (!form.lastName?.trim()) newErrors.lastName = 'Last name is required';
+        if (!/^[6-9]\d{9}$/.test(form.phone)) newErrors.phone = 'Enter a valid 10-digit Indian mobile number';
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) newErrors.email = 'Enter a valid email address';
+        if (!form.password || form.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+      }
+      if (step === 1) {
       if (!form.buyerType) newErrors.buyerType = 'Please select a buyer type';
       if (form.buyerType === 'Other' && !form.otherBuyerType.trim()) newErrors.otherBuyerType = 'Please specify your buyer type';
     }
@@ -277,7 +312,7 @@ export default function BuyerRegister() {
       };
     });
 
-  const handleSubmit = async () => {
+    const handleSubmit = async () => {
     if (!validateStep()) return;
     setIsSubmitting(true);
     setSubmitError('');
@@ -287,7 +322,7 @@ export default function BuyerRegister() {
       : { type: 'Point', coordinates: [] };
 
     const payload = {
-      applicantName: form.applicantName,
+      applicantName: `${form.firstName} ${form.lastName}`.trim(),
       phone: form.phone,
       email: form.email,
       profilePhoto: form.profilePhoto,
@@ -312,22 +347,81 @@ export default function BuyerRegister() {
     };
 
     try {
-      const response = await fetch(apiUrl('/api/buyers/apply'), {
+      // 1. Create the user account via auth/register
+      const authPayload = {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        phone: form.phone,
+        password: form.password,
+        role: 'BUYER'
+      };
+
+      let authResponse = await fetch(apiUrl('/api/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(authPayload),
+      });
+
+      let authData = await authResponse.json();
+      
+      // If user already exists, try to log them in!
+      if (!authResponse.ok && authData.message && authData.message.includes('already exists')) {
+        authResponse = await fetch(apiUrl('/api/auth/login'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: form.email, password: form.password }),
+        });
+        authData = await authResponse.json();
+      }
+
+      if (!authResponse.ok) {
+        setSubmitError(authData.message || 'Failed to create or login to user account.');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Save the token so the buyer application is linked
+      if (authData.token) localStorage.setItem('token', authData.token);
+
+      // 2. Submit the Buyer Application
+      const response = await fetch(apiUrl('/api/buyers/apply'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authData.token}` },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
+      
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        console.error('Non-JSON response:', text.substring(0, 500));
+        console.error('Non-JSON response:', text.substring(0, 500));
+        setSubmitError(`Server error (${response.status}). The server may be starting up. Please try again in a moment.`);
+        return;
+      }
+      
+
       if (response.ok && data.success) {
+        if (authData.user) {
+          login({
+            ...authData.user,
+            name: `${authData.user.firstName} ${authData.user.lastName}`,
+            mobile: authData.user.phone,
+          });
+        }
         setSubmitSuccess({
           applicationId: data.applicationId,
           message: data.message,
         });
-      } else {
-        setSubmitError(data.message || 'Unable to submit application');
+      }
+ else {
+        setSubmitError(data.message || `Unable to submit application (${response.status})`);
       }
     } catch (err) {
-      setSubmitError('Unable to connect to the server. Please try again.');
+      console.error('Submit error:', err);
+      setSubmitError('Unable to connect to the server. Please check that the backend is running and try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -348,7 +442,7 @@ export default function BuyerRegister() {
           <div className="mt-6 flex flex-col gap-3">
             <button
               onClick={() => navigate('/buyer-status')}
-              className="w-full py-3 rounded-xl bg-[var(--saathi-primary)] text-white font-bold hover:bg-[var(--saathi-primary-hover)] transition"
+              className="w-full py-3 rounded-xl bg-[var(--saathi-accent)] text-white font-bold hover:bg-[var(--saathi-accent-dark)] transition"
             >
               Check Application Status
             </button>
@@ -364,19 +458,7 @@ export default function BuyerRegister() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[var(--saathi-primary)] pb-12">
-      <div className="mx-auto max-w-4xl px-4 pt-8 sm:px-6">
-        <header className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-xs font-bold text-emerald-100">
-            🛡️ SAATHI Verified Buyer Program
-          </div>
-          <h1 className="mt-4 text-3xl sm:text-4xl font-extrabold text-white">Register as Buyer</h1>
-          <p className="mt-2 text-sm text-emerald-100/80 max-w-xl mx-auto">
-            Join Saathi as a verified buyer and connect with farmers.
-          </p>
-        </header>
-
+  const content = (
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
           {/* Step indicator */}
           <div className="bg-[var(--saathi-surface-alt)] border-b border-[var(--saathi-border-light)] px-4 sm:px-6 py-4">
@@ -413,14 +495,24 @@ export default function BuyerRegister() {
             {step === 0 && (
               <div className="space-y-5">
                 <SectionTitle title="Applicant Information" subtitle="Your personal details" />
-                <FormField
-                  label="Full Name *"
-                  name="applicantName"
-                  value={form.applicantName}
-                  onChange={handleChange}
-                  placeholder="Enter your full name"
-                  error={errors.applicantName}
-                />
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <FormField
+                    label="First Name *"
+                    name="firstName"
+                    value={form.firstName}
+                    onChange={handleChange}
+                    placeholder="First name"
+                    error={errors.firstName}
+                  />
+                  <FormField
+                    label="Last Name *"
+                    name="lastName"
+                    value={form.lastName}
+                    onChange={handleChange}
+                    placeholder="Last name"
+                    error={errors.lastName}
+                  />
+                </div>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <FormField
                     label="Mobile Number *"
@@ -432,16 +524,25 @@ export default function BuyerRegister() {
                     error={errors.phone}
                     maxLength={10}
                   />
-                  <FormField
-                    label="Email Address *"
-                    name="email"
-                    type="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    placeholder="Enter your email"
-                    error={errors.email}
-                  />
-                </div>
+                    <FormField
+                      label="Email Address *"
+                      name="email"
+                      type="email"
+                      value={form.email}
+                      onChange={handleChange}
+                      placeholder="Enter your email"
+                      error={errors.email}
+                    />
+                    <FormField
+                      label="Password *"
+                      name="password"
+                      type="password"
+                      value={form.password}
+                      onChange={handleChange}
+                      placeholder="Create a secure password"
+                      error={errors.password}
+                    />
+                  </div>
                 <div>
                   <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">
                     Profile Photo <span className="text-slate-400">(Optional)</span>
@@ -565,33 +666,38 @@ export default function BuyerRegister() {
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">State *</label>
-                    <select
+                    <input
+                      list="state-options"
                       name="state"
                       value={form.state}
-                      onChange={handleStateChange}
+                      onChange={(e) => {
+                        setForm((prev) => ({ ...prev, state: e.target.value, district: '' }));
+                      }}
+                      placeholder="Type or select state"
                       className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
-                    >
-                      <option value="">Select state</option>
+                    />
+                    <datalist id="state-options">
                       {locationStates.map((state) => (
-                        <option key={state} value={state}>{state}</option>
+                        <option key={state} value={state} />
                       ))}
-                    </select>
+                    </datalist>
                     {errors.state && <ErrorText message={errors.state} />}
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">District *</label>
-                    <select
+                    <input
+                      list="district-options"
                       name="district"
                       value={form.district}
                       onChange={handleChange}
-                      disabled={!form.state}
-                      className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] disabled:bg-[var(--saathi-surface-alt)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
-                    >
-                      <option value="">Select district</option>
+                      placeholder="Type or select district"
+                      className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
+                    />
+                    <datalist id="district-options">
                       {getDistricts(form.state).map((district) => (
-                        <option key={district} value={district}>{district}</option>
+                        <option key={district} value={district} />
                       ))}
-                    </select>
+                    </datalist>
                     {errors.district && <ErrorText message={errors.district} />}
                   </div>
                 </div>
@@ -691,18 +797,44 @@ export default function BuyerRegister() {
               <div className="space-y-5">
                 <SectionTitle title="Purchase Requirements" subtitle="How much and how often do you purchase?" />
                 <div>
-                  <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">Preferred Purchase Radius *</label>
-                  <select
-                    name="preferredPurchaseRadius"
-                    value={form.preferredPurchaseRadius}
-                    onChange={handleChange}
-                    className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
-                  >
-                    <option value="within_10_km">Within 10 km</option>
-                    <option value="within_25_km">Within 25 km</option>
-                    <option value="within_50_km">Within 50 km</option>
-                    <option value="any_location">Any location</option>
-                  </select>
+                  <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-3">Preferred Purchase Radius *</label>
+                  <div className="bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-[var(--saathi-text-muted)]">5 km</span>
+                      <span className="text-lg font-extrabold text-[var(--saathi-primary)]">
+                        {form.preferredPurchaseRadius === 'any_location' ? 'Any Location' : `${form.preferredPurchaseRadius} km`}
+                      </span>
+                      <span className="text-xs font-bold text-[var(--saathi-text-muted)]">500+ km</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="5"
+                      max="510"
+                      step="5"
+                      value={form.preferredPurchaseRadius === 'any_location' ? 510 : Number(form.preferredPurchaseRadius) || 25}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setForm(prev => ({
+                          ...prev,
+                          preferredPurchaseRadius: val >= 510 ? 'any_location' : String(val)
+                        }));
+                      }}
+                      className="w-full h-2 bg-slate-200 rounded-full appearance-none cursor-pointer accent-[var(--saathi-accent)]"
+                    />
+                    <div className="flex justify-between mt-2 text-[10px] font-bold text-[var(--saathi-text-muted)]">
+                      <span>Local</span>
+                      <span>|</span>
+                      <span>25 km</span>
+                      <span>|</span>
+                      <span>50 km</span>
+                      <span>|</span>
+                      <span>100 km</span>
+                      <span>|</span>
+                      <span>200 km</span>
+                      <span>|</span>
+                      <span>Any</span>
+                    </div>
+                  </div>
                 </div>
                 <div className="bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] rounded-xl p-4">
                   <p className="text-sm font-semibold text-[var(--saathi-text-secondary)]">
@@ -878,7 +1010,7 @@ export default function BuyerRegister() {
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="px-8 py-3 rounded-xl bg-[var(--saathi-primary)] text-white font-bold text-sm hover:bg-[var(--saathi-primary-hover)] transition"
+                  className="px-8 py-3 rounded-xl bg-[var(--saathi-accent)] text-white font-bold text-sm hover:bg-[var(--saathi-accent-dark)] transition"
                 >
                   Continue →
                 </button>
@@ -887,7 +1019,7 @@ export default function BuyerRegister() {
                   type="button"
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="px-8 py-3 rounded-xl bg-[var(--saathi-primary)] text-white font-bold text-sm hover:bg-[var(--saathi-primary-hover)] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-8 py-3 rounded-xl bg-[var(--saathi-accent)] text-white font-bold text-sm hover:bg-[var(--saathi-accent-dark)] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isSubmitting ? (
                     <>
@@ -902,6 +1034,23 @@ export default function BuyerRegister() {
             </div>
           </div>
         </div>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <div className="min-h-screen bg-[var(--saathi-primary)] pb-12">
+      <div className="mx-auto max-w-4xl px-4 pt-8 sm:px-6">
+        <header className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-xs font-bold text-emerald-100">
+            🛡️ SAATHI Verified Buyer Program
+          </div>
+          <h1 className="mt-4 text-3xl sm:text-4xl font-extrabold text-white">Register as Buyer</h1>
+          <p className="mt-2 text-sm text-emerald-100/80 max-w-xl mx-auto">
+            Join Saathi as a verified buyer and connect with farmers.
+          </p>
+        </header>
+        {content}
       </div>
     </div>
   );
@@ -941,3 +1090,4 @@ function FormField({ label, name, type = 'text', value, onChange, placeholder, e
 function ErrorText({ message }) {
   return <p className="mt-1 text-xs font-semibold text-red-600">⚠️ {message}</p>;
 }
+
