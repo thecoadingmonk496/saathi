@@ -11,46 +11,48 @@ import SectionHeader from './SectionHeader';
 import { useUser } from '../../context/UserContext';
 
 export default function FarmerServices({ onVoiceStart }) {
+  const { t } = useUser();
+
   const services = [
     {
       id: 'prices',
-      title: 'Market Prices',
-      description: 'View APMC mandi rates and price trends across major agricultural commodities.',
+      title: t('services.prices.title') || t('nav.marketPrices') || 'Market Prices',
+      description: t('services.prices.desc') || 'View APMC mandi rates and price trends across major agricultural commodities.',
       path: '/prices',
       icon: CurrencyRupeeIcon,
-      actionText: 'View Market Prices',
+      actionText: t('services.prices.action') || t('card.exploreBtn') || 'View Market Prices',
     },
     {
       id: 'mandis',
-      title: 'Mandi Information',
-      description: 'Explore APMC agricultural markets and mandi locations relevant to your region.',
+      title: t('services.mandis.title') || 'Mandi Information',
+      description: t('services.mandis.desc') || 'Explore APMC agricultural markets and mandi locations relevant to your region.',
       path: '/mandis',
       icon: BuildingStorefrontIcon,
-      actionText: 'Explore Mandis',
+      actionText: t('services.mandis.action') || 'Explore Mandis',
     },
     {
       id: 'buyers',
-      title: 'Buyer Discovery',
-      description: 'Find registered procurement partners and wholesale buyers interested in your crops.',
+      title: t('services.buyers.title') || t('nav.buyerDiscovery') || 'Buyer Discovery',
+      description: t('services.buyers.desc') || 'Find registered procurement partners and wholesale buyers interested in your crops.',
       path: '/buyers',
       icon: UserGroupIcon,
-      actionText: 'Find Buyers',
+      actionText: t('services.buyers.action') || 'Find Buyers',
     },
     {
       id: 'journey',
-      title: 'Market Explorer',
-      description: 'Understand the multi-stage crop journey and supply chain distribution stages.',
+      title: t('services.journey.title') || t('nav.marketExplorer') || 'Market Explorer',
+      description: t('services.journey.desc') || 'Understand the multi-stage crop journey and supply chain distribution stages.',
       path: '/explorer',
       icon: PresentationChartLineIcon,
-      actionText: 'Explore Journey',
+      actionText: t('services.journey.action') || 'Explore Journey',
     },
     {
       id: 'voice',
-      title: 'Ask SAATHI',
-      description: 'Use voice-assisted and text queries to quickly search agricultural market information.',
+      title: t('services.voice.title') || t('nav.askSaathi') || 'Ask SAATHI',
+      description: t('services.voice.desc') || 'Use voice-assisted and text queries to quickly search agricultural market information.',
       action: onVoiceStart,
       icon: MicrophoneIcon,
-      actionText: 'Ask SAATHI',
+      actionText: t('nav.askSaathi') || 'Ask SAATHI',
     },
   ];
 
@@ -60,8 +62,8 @@ export default function FarmerServices({ onVoiceStart }) {
         
         {/* Section Header */}
         <SectionHeader
-          title="ONLINE SERVICES"
-          subtitle="Explore market rates, discover mandis, connect with buyers, track supply chain, and use voice assistance."
+          title={t('services.title') || 'ONLINE SERVICES'}
+          subtitle={t('services.subtitle') || 'Explore market rates, discover mandis, connect with buyers, track supply chain, and use voice assistance.'}
         />
 
         {/* 5 Feature Cards Grid */}

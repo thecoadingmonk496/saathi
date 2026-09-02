@@ -4,10 +4,10 @@ import { useUser } from '../context/UserContext';
 import { useTranslation } from '../hooks/useTranslation';
 
 const dashboardItems = [
-  { label: t('nav.buyerDiscovery'), path: '/buyers', icon: '🤝', color: 'bg-red-50 text-accent-dark' },
-  { label: t('nav.marketPrices'), path: '/prices', icon: '📈', color: 'bg-red-50 text-accent-dark' },
-  { label: t('nav.marketExplorer'), path: '/explorer', icon: '🗺️', color: 'bg-sky-50 text-sky-700' },
-  { label: t('card.govtTitle'), path: '/government', icon: '🏛️', color: 'bg-violet-50 text-violet-700' },
+  { key: 'nav.buyerDiscovery', fallback: 'Buyer Discovery', path: '/buyers', icon: '🤝', color: 'bg-red-50 text-accent-dark' },
+  { key: 'nav.marketPrices', fallback: 'Market Prices', path: '/prices', icon: '📈', color: 'bg-red-50 text-accent-dark' },
+  { key: 'nav.marketExplorer', fallback: 'Market Explorer', path: '/explorer', icon: '🗺️', color: 'bg-sky-50 text-sky-700' },
+  { key: 'card.govtTitle', fallback: 'Government Schemes', path: '/government', icon: '🏛️', color: 'bg-violet-50 text-violet-700' },
 ];
 
 export default function Home() {
@@ -25,7 +25,7 @@ export default function Home() {
       <header className="mb-8">
         <p className="text-sm font-medium text-accent-dark">{currentDate}</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--saathi-text)] sm:text-4xl">
-          {t('Welcome, {name}', { name: user?.name || t(t('explorer.stageFarmer')) })}
+          {t('Welcome, {name}', { name: user?.name || t('explorer.stageFarmer') || 'Farmer' })}
         </h1>
         <p className="mt-2 text-base text-[var(--saathi-text-secondary)]">{t('What would you like to explore today?')}</p>
       </header>
@@ -41,7 +41,7 @@ export default function Home() {
               {item.icon}
             </span>
             <span className="mt-6 block text-lg font-bold leading-6 text-[var(--saathi-text)] sm:text-xl">
-              {t(item.label)}
+              {t(item.key) || item.fallback}
             </span>
             <span className="mt-2 block text-sm font-semibold text-accent-dark transition group-hover:translate-x-1">
               {t('Explore →')}

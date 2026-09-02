@@ -259,7 +259,7 @@ export default function HeroSearch() {
                 setIsDropdownOpen(true);
               }
             }}
-            placeholder="Search crops, mandi rates, buyers or market trends..."
+            placeholder={t('hero.searchPlaceholder') || "Search crops, mandi rates, buyers or market trends..."}
             aria-label="Search SAATHI marketplace and mandi rates"
             autoComplete="off"
             role="combobox"
@@ -281,7 +281,7 @@ export default function HeroSearch() {
             aria-label="Filter search category"
             className="flex h-12 sm:h-13 w-full sm:w-auto items-center justify-between sm:justify-start gap-2.5 bg-[var(--saathi-surface-alt)] hover:bg-[var(--saathi-border-light)] px-4 text-sm sm:text-base font-bold text-[var(--saathi-text)] transition focus:outline-none"
           >
-            <span className="truncate max-w-[150px]">{selectedCategory.label}</span>
+            <span className="truncate max-w-[150px]">{t(selectedCategory.label) || selectedCategory.label}</span>
             <ChevronDownIcon className={`h-4 w-4 text-[var(--saathi-text-secondary)] transition-transform duration-200 ${isCategoryOpen ? 'rotate-180' : ''}`} />
           </button>
 
@@ -309,7 +309,7 @@ export default function HeroSearch() {
                         : 'text-[var(--saathi-text-secondary)] hover:bg-slate-100 hover:text-[var(--saathi-text)]'
                     }`}
                   >
-                    <span>{cat.label}</span>
+                    <span>{t(cat.label) || cat.label}</span>
                     {isSelected && <CheckIcon className="h-4 w-4 text-[var(--saathi-text-secondary)]" />}
                   </button>
                 );
@@ -323,7 +323,7 @@ export default function HeroSearch() {
           type="submit"
           className="mt-1.5 sm:mt-0 flex h-12 sm:h-13 items-center justify-center gap-2 rounded-md sm:rounded-lg bg-[var(--saathi-accent)] hover:bg-[var(--saathi-accent-dark)] active:scale-[0.99] px-7 sm:px-9 text-base sm:text-lg font-extrabold text-white shadow transition focus:outline-none"
         >
-          <span>Search</span>
+          <span>{t('hero.searchBtn') || 'Search'}</span>
         </button>
 
         {/* Autocomplete Dropdown */}
@@ -367,7 +367,7 @@ export default function HeroSearch() {
 
       {/* Real Trending Searches: Compact neutral chips */}
       <div className="mt-4 flex flex-wrap items-center gap-2 sm:gap-2.5 px-2 text-xs sm:text-sm">
-        <span className="font-extrabold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] mr-1">Trending Searches:</span>
+        <span className="font-extrabold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] mr-1">{t('hero.trendingLabel') || 'Trending Searches:'}</span>
         {TRENDING_SEARCHES.map((term) => (
           <button
             key={term}

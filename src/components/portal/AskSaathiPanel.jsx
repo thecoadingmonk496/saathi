@@ -2,8 +2,10 @@ import { useState, useRef } from 'react';
 import { MicrophoneIcon } from '@heroicons/react/24/outline';
 import SectionHeader from './SectionHeader';
 import SectionSideDecoration from '../common/SectionSideDecoration';
+import { useUser } from '../../context/UserContext';
 
 export default function AskSaathiPanel({ onVoiceStart }) {
+  const { t } = useUser();
   const [customText, setCustomText] = useState('');
   const inputRef = useRef(null);
 
@@ -33,8 +35,8 @@ export default function AskSaathiPanel({ onVoiceStart }) {
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeader
-          title="ASK SAATHI"
-          subtitle="Voice and text search for agricultural market information."
+          title={t('nav.askSaathi') || "ASK SAATHI"}
+          subtitle={t('services.voice.desc') || "Voice and text search for agricultural market information."}
         />
 
         {/* Lighter, Warm Harvest Green Card */}

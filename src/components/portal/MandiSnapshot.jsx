@@ -5,7 +5,7 @@ import SectionSideDecoration from '../common/SectionSideDecoration';
 import { useUser } from '../../context/UserContext';
 
 export default function MandiSnapshot() {
-  const { isLoggedIn } = useUser();
+  const { isLoggedIn, t } = useUser();
 
   return (
     <section className="relative overflow-hidden w-full bg-[var(--saathi-background)] py-14 sm:py-16" id="mandis">
@@ -14,8 +14,8 @@ export default function MandiSnapshot() {
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeader
-          title="MANDI INFORMATION"
-          subtitle="Explore mandi information and discover markets relevant to your region."
+          title={t('services.mandis.title') || "MANDI INFORMATION"}
+          subtitle={t('services.mandis.desc') || "Explore mandi information and discover markets relevant to your region."}
         />
 
         <div className="mt-8 bg-[var(--saathi-surface)] rounded-2xl border border-[var(--saathi-border-light)] p-8 sm:p-12 text-center shadow-sm max-w-3xl mx-auto">

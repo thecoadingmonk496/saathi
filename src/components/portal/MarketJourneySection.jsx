@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { PresentationChartLineIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 import SectionHeader from './SectionHeader';
 import SectionSideDecoration from '../common/SectionSideDecoration';
+import { useUser } from '../../context/UserContext';
 
 const STAGES = [
   { id: 1, name: 'Farmer', desc: 'Cultivation & Harvest' },
@@ -12,6 +13,8 @@ const STAGES = [
 ];
 
 export default function MarketJourneySection() {
+  const { t } = useUser();
+
   return (
     <section className="relative overflow-hidden w-full bg-[var(--saathi-background)] py-14 sm:py-16" id="market-explorer">
       {/* Decorative Side Framing */}
@@ -19,8 +22,8 @@ export default function MarketJourneySection() {
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeader
-          title="MARKET EXPLORER"
-          subtitle="Understanding the Agricultural Supply Chain"
+          title={t('nav.marketExplorer') || "MARKET EXPLORER"}
+          subtitle={t('services.journey.desc') || "Understanding the Agricultural Supply Chain"}
         />
 
         <div className="mt-8 bg-[var(--saathi-surface)] rounded-2xl border border-[var(--saathi-border-light)] p-6 sm:p-10 shadow-sm max-w-5xl mx-auto">

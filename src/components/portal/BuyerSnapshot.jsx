@@ -5,7 +5,7 @@ import SectionSideDecoration from '../common/SectionSideDecoration';
 import { useUser } from '../../context/UserContext';
 
 export default function BuyerSnapshot() {
-  const { isLoggedIn } = useUser();
+  const { isLoggedIn, t } = useUser();
 
   return (
     <section className="relative overflow-hidden w-full bg-[var(--saathi-background)] py-14 sm:py-16" id="buyers">
@@ -14,8 +14,8 @@ export default function BuyerSnapshot() {
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeader
-          title="BUYER DISCOVERY"
-          subtitle="Find buyers interested in the crops you want to sell."
+          title={t('card.buyersTitle') || t('nav.buyerDiscovery') || "BUYER DISCOVERY"}
+          subtitle={t('services.buyers.desc') || "Find buyers interested in the crops you want to sell."}
         />
 
         <div className="mt-8 bg-[var(--saathi-surface)] rounded-2xl border border-[var(--saathi-border-light)] p-8 sm:p-12 text-center shadow-sm max-w-3xl mx-auto">

@@ -2,8 +2,11 @@ import { Link } from 'react-router-dom';
 import { ChartBarIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 import SectionHeader from './SectionHeader';
 import SectionSideDecoration from '../common/SectionSideDecoration';
+import { useUser } from '../../context/UserContext';
 
 export default function MarketInformation() {
+  const { t } = useUser();
+
   return (
     <section className="relative overflow-hidden w-full bg-[var(--saathi-background)] py-14 sm:py-16" id="market-prices">
       {/* Decorative Side Framing */}
@@ -11,8 +14,8 @@ export default function MarketInformation() {
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeader
-          title="MARKET PRICES"
-          subtitle="Current APMC mandi rates and price information."
+          title={t('nav.marketPrices') || "MARKET PRICES"}
+          subtitle={t('services.prices.desc') || "Current APMC mandi rates and price information."}
         />
 
         <div className="mt-8 bg-[var(--saathi-surface)] rounded-2xl border border-[var(--saathi-border-light)] p-8 sm:p-12 text-center shadow-sm max-w-3xl mx-auto">

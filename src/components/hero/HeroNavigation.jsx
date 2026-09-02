@@ -54,7 +54,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
   const navigate = useNavigate();
   const activeCategoryKey = getActiveCategory(location.pathname);
   const currentCategoryServices = activeCategoryKey ? CATEGORY_SERVICES[activeCategoryKey] : null;
-  const { isLoggedIn, user, logout } = useUser();
+  const { isLoggedIn, user, logout, t } = useUser();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [servicesMenuOpen, setServicesMenuOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -189,7 +189,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
                 type="text"
                 value={stickyQuery}
                 onChange={(e) => setStickyQuery(e.target.value)}
-                placeholder="Search crops, mandis, buyers..."
+                placeholder={t('hero.searchPlaceholder') || "Search crops, mandis, buyers..."}
                 aria-label="Search SAATHI"
                 className="w-full bg-transparent px-2 text-xs sm:text-sm font-semibold text-[var(--saathi-text)] placeholder:text-slate-400 outline-none"
               />
@@ -240,7 +240,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
               type="submit"
               className="h-9 rounded-md bg-[var(--saathi-accent)] hover:bg-[var(--saathi-accent-dark)] px-4 text-xs font-extrabold text-white shadow-md transition focus:outline-none focus:ring-2 focus:ring-[var(--saathi-focus)] shrink-0"
             >
-              Search
+              {t('hero.searchBtn') || 'Search'}
             </button>
           </form>
         )}
@@ -253,14 +253,14 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
                 to="/login"
                 className={`${isSticky ? 'text-[var(--saathi-text)] hover:text-[var(--saathi-focus)]' : 'text-white hover:text-white'} transition focus:outline-none focus:underline`}
               >
-                Login
+                {t('nav.login') || 'Login'}
               </Link>
               <span className={`${isSticky ? 'text-[var(--saathi-border)]' : 'text-white opacity-40'} font-light select-none`}>|</span>
               <Link
                 to="/register"
                 className={`${isSticky ? 'text-[var(--saathi-text)] hover:text-[var(--saathi-focus)]' : 'text-white hover:text-white'} transition focus:outline-none focus:underline`}
               >
-                Register
+                {t('nav.register') || 'Register'}
               </Link>
               <span className={`${isSticky ? 'text-[var(--saathi-border)]' : 'text-white opacity-40'} font-light select-none`}>|</span>
             </>
@@ -271,7 +271,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
                 className={`flex items-center gap-1.5 ${isSticky ? 'text-[var(--saathi-text)] hover:text-[var(--saathi-focus)]' : 'text-white hover:text-white'} transition focus:outline-none focus:underline`}
               >
                 <UserCircleIcon className={`h-4 w-4 ${isSticky ? 'text-[var(--saathi-text-secondary)]' : 'text-white/80'}`} />
-                <span>{user?.name || 'Farmer Profile'}</span>
+                <span>{user?.name || t('nav.profile') || 'Farmer Profile'}</span>
               </Link>
               <span className={`${isSticky ? 'text-[var(--saathi-border)]' : 'text-white opacity-40'} font-light select-none`}>|</span>
               <button
@@ -281,7 +281,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
                 title="Logout"
               >
                 <ArrowRightOnRectangleIcon className="h-4 w-4" />
-                <span>Logout</span>
+                <span>{t('nav.logout') || 'Logout'}</span>
               </button>
               <span className={`${isSticky ? 'text-[var(--saathi-border)]' : 'text-white opacity-40'} font-light select-none`}>|</span>
             </>
@@ -292,7 +292,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
             href="#main-content"
             className={`${isSticky ? 'text-[var(--saathi-text-secondary)] hover:text-[var(--saathi-text)]' : 'text-white hover:text-white'} transition focus:outline-none focus:underline focus:not-sr-only`}
           >
-            Skip to main content
+            {t('utility.skipToMain') || 'Skip to main content'}
           </a>
           <span className={`${isSticky ? 'text-[var(--saathi-border)]' : 'text-white opacity-40'} font-light select-none`}>|</span>
 
