@@ -89,9 +89,24 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
     try {
       const recognition = new SpeechRecognition();
+      
+      // 1. Accuracy Boost: Add a Grammar List for common agricultural terms
+      const SpeechGrammarList = window.SpeechGrammarList || window.webkitSpeechGrammarList;
+      if (SpeechGrammarList) {
+        const speechRecognitionList = new SpeechGrammarList();
+        // Add common words so the browser expects to hear them
+        const grammar = '#JSGF V1.0; grammar agriterms; public <term> = mandi | quintal | rupees | saathi | farmer | crop | wheat | rice ;';
+        speechRecognitionList.addFromString(grammar, 1);
+        recognition.grammars = speechRecognitionList;
+      }
+
       recognition.continuous = false;
       recognition.interimResults = true;
       recognition.lang = langTag;
+      
+      // 2. Speed Boost: Tell the browser to only give us its #1 best guess, 
+      // don't waste time calculating alternatives
+      recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {
         setStatus('listening');
@@ -262,7 +277,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // Increased from 6s to 20s
 
       const res = await fetch('https://saathi-backend-7t91.onrender.com/chat', {
         method: 'POST',
