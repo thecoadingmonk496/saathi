@@ -1,29 +1,3 @@
-<<<<<<< HEAD
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#2E7D32" />
-    <meta name="description" content="SAATHI - a farmer-focused agricultural platform" />
-    <title>SAATHI</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-=======
-<!DOCTYPE html>
-<html lang="hi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saathi (कृषि मित्र) - AI Voice Assistant</title>
-    <meta name="description" content="Saathi AI - India's multilingual agricultural voice assistant for farmers. Get Mandi prices, crop advice, and weather info in Hindi, Tamil, Telugu, Bengali, and more.">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script>
         tailwind.config = {
             theme: {
                 extend: {
@@ -44,144 +18,6 @@
             }
         }
     </script>
-    <style>
-        body { font-family: 'Inter', system-ui, sans-serif; }
-        .pulse-animation {
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: translateY(-50%) scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { transform: translateY(-50%) scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-            100% { transform: translateY(-50%) scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-        }
-        /* Custom scrollbar for chat area */
-        .chat-scroll::-webkit-scrollbar { width: 6px; }
-        .chat-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
-        .chat-scroll::-webkit-scrollbar-thumb { background: #22c55e; border-radius: 10px; }
-        /* Language selector styling */
-        #language-select {
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23fff' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 0.5rem center;
-            padding-right: 1.5rem;
-        }
-        /* Mic listening glow */
-        .listening-glow {
-            box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
-            animation: listening-pulse 1.2s infinite;
-        }
-        @keyframes listening-pulse {
-            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
-            70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-        }
-    </style>
-</head>
-<body class="bg-gray-100 h-screen flex flex-col">
-
-    <!-- Header -->
-    <header class="bg-agri-700 text-white p-4 shadow-md flex justify-between items-center z-10">
-        <div class="flex items-center space-x-3">
-            <div class="bg-white text-agri-700 p-2 rounded-full w-10 h-10 flex items-center justify-center text-xl">
-                🌾
-            </div>
-            <div>
-                <h1 class="text-xl font-bold">Saathi (कृषि मित्र)</h1>
-                <p class="text-xs text-agri-100">आपकी हर कृषि समस्या का समाधान</p>
-            </div>
-        </div>
-        <div class="flex items-center space-x-3">
-            <!-- Profile Button -->
-            <button type="button" onclick="openProfileModal()" 
-                class="bg-agri-600 hover:bg-agri-500 text-white text-sm rounded-lg border border-agri-500 px-3 py-1.5 flex items-center space-x-1.5 transition-colors cursor-pointer shadow-sm">
-                <i class="fas fa-user-gear text-agri-100"></i>
-                <span class="font-medium">प्रोफाइल</span>
-            </button>
-            <!-- Auto Language Indicator -->
-            <div class="flex items-center space-x-2 bg-agri-600 text-white text-sm rounded-lg border border-agri-500 px-3 py-1.5 shadow-sm">
-                <i class="fas fa-language text-agri-100"></i>
-                <span id="lang-indicator-text" class="font-medium" title="भाषा स्वतः पहचानी जाएगी">Auto</span>
-            </div>
-            <!-- Status -->
-            <div class="text-sm flex items-center">
-                <span id="status-indicator" class="inline-block w-3 h-3 bg-red-500 rounded-full mr-1"></span>
-                <span id="status-text">Offline</span>
-            </div>
-        </div>
-    </header>
-
-    <!-- Chat Area -->
-    <main id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4 chat-scroll bg-[#e8f5e9]">
-        <!-- Welcome Message -->
-        <div class="flex justify-start">
-            <div id="welcome-message-text" class="bg-white text-gray-800 p-3 rounded-2xl rounded-tl-none max-w-[80%] shadow-sm border border-gray-100">
-                नमस्ते! मैं 'साथी', आपका कृषि मित्र हूँ। आप मुझसे खेती, मंडी भाव, या मौसम के बारे में सवाल पूछ सकते हैं। बोलकर या टाइप करके अपना सवाल पूछें।
-            </div>
-        </div>
-    </main>
-
-    <!-- Controls Area -->
-    <footer class="bg-white p-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] border-t border-gray-200">
-        <div class="relative max-w-4xl mx-auto flex items-center">
-            
-            <!-- Text Input -->
-            <input type="text" id="text-input" class="w-full bg-white border border-gray-200 rounded-full pl-5 pr-32 py-4 text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-agri-500 focus:border-transparent transition-all" placeholder="अपना सवाल यहाँ लिखें (जैसे: गेहूं का भाव क्या है?)...">
-            
-            <!-- Send Text Button -->
-            <button type="button" id="send-btn" class="absolute right-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-agri-600 hover:bg-agri-700 text-white rounded-full flex items-center justify-center transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-agri-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                <i class="fas fa-paper-plane"></i>
-            </button>
-
-            <!-- Record Voice Button (Speech Recognition) -->
-            <button type="button" id="record-btn" class="absolute right-14 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                <i id="record-icon" class="fas fa-microphone"></i>
-            </button>
-        </div>
-        <div id="recording-status" class="text-center text-blue-600 text-sm font-medium h-5 mt-2 hidden">
-            🎙️ सुन रहा हूँ...
-        </div>
-    </footer>
-
-    <!-- Farm Profile Modal -->
-    <div id="profile-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-gray-100 transform transition-all">
-            <div class="flex justify-between items-center border-b pb-3 border-gray-100">
-                <div class="flex items-center space-x-2 text-agri-700 font-bold text-lg">
-                    <span>🧑‍🌾</span>
-                    <span>किसान प्रोफाइल (Farm Profile)</span>
-                </div>
-                <button type="button" onclick="closeProfileModal()" class="text-gray-400 hover:text-gray-600 p-1">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
-            
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">राज्य (State)</label>
-                    <input type="text" id="prof-state" placeholder="e.g. Punjab, Uttar Pradesh" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-agri-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">जिला (District)</label>
-                    <input type="text" id="prof-district" placeholder="e.g. Ludhiana, Varanasi" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-agri-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">मिट्टी का प्रकार (Soil Type)</label>
-                    <input type="text" id="prof-soil" placeholder="e.g. Alluvial, Black Soil, Loamy" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-agri-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">मुख्य फसल (Primary Crop)</label>
-                    <input type="text" id="prof-crop" placeholder="e.g. Wheat, Rice, Cotton" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-agri-500">
-                </div>
-            </div>
-
-            <div class="flex justify-end space-x-2 pt-2 border-t border-gray-100">
-                <button type="button" onclick="closeProfileModal()" class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">रद्द करें (Cancel)</button>
-                <button type="button" onclick="saveFarmerProfile()" class="px-4 py-2 text-sm font-medium bg-agri-600 hover:bg-agri-700 text-white rounded-lg transition-colors shadow-sm">सुरक्षित करें (Save)</button>
-            </div>
-        </div>
-    </div>
-
     <script>
         const API_BASE = "http://127.0.0.1:8000";
         let isListening = false;
@@ -299,14 +135,13 @@
             const recog = new SpeechRecognition();
             recog.continuous = true; // Use continuous to avoid cutting off early
             recog.interimResults = false; // We only want final results
-            // Set recognition language to match the UI language state
-            recog.lang = selectedLanguage || 'hi-IN';
+            // recog.lang is intentionally left unset so the browser does not force transliteration
 
             recog.onstart = () => {
                 console.log(`[VOICE] recognition started (lang: ${recog.lang})`);
             };
 
-            recog.onresult = async (event) => {
+            recog.onresult = (event) => {
                 // Combine all final transcripts
                 let transcript = '';
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -331,9 +166,8 @@
                 }
 
                 console.log('[VOICE] submitting transcript');
-                // The AI message flow requires sendMessage to be called.
-                // We pass the transcript to sendMessage and it will append it and fetch AI response.
-                await sendMessage(transcript);
+                appendMessage(`(🎙️) ${transcript}`, 'user');
+                sendChatToBackend(transcript);
             };
 
             recog.onerror = (event) => {
@@ -374,8 +208,8 @@
                 recognition = initSpeechRecognition();
                 if (!recognition) return;
                 
-                // recognition.lang is already set in initSpeechRecognition
-                
+                // Do NOT set recognition.lang so that speech is transcribed naturally
+                // recognition.lang = selectedLanguage;
                 
                 try {
                     recognition.start();
@@ -402,9 +236,7 @@
             recordBtn.classList.replace('hover:bg-red-600', 'hover:bg-blue-600');
             recordBtn.classList.remove('pulse-animation');
             recordIcon.classList.replace('fa-stop', 'fa-microphone');
-            if (!isProcessing) {
-                recordingStatus.classList.add('hidden');
-            }
+            recordingStatus.classList.add('hidden');
         }
 
         // --- Send chat message to /chat endpoint ---
@@ -498,6 +330,20 @@
         }
 
 
+        // --- TTS and Audio Utilities ---
+        async function unlockAudio() {
+            try {
+                audioPlayer.muted = true;
+                await audioPlayer.play().catch(() => {});
+                audioPlayer.pause();
+                audioPlayer.currentTime = 0;
+                audioPlayer.muted = false;
+                console.log("[TTS] audio unlocked");
+            } catch (error) {
+                console.warn("[TTS] audio unlock failed", error);
+            }
+        }
+
         function cleanTextForSpeech(text) {
             return text
                 .replace(/[*_`#]/g, "")
@@ -538,99 +384,76 @@
         }
 
         async function playBackendTTS(text, langCode) {
-            console.log('[TTS] preparing speech');
-            console.log(`[TTS] language: ${langCode}, text_len: ${text.length}`);
+            console.log('[TTS] request started');
+            const response = await fetch(`${API_BASE}/tts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: text,
+                    language_code: langCode
+                })
+            });
 
-            try {
-                // Stop any currently playing audio first
-                if (audioPlayer && !audioPlayer.paused) {
-                    audioPlayer.pause();
-                    audioPlayer.currentTime = 0;
-                    console.log('[TTS] stopped previous audio');
+            if (!response.ok) {
+                throw new Error(`TTS failed with status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.audio_base64) {
+                console.log('[TTS] audio received');
+                const binaryString = atob(data.audio_base64);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
                 }
+
+                console.log(`[TTS] audio bytes: ${bytes.length}`);
+                if (bytes.length === 0) {
+                    throw new Error("Received empty audio bytes");
+                }
+                
+                const mimeType = data.mime_type || "audio/wav";
+                console.log(`[TTS] MIME: ${mimeType}`);
+
+                const audioBlob = new Blob([bytes], { type: mimeType });
+                
                 if (audioUrl) {
                     URL.revokeObjectURL(audioUrl);
-                    audioUrl = null;
                 }
+                audioUrl = URL.createObjectURL(audioBlob);
+                audioPlayer.src = audioUrl;
 
-                const response = await fetch(`${API_BASE}/tts`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        text: text,
-                        language_code: langCode
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`TTS failed with status: ${response.status}`);
-                }
-
-                const data = await response.json();
+                audioPlayer.volume = 1.0;
+                audioPlayer.muted = false;
                 
-                if (data.audio_base64) {
-                    const voiceName = data.voice || 'unknown';
-                    const audioFmt = data.format || 'mp3';
-                    console.log(`[TTS] audio received: voice=${voiceName} format=${audioFmt}`);
-                    console.log(`[TTS] selected voice: ${voiceName}`);
+                console.log("[TTS] muted:", audioPlayer.muted);
+                console.log("[TTS] volume:", audioPlayer.volume);
+                console.log("[TTS] src:", audioPlayer.src.substring(0, 50));
 
-                    const binaryString = atob(data.audio_base64);
-                    const bytes = new Uint8Array(binaryString.length);
-                    for (let i = 0; i < binaryString.length; i++) {
-                        bytes[i] = binaryString.charCodeAt(i);
-                    }
+                audioPlayer.onloadedmetadata = () => {
+                    console.log("[TTS] audio loaded, metadata loaded", audioPlayer.duration);
+                };
+                audioPlayer.oncanplay = () => console.log("[TTS] audio can play");
+                audioPlayer.onplay = () => console.log("[TTS] PLAY EVENT");
+                audioPlayer.onplaying = () => console.log("[TTS] PLAYING EVENT");
+                audioPlayer.onpause = () => console.log("[TTS] PAUSE EVENT");
+                
+                audioPlayer.onended = () => {
+                    console.log('[TTS] playback ended');
+                    console.log('[TTS] ENDED EVENT');
+                    URL.revokeObjectURL(audioUrl);
+                    audioUrl = null;
+                };
 
-                    console.log(`[TTS] audio generated: ${bytes.length} bytes`);
+                audioPlayer.onerror = () => {
+                    console.error("[TTS] AUDIO ERROR", audioPlayer.error);
+                };
 
-                    if (bytes.length === 0) {
-                        throw new Error("Received empty audio bytes");
-                    }
-
-                    // Use mime_type from response or infer from format
-                    const mimeType = data.mime_type || (audioFmt === 'mp3' ? 'audio/mpeg' : 'audio/wav');
-                    const audioBlob = new Blob([bytes], { type: mimeType });
-                    
-                    console.log(`[TTS] Blob created: size=${audioBlob.size} bytes, type=${audioBlob.type}`);
-
-                    // Safety check: reject suspiciously small audio
-                    if (audioBlob.size <= 100) {
-                        throw new Error(`Invalid audio blob size (${audioBlob.size} bytes). Audio is empty or corrupted.`);
-                    }
-
-                    audioUrl = URL.createObjectURL(audioBlob);
-                    audioPlayer.src = audioUrl;
-                    audioPlayer.volume = 1.0;
-                    audioPlayer.muted = false;
-
-                    audioPlayer.onloadedmetadata = () => {
-                        console.log("[TTS] audio loaded, duration:", audioPlayer.duration);
-                    };
-                    audioPlayer.oncanplay = () => console.log("[TTS] audio can play");
-                    audioPlayer.onplay = () => console.log("[TTS] playback started");
-                    audioPlayer.onplaying = () => console.log("[TTS] PLAYING EVENT");
-
-                    audioPlayer.onended = () => {
-                        console.log('[TTS] playback ended');
-                        if (audioUrl) {
-                            URL.revokeObjectURL(audioUrl);
-                            audioUrl = null;
-                        }
-                    };
-
-                    audioPlayer.onerror = () => {
-                        console.error("[TTS] AUDIO ERROR", audioPlayer.error);
-                    };
-
-                    await audioPlayer.play();
-                    console.log('[TTS] playback started successfully');
-                } else {
-                    throw new Error("No audio returned from backend");
-                }
-            } catch (err) {
-                console.error('[TTS ERROR]', err.message);
-                // Fallback to browser TTS
-                console.log('[TTS] falling back to browser speech synthesis');
-                speakWithBrowserTTS(text, langCode);
+                await audioPlayer.play();
+                console.log('[TTS] playback started successfully');
+            } else {
+                throw new Error("No audio returned from backend");
             }
         }
 
@@ -700,16 +523,11 @@
             indicators.forEach(ind => ind.remove());
         }
 
-        async function sendMessage(overrideInput = null) {
+        async function sendMessage() {
             if (isProcessing) return;
-            // Prevent duplicate requests IMMEDIATELY.
-            isProcessing = true;
 
-            const input = overrideInput !== null ? overrideInput.trim() : textInput.value.trim();
-            if (!input) {
-                isProcessing = false;
-                return;
-            }
+            const input = textInput.value.trim();
+            if (!input) return;
 
             console.log("[CHAT] sendMessage started:", input);
 
@@ -725,7 +543,8 @@
             // Clear input.
             textInput.value = "";
 
-            // Disable inputs while processing.
+            // Prevent duplicate requests.
+            isProcessing = true;
             setButtonsDisabled(true);
 
             // Show typing indicator.
@@ -856,7 +675,3 @@
                 await sendMessage();
             }
         });
-    </script>
-</body>
->>>>>>> 2743decefedec02f99ae6139cf1e6eb1528d9f11
-</html>

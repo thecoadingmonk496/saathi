@@ -1,0 +1,140 @@
+[
+  {
+    "id": "T01-english",
+    "input": "What is the price of wheat?",
+    "expected_language_name": "English",
+    "expected_bcp47": "en-IN"
+  },
+  {
+    "id": "T02-hindi-devanagari",
+    "input": "गेहूं का भाव क्या है?",
+    "expected_language_name": "Hindi",
+    "expected_bcp47": "hi-IN"
+  },
+  {
+    "id": "T03-transliterated-english-in-devanagari",
+    "input": "व्हाट इस द प्राइस ऑफ़ वीट",
+    "expected_language_name": "English",
+    "expected_bcp47": "en-IN"
+  },
+  {
+    "id": "T04-transliterated-hindi-in-latin",
+    "input": "gehu ka bhav kya hai",
+    "expected_language_name": "Hindi",
+    "expected_bcp47": "hi-IN"
+  },
+  {
+    "id": "T05-tamil",
+    "input": "கோதுமை விலை என்ன?",
+    "expected_language_name": "Tamil",
+    "expected_bcp47": "ta-IN"
+  },
+  {
+    "id": "T06-telugu",
+    "input": "గోధుమల ధర ఎంత?",
+    "expected_language_name": "Telugu",
+    "expected_bcp47": "te-IN"
+  },
+  {
+    "id": "T07-bengali",
+    "input": "গমের দাম কত?",
+    "expected_language_name": "Bengali",
+    "expected_bcp47": "bn-IN"
+  },
+  {
+    "id": "T08-marathi",
+    "input": "गव्हाचा भाव काय आहे?",
+    "expected_language_name": "Marathi",
+    "expected_bcp47": "mr-IN"
+  },
+  {
+    "id": "T09-gujarati",
+    "input": "ઘઉંનો ભાવ શું છે?",
+    "expected_language_name": "Gujarati",
+    "expected_bcp47": "gu-IN"
+  },
+  {
+    "id": "T10-kannada",
+    "input": "ಗೋಧಿ ಬೆಲೆ ಎಷ್ಟು?",
+    "expected_language_name": "Kannada",
+    "expected_bcp47": "kn-IN"
+  },
+  {
+    "id": "T11-malayalam",
+    "input": "ഗോതമ്പിന്റെ വില എന്താണ്?",
+    "expected_language_name": "Malayalam",
+    "expected_bcp47": "ml-IN"
+  },
+  {
+    "id": "T12-punjabi",
+    "input": "ਕਣਕ ਦੀ ਕੀਮਤ ਕੀ ਹੈ?",
+    "expected_language_name": "Punjabi",
+    "expected_bcp47": "pa-IN"
+  },
+  {
+    "id": "T13-odia",
+    "input": "ଗହମର ମୂଲ୍ୟ କେତେ?",
+    "expected_language_name": "Odia",
+    "expected_bcp47": "or-IN"
+  },
+  {
+    "id": "T14-urdu",
+    "input": "گندم کی قیمت کیا ہے؟",
+    "expected_language_name": "Urdu",
+    "expected_bcp47": "ur-IN"
+  },
+  {
+    "id": "T15-assamese",
+    "input": "ঘেঁহুৰ দাম কিমান?",
+    "expected_language_name": "Assamese",
+    "expected_bcp47": "as-IN"
+  },
+  {
+    "id": "T16-nepali",
+    "input": "गहुँको मूल्य कति छ?",
+    "expected_language_name": "Nepali",
+    "expected_bcp47": "ne-IN"
+  },
+  {
+    "id": "T17-maithili",
+    "input": "गहूमक दाम कतेक अछि?",
+    "expected_language_name": "Maithili",
+    "expected_bcp47": "mai-IN"
+  },
+  {
+    "id": "T18-konkani",
+    "input": "गवांचो दर कित्लो?",
+    "expected_language_name": "Konkani",
+    "expected_bcp47": "kok-IN"
+  },
+  {
+    "id": "T19-sindhi",
+    "input": "ڪڻڪ جي قيمت ڇا آهي؟",
+    "expected_language_name": "Sindhi",
+    "expected_bcp47": "sd-IN"
+  },
+  {
+    "id": "T20-kashmiri",
+    "input": "کٔنکٕچ قٟمژ کِیاہ چھِ؟",
+    "expected_language_name": "Kashmiri",
+    "expected_bcp47": "ks-IN"
+  },
+  {
+    "id": "T21-dogri",
+    "input": "कनक दा भा केह् ऐ?",
+    "expected_language_name": "Dogri",
+    "expected_bcp47": "doi-IN"
+  },
+  {
+    "id": "T22-bodo",
+    "input": "गमामायनि बेसेना बेसेबां?",
+    "expected_language_name": "Bodo",
+    "expected_bcp47": "brx-IN"
+  },
+  {
+    "id": "T23-manipuri",
+    "input": "ꯒꯦꯍꯨꯒꯤ ꯃꯃꯜ ꯀꯌꯥꯅꯣ?",
+    "expected_language_name": "Manipuri",
+    "expected_bcp47": "mni-IN"
+  }
+]

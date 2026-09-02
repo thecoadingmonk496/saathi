@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 .vercel
 .env*
 node_modules/
@@ -9,3 +10,10 @@ live_html.txt
 *.bak
 test*.json
 backend/reconciliation_report.txt
+=======
+.venv/
+venv/
+.env
+__pycache__/
+.DS_Store
+>>>>>>> 2743decefedec02f99ae6139cf1e6eb1528d9f11
