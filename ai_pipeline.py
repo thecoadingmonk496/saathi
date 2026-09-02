@@ -224,7 +224,7 @@ def get_mandi_price(crop_name: str, state: str) -> str:
 # ---------------------------------------------------------------------------
 # LLM initialisation
 # ---------------------------------------------------------------------------
-MODEL_NAME = os.getenv("MODEL_NAME", "gemini-1.5-flash")
+MODEL_NAME = os.getenv("MODEL_NAME", "gemini-3.5-flash-lite")
 
 _retry_policy = Retry(
     total=3,
