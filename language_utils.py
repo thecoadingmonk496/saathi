@@ -141,7 +141,7 @@ def _get_llm_detector():
     if _llm_detector is None:
         from langchain_google_genai import ChatGoogleGenerativeAI
         api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash-latest", api_key=api_key)
+        llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", api_key=api_key)
         _llm_detector = llm.with_structured_output(LanguageDetectionResult)
     return _llm_detector
 
