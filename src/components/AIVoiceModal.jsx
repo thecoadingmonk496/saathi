@@ -29,7 +29,7 @@ function prepareNaturalSpeechText(text, langTag) {
   const isHindi = langTag.startsWith('hi');
   let speechText = text
     .replace(/₹\s*([\d,]+)/g, isHindi ? '$1 रुपये' : '$1 rupees')
-    .replace(/quintal/g, isHindi ? t('explorer.qtl') : 'quintal')
+    .replace(/quintal/g, isHindi ? 'क्विंटल' : 'quintal')
     .replace(/(\d+)\s*km/g, isHindi ? '$1 किलोमीटर' : '$1 kilometers');
   return speechText;
 }
@@ -44,9 +44,20 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
   const [isSupported, setIsSupported] = useState(true);
   const [voices, setVoices] = useState([]);
 
+  // Chat history: array of { role: 'user' | 'assistant', content: string }
+  const [chatHistory, setChatHistory] = useState([]);
+
   const recognitionRef = useRef(null);
   const audioRef = useRef(null);
+  const chatEndRef = useRef(null);
   const langTag = languageTagMap[preferredLanguage] || 'hi-IN';
+
+  // Auto-scroll to latest message
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatHistory, responseText]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
@@ -67,19 +78,6 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    // Pre-warm the backend AI and TTS engine to eliminate cold-start latency
-    fetch('https://saathi-backend-7t91.onrender.com/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: 'ping', language: 'en-IN' })
-    }).catch(() => {});
-    
-    fetch('https://saathi-backend-7t91.onrender.com/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: ' ', language_code: 'en-IN' })
-    }).catch(() => {});
 
     if (!SpeechRecognition) {
       setIsSupported(false);
@@ -150,11 +148,6 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
           recognitionRef.current.abort();
         } catch { }
       }
-      if (audioRef.current) {
-        try { audioRef.current.stop(); } catch (e) {}
-        try { audioRef.current.disconnect(); } catch (e) {}
-        audioRef.current = null;
-      }
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
@@ -177,14 +170,14 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       matched = voices.find((v) => v.lang === targetLangTag || v.lang.replace('_', '-') === targetLangTag || v.lang.startsWith(baseLang));
     }
 
-    if (!matched) {
+    if (!matched || !isFemaleVoice(matched)) {
       const indianFemaleFallback = voices.find((v) => (v.lang.startsWith('hi') || v.lang.includes('IN')) && isFemaleVoice(v));
       if (indianFemaleFallback) {
         matched = indianFemaleFallback;
       }
     }
 
-    if (!matched) {
+    if (!matched || !isFemaleVoice(matched)) {
       const globalFemale = voices.find(isFemaleVoice);
       if (globalFemale) {
         matched = globalFemale;
@@ -198,12 +191,6 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
     if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) {
       setStatus('done');
       return;
-    }
-
-    if (audioRef.current) {
-      try { audioRef.current.stop(); } catch (e) {}
-      try { audioRef.current.disconnect(); } catch (e) {}
-      audioRef.current = null;
     }
 
     try {
@@ -258,11 +245,21 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       } catch { }
     }
 
+    // Add user message to chat history
+    const userMessage = { role: 'user', content: queryText.trim() };
+    setChatHistory((prev) => [...prev, userMessage]);
+
     setStatus('thinking');
 
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+      // Build history array for backend context (previous messages in this session)
+      const historyForBackend = chatHistory.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
 
       const res = await fetch('https://saathi-backend-7t91.onrender.com/chat', {
         method: 'POST',
@@ -271,7 +268,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
         body: JSON.stringify({ 
           message: queryText,
           language: preferredLanguage,
-          history: [],
+          history: historyForBackend,
           profile: {} 
         })
       });
@@ -286,7 +283,9 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       if (aiResponse && aiResponse.toLowerCase().includes('server is busy')) {
         throw new Error('Backend returned busy message');
       }
-      
+
+      // Add assistant message to chat history
+      setChatHistory((prev) => [...prev, { role: 'assistant', content: aiResponse }]);
       setResponseText(aiResponse);
       onResponse?.(aiResponse);
 
@@ -376,6 +375,9 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       console.warn('Live AI failed, falling back to local engine:', e);
       // Fallback to local rule-based engine
       const { response, action } = processVoiceQuery(queryText, preferredLanguage);
+
+      // Add assistant message to chat history
+      setChatHistory((prev) => [...prev, { role: 'assistant', content: response }]);
       setResponseText(response);
       onResponse?.(response);
       speakText(response);
@@ -449,13 +451,15 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
         role="dialog"
         aria-modal="true"
         aria-labelledby="ai-voice-modal-title"
-        className="w-full max-w-xl rounded-lg border border-[var(--saathi-border-light)] bg-white p-5 shadow-2xl sm:p-7"
+        className="flex w-full max-w-xl flex-col rounded-lg border border-[var(--saathi-border-light)] bg-white shadow-2xl sm:max-h-[85vh]"
+        style={{ maxHeight: '90vh' }}
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex items-start justify-between gap-4">
+        {/* Header - Fixed */}
+        <header className="flex items-start justify-between gap-4 border-b border-slate-100 p-5 sm:p-7 pb-4 sm:pb-5">
           <div className="flex items-center gap-3">
             <span
-              className={`flex h-12 w-12 items-center justify-center rounded-full overflow-hidden text-primary-dark shadow-lg ${
+              className={`flex h-12 w-12 items-center justify-center rounded-full overflow-hidden shadow-lg ${
                 status === 'listening'
                   ? 'animate-pulse bg-[var(--saathi-primary)] shadow-red-900/30 ring-4 ring-red-200'
                   : status === 'speaking'
@@ -489,108 +493,159 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
           </button>
         </header>
 
-        <div className="mt-6 rounded-2xl border border-red-100 bg-gradient-to-b from-red-50/90 to-slate-50/50 p-5">
-          <div className="flex h-20 items-end justify-center gap-2" aria-hidden="true">
-            {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((bar) => (
-              <span
-                key={bar}
-                className={`block w-2.5 rounded-full transition-all duration-300 ${
-                  status === 'listening'
-                    ? 'voice-wave-bar bg-[var(--saathi-primary)] shadow-md shadow-red-900/20'
-                    : status === 'speaking'
-                    ? 'animate-pulse bg-slate-600 shadow-md h-14'
-                    : 'h-4 bg-slate-300'
-                }`}
-                style={{ animationDelay: `${bar * 100}ms` }}
-              />
-            ))}
-          </div>
-
-          <div className="mt-4 rounded-md bg-white p-4 shadow-sm border border-slate-100">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
-                {responseText ? t('ai.answerLabel') : t('ai.queryLabel')}
-              </p>
-              {responseText && (
-                <button
-                  type="button"
-                  onClick={() => speakText(responseText)}
-                  className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2.5 py-1 text-xs font-extrabold text-[#065f46] hover:bg-slate-200 transition hover:scale-105"
+        {/* Scrollable Chat Area */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-7 pt-4 sm:pt-5" style={{ minHeight: '200px', maxHeight: '50vh' }}>
+          
+          {/* Previous chat messages */}
+          {chatHistory.length > 0 && (
+            <div className="mb-4 space-y-3">
+              {chatHistory.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <SpeakerWaveIcon className="h-3.5 w-3.5" />
-                  {t('ai.playVoice') || t('ai.playVoice')}
-                </button>
-              )}
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm font-semibold leading-relaxed shadow-sm ${
+                      msg.role === 'user'
+                        ? 'bg-[var(--saathi-primary)] text-white rounded-br-md'
+                        : 'bg-gradient-to-br from-emerald-50 to-green-50 text-[var(--saathi-text)] border border-emerald-100 rounded-bl-md'
+                    }`}
+                  >
+                    {msg.role === 'assistant' && (
+                      <div className="mb-1 flex items-center gap-1.5">
+                        <img src="/saathi-mic-logo.png" alt="" className="h-4 w-4 rounded-full bg-[#fdfbf7] object-contain" />
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600">SAATHI</span>
+                        <button
+                          type="button"
+                          onClick={() => speakText(msg.content)}
+                          className="ml-auto inline-flex items-center gap-0.5 rounded bg-emerald-100/70 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 hover:bg-emerald-200 transition"
+                          aria-label="Play this response"
+                        >
+                          <SpeakerWaveIcon className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
+                    {msg.role === 'user' && (
+                      <p className="mb-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white/70">You</p>
+                    )}
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-
-            <p className="mt-1.5 min-h-12 text-base font-bold leading-7 text-[var(--saathi-text)] sm:text-lg">
-              {responseText || displayTranscript || (
-                <span className="italic text-slate-400">
-                  {status === 'listening' ? t('ai.speakPrompt') : t('ai.typePrompt')}
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
-
-        <form onSubmit={handleManualSubmit} className="mt-4 flex items-center gap-2">
-          <input
-            type="text"
-            value={textInput}
-            onChange={(e) => setTextInput(e.target.value)}
-            placeholder={t('ai.typePlaceholder') || t('ai.typePlaceholder')}
-            className="flex-1 rounded-md border border-[var(--saathi-border-light)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--saathi-text)] outline-none transition placeholder:text-slate-400 focus:border-[#15803D] focus:ring-2 focus:ring-red-100"
-          />
-          <button
-            type="submit"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--saathi-primary)] text-primary-dark shadow-sm transition hover:bg-[var(--saathi-primary-hover)] focus:outline-none focus:ring-2 focus:ring-red-200"
-            aria-label="Send question"
-          >
-            <PaperAirplaneIcon className="h-4 w-4" />
-          </button>
-        </form>
-
-        {!isSupported && (
-          <p className="mt-2 text-xs font-semibold text-red-600">
-            {t('ai.notSupported')}
-          </p>
-        )}
-
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-          {status === 'listening' ? (
-            <button
-              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-md bg-red-600 px-5 text-sm font-bold text-primary-dark transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-200"
-              type="button"
-              onClick={() => {
-                if (recognitionRef.current) {
-                  try {
-                    recognitionRef.current.stop();
-                  } catch { }
-                }
-                if (transcript) handleFinalSpeech(transcript);
-                else setStatus('done');
-              }}
-            >
-              {t('ai.stopProcess') || t('ai.stopProcess')}
-            </button>
-          ) : (
-            <button
-              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--saathi-primary)] px-5 text-sm font-bold text-primary-dark transition hover:bg-[var(--saathi-primary-hover)] focus:outline-none focus:ring-4 focus:ring-red-200"
-              type="button"
-              onClick={handleRestartListening}
-            >
-              <img src="/saathi-mic-logo.png" alt="SAATHI logo" className="h-5 w-5 rounded-full bg-[#fdfbf7] object-contain p-0.5" />
-              {t('ai.speakAgain') || t('ai.speakAgain')}
-            </button>
           )}
 
-          <button
-            className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-[var(--saathi-border-light)] bg-white px-5 text-sm font-bold text-[var(--saathi-text-secondary)] transition hover:bg-[var(--saathi-surface-alt)] focus:outline-none focus:ring-4 focus:ring-slate-200"
-            type="button"
-            onClick={onClose}
-          >
-            {t('ai.close') || t('ai.close')}
-          </button>
+          {/* Current active area - Listening/Thinking indicator */}
+          <div className="rounded-2xl border border-red-100 bg-gradient-to-b from-red-50/90 to-slate-50/50 p-4">
+            <div className="flex h-16 items-end justify-center gap-2" aria-hidden="true">
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((bar) => (
+                <span
+                  key={bar}
+                  className={`block w-2.5 rounded-full transition-all duration-300 ${
+                    status === 'listening'
+                      ? 'voice-wave-bar bg-[var(--saathi-primary)] shadow-md shadow-red-900/20'
+                      : status === 'speaking'
+                      ? 'animate-pulse bg-slate-600 shadow-md h-14'
+                      : status === 'thinking'
+                      ? 'animate-pulse bg-amber-400 shadow-md h-8'
+                      : 'h-4 bg-slate-300'
+                  }`}
+                  style={{ animationDelay: `${bar * 100}ms` }}
+                />
+              ))}
+            </div>
+
+            {/* Show current transcript (not yet in history) */}
+            {(displayTranscript && status === 'listening') && (
+              <div className="mt-3 rounded-md bg-white p-3 shadow-sm border border-slate-100">
+                <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                  {t('ai.queryLabel')}
+                </p>
+                <p className="mt-1 text-base font-bold leading-7 text-[var(--saathi-text)]">
+                  {displayTranscript}
+                </p>
+              </div>
+            )}
+
+            {/* Status text when no current transcript */}
+            {!displayTranscript && chatHistory.length === 0 && status === 'listening' && (
+              <p className="mt-3 text-center text-sm font-semibold text-slate-400 italic">
+                {t('ai.speakPrompt')}
+              </p>
+            )}
+
+            {status === 'thinking' && (
+              <p className="mt-3 text-center text-sm font-semibold text-amber-600 animate-pulse">
+                {t('ai.thinking') || 'SAATHI is thinking...'}
+              </p>
+            )}
+          </div>
+
+          {/* Scroll anchor */}
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* Input & Actions - Fixed at bottom */}
+        <div className="border-t border-slate-100 p-5 sm:p-7 pt-4 sm:pt-5">
+          <form onSubmit={handleManualSubmit} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              placeholder={t('ai.typePlaceholder') || t('ai.typePlaceholder')}
+              className="flex-1 rounded-md border border-[var(--saathi-border-light)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--saathi-text)] outline-none transition placeholder:text-slate-400 focus:border-[#15803D] focus:ring-2 focus:ring-red-100"
+            />
+            <button
+              type="submit"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--saathi-primary)] text-white shadow-sm transition hover:bg-[var(--saathi-primary-hover)] focus:outline-none focus:ring-2 focus:ring-red-200"
+              aria-label="Send question"
+            >
+              <PaperAirplaneIcon className="h-4 w-4" />
+            </button>
+          </form>
+
+          {!isSupported && (
+            <p className="mt-2 text-xs font-semibold text-red-600">
+              {t('ai.notSupported')}
+            </p>
+          )}
+
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            {status === 'listening' ? (
+              <button
+                className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-200"
+                type="button"
+                onClick={() => {
+                  if (recognitionRef.current) {
+                    try {
+                      recognitionRef.current.stop();
+                    } catch { }
+                  }
+                  if (transcript) handleFinalSpeech(transcript);
+                  else setStatus('done');
+                }}
+              >
+                {t('ai.stopProcess') || t('ai.stopProcess')}
+              </button>
+            ) : (
+              <button
+                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white transition hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-200"
+                type="button"
+                onClick={handleRestartListening}
+              >
+                <MicrophoneIcon className="h-5 w-5" />
+                {t('ai.speakAgain') || t('ai.speakAgain')}
+              </button>
+            )}
+
+            <button
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border-2 border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 hover:border-slate-400 focus:outline-none focus:ring-4 focus:ring-slate-200"
+              type="button"
+              onClick={onClose}
+            >
+              {t('ai.close') || t('ai.close')}
+            </button>
+          </div>
         </div>
       </section>
     </div>
