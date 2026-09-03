@@ -813,43 +813,85 @@ export default function MarketPrices() {
         </div>
       )}
 
-      {/* Alert Setting and Disclaimer */}
-      <div className="grid gap-6 sm:grid-cols-2 mt-8 mb-8">
-        <div className="rounded-3xl bg-[var(--saathi-surface-alt)] p-6 border border-[var(--saathi-border-light)]">
-          <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--saathi-primary)] flex items-center gap-2">
-            <span>🧠</span> {t('prices.insightTitle')}
-          </h3>
-          <p className="mt-3 text-base font-semibold text-[var(--saathi-text)] leading-relaxed">
-            {t('prices.dataNote')}
-          </p>
-          <a href="/buyers" className="mt-4 inline-block font-bold text-[var(--saathi-primary)] hover:underline">
-            {t('prices.insightCompare')}
-          </a>
-        </div>
-
-        <div className="rounded-3xl bg-white p-6 border border-[var(--saathi-border-light)]">
-          <h3 className="text-lg font-bold text-[var(--saathi-text)] flex items-center gap-2 mb-4">
-            <span>🔔</span> {t('prices.alertTitle')}
-          </h3>
-          <p className="text-sm font-medium text-[var(--saathi-text-secondary)] mb-3">
-            {t('prices.alertTarget')} {commoditySearch ? getRegionalCropName(commoditySearch) : t('prices.cropCol')}:
-          </p>
-          <div className="flex gap-2">
-            <input 
-              type="text" 
-              placeholder="₹2,300"
-              className="w-full rounded-xl border border-[var(--saathi-border-light)] px-4 py-2 font-bold text-[var(--saathi-text)] focus:border-[#2E7D32] outline-none"
+      {/* Heritage And Market Showcase Section - Stitch Modern UI */}
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10 mb-8" data-purpose="heritage-visual-showcase">
+        {/* Feature Card 1: Agricultural Heartland */}
+        <article className="group bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm hover:shadow-md transition duration-300 flex flex-col">
+          <div className="relative h-64 md:h-72 w-full overflow-hidden bg-slate-100">
+            <img
+              alt="Indo-Gangetic Plains Golden Wheat Field"
+              className="w-full h-full object-cover object-center group-hover:scale-105 transition duration-500"
+              loading="lazy"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCBUWrgrSwKu6BQ6AARnfhXTTasI4n06JRA-zBYGfBcJUp9LLPKst3yRdVyn61We2uF_jTmDm-HuBx3qyzM0PdxU-Uhz6uVEzaI9A2vMX-8pqz6tAiK7hUz7zT27bI69T4TFlPAccaY-4ZoublIdaG9l96PyIuGrO70jJVPw7Fs8E0b9HI-8d2uKx_yaRWIYayzvKfxBnB-MzBnpkHWJB_JBuqUt3_NFoiHAHi9MgxEWuqqpn7bB3aB"
             />
-            <button className="shrink-0 rounded-xl bg-slate-900 px-5 py-2 text-sm font-bold text-white hover:bg-slate-800 transition">
-              {t('prices.alertSetBtn')}
-            </button>
+            <div className="absolute top-4 left-4">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/90 backdrop-blur-md text-emerald-800 shadow-sm border border-white/60">
+                <span>🌾</span> Indo-Gangetic Plains
+              </span>
+            </div>
           </div>
-        </div>
-      </div>
+          <div className="p-6 flex-1 flex flex-col justify-between">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-amber-600 mb-1">
+                Agrarian Heritage
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">
+                Heartland of Indian Agriculture
+              </h3>
+              <p className="text-sm leading-relaxed text-slate-600">
+                Over 60% of rural livelihoods in India thrive on seasonal harvests across the fertile Indo-Gangetic plains, bringing daily grain supplies to local APMC mandis.
+              </p>
+            </div>
+            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+              <span>Core Crop: Sharbati & Durum Wheat</span>
+              <span className="font-medium text-slate-500">Rabi Season Cycle</span>
+            </div>
+          </div>
+        </article>
 
-      <footer className="border-t border-[var(--saathi-border-light)] pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left">
-        <p className="text-xs font-semibold text-[var(--saathi-text-muted)]">{t('prices.dataNote')}</p>
-        <p className="text-xs font-bold text-[var(--saathi-primary)]">SAATHI Market Engine</p>
+        {/* Feature Card 2: APMC Mandi Network */}
+        <article className="group bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm hover:shadow-md transition duration-300 flex flex-col">
+          <div className="relative h-64 md:h-72 w-full overflow-hidden bg-slate-100">
+            <img
+              alt="Indian APMC Mandi Market Trade Scene"
+              className="w-full h-full object-cover object-center group-hover:scale-105 transition duration-500"
+              loading="lazy"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuAw4BNkx-gwZp4gHCYJd83LrRhgfDzwiSXOEe2tlgyz9JBaQ_RaCyITrkUWOjldmdB_X5v0WkHapzP1fqmJJe7y12a1EbdWZ4TWrq1mBd_ZCMsgvK4JgmVR84yqENtFEvBfnxTCqlq6TcizwTt2x063HHg4QTT3PpYOGEND2NmgLn7Yv8NcQNHt0FbZAtnpJfaIiewH1EqubU3Jg6AyzutDY1Spbd9VxjfUEw_cFoLfPGCkmZPdhaFE"
+            />
+            <div className="absolute top-4 left-4">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/90 backdrop-blur-md text-blue-800 shadow-sm border border-white/60">
+                <span>🇮🇳</span> 2,400+ APMC Yards
+              </span>
+            </div>
+          </div>
+          <div className="p-6 flex-1 flex flex-col justify-between">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-blue-600 mb-1">
+                Trade Ecosystem
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">
+                APMC Mandi Network
+              </h3>
+              <p className="text-sm leading-relaxed text-slate-600">
+                India operates over 2,400 regulated APMC wholesale yards ensuring transparent price discovery and direct market linkage for farming communities.
+              </p>
+            </div>
+            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+              <span>Regulated Exchange & Weighment</span>
+              <span className="font-medium text-slate-500">Fair Trade Mandate</span>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      {/* Baseline Footer Note */}
+      <footer className="pt-4 border-t border-slate-200/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500" data-purpose="market-engine-footer">
+        <p className="text-slate-500">
+          Prices may vary by quality, variety and market conditions.
+        </p>
+        <div className="font-semibold text-slate-700 tracking-tight flex items-center gap-1.5">
+          <span>SAATHI Market Engine</span>
+        </div>
       </footer>
     </section>
   );
