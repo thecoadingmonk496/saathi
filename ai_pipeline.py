@@ -117,6 +117,51 @@ KNOWN_LOCATIONS = [
     'uttar pradesh', 'andhra pradesh', 'telangana', 'hyderabad'
 ]
 
+LOCATION_NORMALIZATION: dict[str, tuple[str, Optional[str]]] = {
+    "varanasi": ("Uttar Pradesh", "Varanasi"),
+    "gorakhpur": ("Uttar Pradesh", "Gorakhpur"),
+    "lucknow": ("Uttar Pradesh", "Lucknow"),
+    "prayagraj": ("Uttar Pradesh", "Prayagraj"),
+    "kanpur": ("Uttar Pradesh", "Kanpur"),
+    "agra": ("Uttar Pradesh", "Agra"),
+    "meerut": ("Uttar Pradesh", "Meerut"),
+    "amritsar": ("Punjab", "Amritsar"),
+    "ludhiana": ("Punjab", "Ludhiana"),
+    "patiala": ("Punjab", "Patiala"),
+    "jalandhar": ("Punjab", "Jalandhar"),
+    "chennai": ("Tamil Nadu", "Chennai"),
+    "coimbatore": ("Tamil Nadu", "Coimbatore"),
+    "madurai": ("Tamil Nadu", "Madurai"),
+    "bangalore": ("Karnataka", "Bangalore"),
+    "mysore": ("Karnataka", "Mysore"),
+    "hubli": ("Karnataka", "Hubli"),
+    "mumbai": ("Maharashtra", "Mumbai"),
+    "pune": ("Maharashtra", "Pune"),
+    "nagpur": ("Maharashtra", "Nagpur"),
+    "nashik": ("Maharashtra", "Nashik"),
+    "ahmedabad": ("Gujarat", "Ahmedabad"),
+    "surat": ("Gujarat", "Surat"),
+    "vadodara": ("Gujarat", "Vadodara"),
+    "rajkot": ("Gujarat", "Rajkot"),
+    "gurugram": ("Haryana", "Gurugram"),
+    "faridabad": ("Haryana", "Faridabad"),
+    "panipat": ("Haryana", "Panipat"),
+    "bhopal": ("Madhya Pradesh", "Bhopal"),
+    "indore": ("Madhya Pradesh", "Indore"),
+    "gwalior": ("Madhya Pradesh", "Gwalior"),
+    "jabalpur": ("Madhya Pradesh", "Jabalpur"),
+    "jaipur": ("Rajasthan", "Jaipur"),
+    "jodhpur": ("Rajasthan", "Jodhpur"),
+    "udaipur": ("Rajasthan", "Udaipur"),
+    "kota": ("Rajasthan", "Kota"),
+    "patna": ("Bihar", "Patna"),
+    "gaya": ("Bihar", "Gaya"),
+    "muzaffarpur": ("Bihar", "Muzaffarpur"),
+    "kolkata": ("West Bengal", "Kolkata"),
+    "howrah": ("West Bengal", "Howrah"),
+    "darjeeling": ("West Bengal", "Darjeeling"),
+}
+
 def extract_location_from_message(message: str) -> Optional[str]:
     """Extract location mentioned in user message."""
     msg_lower = (message or "").lower()
@@ -124,6 +169,20 @@ def extract_location_from_message(message: str) -> Optional[str]:
         if loc in msg_lower:
             return loc
     return None
+
+def normalize_location(location: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    """Return MongoDB state and district filters for a user-mentioned location."""
+    if not location:
+        return None, None
+    normalized = LOCATION_NORMALIZATION.get(location.lower().strip())
+    if normalized:
+        return normalized
+    if location.lower().strip() in {"punjab", "tamil nadu", "karnataka", "maharashtra",
+                                    "gujarat", "haryana", "madhya pradesh", "rajasthan",
+                                    "bihar", "west bengal", "uttar pradesh", "andhra pradesh",
+                                    "telangana"}:
+        return location.strip(), None
+    return None, location.strip()
 
 KNOWN_CROP_ALIASES: list[str] = [
     "wheat", "gehu", "gehun", "गेहूं", "गेहूँ", "गहू", "கோதுமை", "godhuma",
@@ -175,7 +234,11 @@ def get_mandi_prices_context(
         filters: dict[str, Any] = {}
         if crop_name:
             canonical_crop = get_canonical_crop_name(crop_name)
-            filters["commodity"] = re.compile(re.escape(canonical_crop), re.IGNORECASE)
+            crop_aliases = CROP_TRANSLATIONS.get(canonical_crop, [canonical_crop])
+            filters["commodity"] = re.compile(
+                "|".join(re.escape(alias) for alias in crop_aliases),
+                re.IGNORECASE,
+            )
         if state:
             filters["state"] = re.compile(re.escape(state.strip()), re.IGNORECASE)
         if district:
@@ -467,10 +530,13 @@ def run_ai_pipeline(
 
     user_location = extract_location_from_message(query)
     user_crop = extract_crop_from_message(query)
+    location_state, location_district = normalize_location(user_location)
 
     effective_profile = (profile or {}).copy()
-    if user_location:
-        effective_profile['state'] = user_location
+    if location_state:
+        effective_profile['state'] = location_state
+    if location_district:
+        effective_profile['district'] = location_district
     if user_crop:
         effective_profile['crop'] = user_crop
 
