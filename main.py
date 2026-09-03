@@ -23,13 +23,12 @@ from ai_pipeline import run_ai_pipeline
 from sarvam_service import speech_to_text, text_to_speech as sarvam_tts, is_valid_sarvam_key
 
 _TTS_ENABLED = os.getenv("TTS_ENABLED", "true").lower() == "true"
-_SARVAM_SPEAKER = os.getenv("SARVAM_SPEAKER", "shubh").strip() or "shubh"
+_SARVAM_SPEAKER = "shubh"
 
 
 def synthesise_speech(
     text: str,
     language_code: str = "hi-IN",
-    speaker: Optional[str] = None,
 ) -> tuple[str, str, str]:
     """
     Sarvam-only TTS entry point.
@@ -45,18 +44,17 @@ def synthesise_speech(
     # ── Sarvam Bulbul v3 ─────────────────────────────────────────────
     if is_valid_sarvam_key():
         try:
-            selected_speaker = speaker.strip() if speaker and speaker.strip() else _SARVAM_SPEAKER
             b64 = sarvam_tts(
                 text=text,
                 target_language_code=language_code,
-                speaker=selected_speaker,
+                speaker=_SARVAM_SPEAKER,
             )
             if b64:
                 logger.info(
                     f"[TTS] Sarvam synthesised {len(b64)} b64 chars "
-                    f"(audio/wav), speaker={selected_speaker}"
+                    f"(audio/wav), speaker={_SARVAM_SPEAKER}"
                 )
-                return b64, "audio/wav", f"sarvam-{selected_speaker}"
+                return b64, "audio/wav", f"sarvam-{_SARVAM_SPEAKER}"
         except Exception as exc:
             logger.warning(f"[TTS] Sarvam TTS failed: {exc}")
 
@@ -129,7 +127,7 @@ class ChatResponse(BaseModel):
 class TTSRequest(BaseModel):
     text: str = Field(..., description="Text to synthesize")
     language_code: str = Field(default="hi-IN", description="Target language BCP-47 or ISO 639-1 code")
-    speaker: Optional[str] = Field(default=None, description="Sarvam speaker ID override")
+    speaker: Optional[str] = Field(default=None, description="Ignored; production voice is fixed to Sarvam shubh")
 
 class TTSResponse(BaseModel):
     status: str = "success"
@@ -149,6 +147,8 @@ class VoiceChatResponse(BaseModel):
     transcribed_text: str
     ai_response: str
     audio_base64: str
+    mime_type: str = "audio/wav"
+    voice: str = "sarvam-shubh"
 
 
 @app.get("/", tags=["Frontend"], include_in_schema=False)
@@ -182,7 +182,6 @@ async def tts_endpoint(request: TTSRequest) -> Optional[TTSResponse]:
             synthesise_speech,
             text=request.text,
             language_code=request.language_code,
-            speaker=request.speaker,
         )
 
         if not audio_b64:
@@ -290,7 +289,7 @@ async def voice_chat(
 
         # 3. Text to Speech (Sarvam only)
         tts_lang = ai_result.get("bcp47_code", "hi-IN")
-        audio_b64, _mime, _voice = await run_in_threadpool(
+        audio_b64, mime_type, voice = await run_in_threadpool(
             synthesise_speech,
             text=ai_reply,
             language_code=tts_lang,
@@ -302,7 +301,9 @@ async def voice_chat(
             status="success",
             transcribed_text=transcribed_text,
             ai_response=ai_reply,
-            audio_base64=audio_b64
+            audio_base64=audio_b64,
+            mime_type=mime_type,
+            voice=voice,
         )
 
     except HTTPException:
@@ -343,7 +344,7 @@ async def voice_chat_base64(request: VoiceBase64Request) -> Optional[VoiceChatRe
             raise HTTPException(status_code=500, detail="AI processing failed. Please try again.")
 
         # 3. TTS (blocking I/O — run in threadpool)
-        audio_b64, _mime, _voice = await run_in_threadpool(
+        audio_b64, mime_type, voice = await run_in_threadpool(
             synthesise_speech,
             text=ai_reply,
             language_code=ai_result.get("bcp47_code", "hi-IN"),
@@ -353,7 +354,9 @@ async def voice_chat_base64(request: VoiceBase64Request) -> Optional[VoiceChatRe
             status="success",
             transcribed_text=transcribed_text,
             ai_response=ai_reply,
-            audio_base64=audio_b64
+            audio_base64=audio_b64,
+            mime_type=mime_type,
+            voice=voice,
         )
 
     except HTTPException:
@@ -412,7 +415,6 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                         synthesise_speech,
                         ai_reply,
                         ai_result.get("bcp47_code", "hi-IN"),
-                        _SARVAM_SPEAKER,
                     )
 
                     await websocket.send_json({
@@ -445,7 +447,6 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                         synthesise_speech,
                         ai_reply,
                         ai_result.get("bcp47_code", "hi-IN"),
-                        _SARVAM_SPEAKER,
                     )
                     if generate_tts
                     else ("", "", "")
