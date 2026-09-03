@@ -212,11 +212,18 @@ export default function MarketPrices() {
 
   // Map commodity names to regional names in UI if available
   const getRegionalCropName = (cropName) => {
-    if (!cropName) return '';
+    if (!cropName || typeof cropName !== 'string') return cropName || '';
     const cleanKey = cropName.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
     const translationKey = `crop.${cleanKey}`;
-    const translated = t(translationKey);
-    return (translated && typeof translated === 'string' && translated !== translationKey) ? translated : cropName;
+    try {
+      const translated = t(translationKey);
+      if (translated && typeof translated === 'string' && translated !== translationKey && translated !== 'undefined') {
+        return translated;
+      }
+    } catch {
+      // Fallback
+    }
+    return cropName;
   };
 
   // Compute highest price record from current records list
@@ -652,7 +659,7 @@ export default function MarketPrices() {
                 {records.map((record, index) => (
                   <tr key={index} className="hover:bg-[var(--saathi-surface-alt)] transition">
                     <td className="px-6 py-4 text-base font-bold text-[var(--saathi-text)]">
-                      {getRegionalCropName(record.commodity)}
+                      {getRegionalCropName(record.commodity) || record.commodity || '—'}
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-[var(--saathi-text-secondary)]">{record.variety}</td>
                     <td className="px-6 py-4 text-sm font-semibold text-[var(--saathi-text)]">{record.market}</td>
@@ -678,7 +685,7 @@ export default function MarketPrices() {
               <div key={index} className="p-5 hover:bg-[var(--saathi-surface-alt)] transition">
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <h4 className="text-lg font-extrabold text-[var(--saathi-text)]">{getRegionalCropName(record.commodity)}</h4>
+                    <h4 className="text-lg font-extrabold text-[var(--saathi-text)]">{getRegionalCropName(record.commodity) || record.commodity || '—'}</h4>
                     <p className="text-xs font-semibold text-[var(--saathi-text-muted)] mt-0.5">{record.variety} · Grade {record.grade || 'FAQ'}</p>
                   </div>
                   <span className="rounded-xl px-3 py-1.5 text-base font-extrabold text-[var(--saathi-primary)] bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border)]">
