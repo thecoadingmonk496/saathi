@@ -213,9 +213,10 @@ export default function MarketPrices() {
   // Map commodity names to regional names in UI if available
   const getRegionalCropName = (cropName) => {
     if (!cropName) return '';
-    const translationKey = `crop.${cropName.toLowerCase()}`;
+    const cleanKey = cropName.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+    const translationKey = `crop.${cleanKey}`;
     const translated = t(translationKey);
-    return translated !== translationKey ? translated : cropName;
+    return (translated && typeof translated === 'string' && translated !== translationKey) ? translated : cropName;
   };
 
   // Compute highest price record from current records list
@@ -446,8 +447,8 @@ export default function MarketPrices() {
                     : (t('prices.highestToday') || 'Highest Price Today')}
                 </p>
                 <h2 className="text-2xl font-extrabold text-[var(--saathi-text)] mt-0.5">
-                  {getRegionalCropName(highestPriceRecord.commodity)}
-                  {highestPriceRecord.variety && (
+                  {getRegionalCropName(highestPriceRecord.commodity) || highestPriceRecord.commodity || 'Highest Selling Crop'}
+                  {highestPriceRecord.variety && !['other', 'faq'].includes(highestPriceRecord.variety.toLowerCase().trim()) && (
                     <span className="text-sm font-semibold text-[var(--saathi-text-muted)] ml-2">
                       ({highestPriceRecord.variety})
                     </span>
