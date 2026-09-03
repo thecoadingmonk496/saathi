@@ -23,32 +23,19 @@ import asyncio
 # Import local modules
 from ai_pipeline import run_ai_pipeline
 from sarvam_service import speech_to_text, text_to_speech as sarvam_tts, is_valid_sarvam_key
-from google_tts_service import (
-    is_google_tts_available,
-    text_to_speech_google_base64 as google_tts,
-    VOICE_MAP as GOOGLE_VOICE_MAP,
-)
-from edge_tts_service import (
-    text_to_speech_edge_sync as edge_tts,
-    get_edge_voice,
-    EDGE_VOICE_MAP,
-)
 
-# ── TTS provider selection ──────────────────────────────────────────────────
-# TTS_ENGINE controls which TTS provider is tried first.
-#   "edge"   (default) — free Microsoft Edge Neural TTS, no API key needed
-#   "google" — Google Cloud Neural2 TTS (requires GOOGLE_APPLICATION_CREDENTIALS)
-#   "sarvam" — Sarvam AI bulbul:v3 (requires SARVAM_API_KEY)
-# Fallback chain: edge → google → sarvam → empty
-_TTS_ENGINE = os.getenv("TTS_ENGINE", "edge").lower()
 _TTS_ENABLED = os.getenv("TTS_ENABLED", "true").lower() == "true"
+_SARVAM_SPEAKER = os.getenv("SARVAM_SPEAKER", "shubh").strip() or "shubh"
 
 
-def synthesise_speech(text: str, language_code: str = "hi-IN") -> tuple[str, str, str]:
+def synthesise_speech(
+    text: str,
+    language_code: str = "hi-IN",
+    speaker: Optional[str] = None,
+) -> tuple[str, str, str]:
     """
-    Unified TTS entry point.
+    Sarvam-only TTS entry point.
     Returns (base64_audio, mime_type, voice_name).
-    Priority: Edge TTS → Google Neural2 → Sarvam bulbul:v3 → ("", "", "").
     """
     if not _TTS_ENABLED:
         logger.info("[TTS] TTS_ENABLED=false — skipping synthesis")
@@ -57,39 +44,25 @@ def synthesise_speech(text: str, language_code: str = "hi-IN") -> tuple[str, str
     if not text or not text.strip():
         return "", "", ""
 
-    # ── Edge TTS (primary — free, fast, no API key) ───────────────────
-    if _TTS_ENGINE != "sarvam" and _TTS_ENGINE != "google":
-        try:
-            b64, mime, voice = edge_tts(text, language_code)
-            if b64:
-                logger.info(f"[TTS] Edge TTS synthesised {len(b64)} b64 chars, voice={voice}")
-                return b64, mime, voice
-            logger.warning("[TTS] Edge TTS returned empty — falling through")
-        except Exception as exc:
-            logger.warning(f"[TTS] Edge TTS failed ({exc}) — falling through")
-
-    # ── Google Neural2 (secondary) ────────────────────────────────────
-    if _TTS_ENGINE != "sarvam" and is_google_tts_available():
-        try:
-            b64, mime = google_tts(text, language_code)
-            if b64:
-                logger.info(f"[TTS] Google Neural2 synthesised {len(b64)} b64 chars ({mime})")
-                return b64, mime, "google-neural2"
-            logger.warning("[TTS] Google TTS returned empty — falling through")
-        except Exception as exc:
-            logger.warning(f"[TTS] Google TTS failed ({exc}) — falling through")
-
-    # ── Sarvam bulbul:v3 (tertiary) ───────────────────────────────────
+    # ── Sarvam Bulbul v3 ─────────────────────────────────────────────
     if is_valid_sarvam_key():
         try:
-            b64 = sarvam_tts(text=text, target_language_code=language_code, speaker="shubh")
+            selected_speaker = speaker.strip() if speaker and speaker.strip() else _SARVAM_SPEAKER
+            b64 = sarvam_tts(
+                text=text,
+                target_language_code=language_code,
+                speaker=selected_speaker,
+            )
             if b64:
-                logger.info(f"[TTS] Sarvam synthesised {len(b64)} b64 chars (audio/wav)")
-                return b64, "audio/wav", "sarvam-shubh"
+                logger.info(
+                    f"[TTS] Sarvam synthesised {len(b64)} b64 chars "
+                    f"(audio/wav), speaker={selected_speaker}"
+                )
+                return b64, "audio/wav", f"sarvam-{selected_speaker}"
         except Exception as exc:
             logger.warning(f"[TTS] Sarvam TTS failed: {exc}")
 
-    logger.error("[TTS] All TTS providers failed — returning empty")
+    logger.error("[TTS] Sarvam TTS failed or is not configured")
     return "", "", ""
 
 from pythonjsonlogger import jsonlogger
@@ -166,7 +139,7 @@ class ChatResponse(BaseModel):
 class TTSRequest(BaseModel):
     text: str = Field(..., description="Text to synthesize")
     language_code: str = Field(default="hi-IN", description="Target language BCP-47 or ISO 639-1 code")
-    speaker: Optional[str] = Field(default=None, description="Voice override (ignored when using Edge TTS)")
+    speaker: Optional[str] = Field(default=None, description="Sarvam speaker ID override")
 
 class TTSResponse(BaseModel):
     status: str = "success"
@@ -208,7 +181,7 @@ def health_check():
 @app.post("/tts", response_model=TTSResponse, tags=["Voice"])
 async def tts_endpoint(request: TTSRequest) -> Optional[TTSResponse]:
     """
-    TTS endpoint.  Tries Edge TTS → Google Neural2 → Sarvam.
+    TTS endpoint using Sarvam Bulbul v3 only.
     """
     try:
         logger.info(f"[TTS] preparing speech: lang={request.language_code} text_len={len(request.text)}")
@@ -216,6 +189,7 @@ async def tts_endpoint(request: TTSRequest) -> Optional[TTSResponse]:
             synthesise_speech,
             text=request.text,
             language_code=request.language_code,
+            speaker=request.speaker,
         )
 
         if not audio_b64:
@@ -441,13 +415,18 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                         logger.error(f"WebSocket AI pipeline failed: {e}")
                         await websocket.send_json({"status": "error", "message": "AI processing failed. Please try again."})
                         continue
-                    tts_audio, _m, _v = await run_in_threadpool(synthesise_speech, ai_reply, ai_result.get("bcp47_code", "hi-IN"))
+                    tts_audio, tts_mime, _v = await run_in_threadpool(
+                        synthesise_speech,
+                        ai_reply,
+                        ai_result.get("bcp47_code", "hi-IN"),
+                    )
 
                     await websocket.send_json({
                         "status": "success",
                         "transcribed_text": transcribed,
                         "ai_response": ai_reply,
-                        "audio_base64": tts_audio
+                        "audio_base64": tts_audio,
+                        "mime_type": tts_mime,
                     })
                 except Exception as ex:
                     logger.error(f"WebSocket voice action error: {ex}")
@@ -466,13 +445,22 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                     await websocket.send_json({"status": "error", "message": "AI processing failed. Please try again."})
                     continue
                 generate_tts = data.get("generate_audio", True)
-                tts_audio, _m, _v = (await run_in_threadpool(synthesise_speech, ai_reply, ai_result.get("bcp47_code", "hi-IN"))) if generate_tts else ("", "", "")
+                tts_audio, tts_mime, _v = (
+                    await run_in_threadpool(
+                        synthesise_speech,
+                        ai_reply,
+                        ai_result.get("bcp47_code", "hi-IN"),
+                    )
+                    if generate_tts
+                    else ("", "", "")
+                )
 
                 await websocket.send_json({
                     "status": "success",
                     "user_query": query,
                     "ai_response": ai_reply,
-                    "audio_base64": tts_audio
+                    "audio_base64": tts_audio,
+                    "mime_type": tts_mime,
                 })
 
     except WebSocketDisconnect:

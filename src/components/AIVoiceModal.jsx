@@ -20,22 +20,6 @@ const languageTagMap = {
   Assamese: 'as-IN',
 };
 
-const naturalFemaleVoiceKeywords = [
-  'female', 'woman', 'natural', 'neural', 'swara', 'heera', 'neerja', 'kalpana', 'veena',
-  'kavya', 'shruti', 'ananya', 'geeta', 'meera', 'zira', 'samantha', 'jenny',
-  'victoria', 'google हिन्दी', 'google us english', 'google uk english female',
-];
-
-function prepareNaturalSpeechText(text, langTag) {
-  if (!text) return '';
-  const isHindi = langTag.startsWith('hi');
-  let speechText = text
-    .replace(/₹\s*([\d,]+)/g, isHindi ? '$1 रुपये' : '$1 rupees')
-    .replace(/quintal/g, isHindi ? 'क्विंटल' : 'quintal')
-    .replace(/(\d+)\s*km/g, isHindi ? '$1 किलोमीटर' : '$1 kilometers');
-  return speechText;
-}
-
 export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 'Hindi', onNavigate }) {
   const { t } = useUser();
   const [status, setStatus] = useState('idle');
@@ -44,8 +28,6 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
   const [responseText, setResponseText] = useState('');
   const [textInput, setTextInput] = useState('');
   const [isSupported, setIsSupported] = useState(true);
-  const [voices, setVoices] = useState([]);
-
   const audioPlayerRef = useRef(typeof Audio !== 'undefined' ? new Audio() : null);
   const audioUrlRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -64,85 +46,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
     };
   }, [audioUrl]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      if (availableVoices && availableVoices.length > 0) {
-        setVoices(availableVoices);
-      }
-    };
-    loadVoices();
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-  }, []);
-
-  const selectVoiceForLanguage = (targetLangTag) => {
-    if (!voices || voices.length === 0) return null;
-    const baseLang = targetLangTag.split('-')[0];
-    const isFemaleVoice = (v) => naturalFemaleVoiceKeywords.some((kw) => v.name.toLowerCase().includes(kw));
-
-    let matched = voices.find((v) => (v.lang === targetLangTag || v.lang.replace('_', '-') === targetLangTag) && isFemaleVoice(v));
-    if (!matched) matched = voices.find((v) => v.lang.startsWith(baseLang) && isFemaleVoice(v));
-    if (!matched) matched = voices.find((v) => v.lang === targetLangTag || v.lang.replace('_', '-') === targetLangTag || v.lang.startsWith(baseLang));
-    if (!matched || !isFemaleVoice(matched)) {
-      const indianFemaleFallback = voices.find((v) => (v.lang.startsWith('hi') || v.lang.includes('IN')) && isFemaleVoice(v));
-      if (indianFemaleFallback) matched = indianFemaleFallback;
-    }
-    if (!matched || !isFemaleVoice(matched)) {
-      const globalFemale = voices.find(isFemaleVoice);
-      if (globalFemale) matched = globalFemale;
-    }
-    return matched || voices[0] || null;
-  };
-
-  const speakTextNativeFallback = (text, fallbackLangTag) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) {
-      setStatus('listening');
-      startRecognition();
-      return;
-    }
-    try {
-      window.speechSynthesis.cancel();
-      const naturalText = prepareNaturalSpeechText(text, fallbackLangTag);
-      const utterance = new SpeechSynthesisUtterance(naturalText);
-      utterance.lang = fallbackLangTag;
-      utterance.rate = 0.88;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-      const pleasantVoice = selectVoiceForLanguage(fallbackLangTag);
-      if (pleasantVoice) utterance.voice = pleasantVoice;
-
-      utterance.onstart = () => {
-        setStatus('ai_speaking');
-      };
-      utterance.onend = () => {
-        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
-          setStatus('listening');
-          startRecognition();
-        }
-      };
-      utterance.onerror = (err) => {
-        console.warn('Speech synthesis error:', err);
-        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
-          setStatus('listening');
-          startRecognition();
-        }
-      };
-
-      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-      window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      console.error('TTS execution error:', e);
-      if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
-        setStatus('listening');
-        startRecognition();
-      }
-    }
-  };
-
-  const playBackendTTSData = async (audioBase64, mimeType, aiResponse, fallbackLang) => {
+  const playBackendTTSData = async (audioBase64, mimeType) => {
     try {
       if (audioPlayerRef.current && !audioPlayerRef.current.paused) {
         audioPlayerRef.current.pause();
@@ -177,8 +81,8 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       };
       await audioPlayerRef.current.play();
     } catch (err) {
-      console.error('Backend TTS Error, falling back to browser:', err);
-      speakTextNativeFallback(aiResponse, fallbackLang);
+      console.error('Sarvam backend TTS playback failed:', err);
+      setStatus('error');
     }
   };
 
@@ -285,15 +189,16 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             onResponse?.(aiResponse);
 
             if (data.audio_base64) {
-              await playBackendTTSData(data.audio_base64, data.mime_type || data.format, aiResponse, langTag);
+              await playBackendTTSData(data.audio_base64, data.mime_type || 'audio/wav');
             } else {
-              speakTextNativeFallback(aiResponse, langTag);
+              console.error('Sarvam returned no audio');
+              setStatus('error');
             }
           } else {
             console.error("WS API Error:", data.message);
             const errorMsg = t('ai.notSupported') || "I'm having trouble connecting right now.";
             setResponseText(errorMsg);
-            speakTextNativeFallback(errorMsg, langTag);
+            setStatus('error');
           }
         } catch (error) {
           console.error("WS Parse Error:", error);
@@ -323,7 +228,6 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       if (recognitionRef.current) {
         try { recognitionRef.current.abort(); } catch (e) {}
       }
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel();
       if (audioPlayerRef.current && !audioPlayerRef.current.paused) audioPlayerRef.current.pause();
       if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
     };
@@ -360,7 +264,6 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
     if (recognitionRef.current) {
       try { recognitionRef.current.abort(); } catch (e) {}
     }
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel();
     if (audioPlayerRef.current && !audioPlayerRef.current.paused) audioPlayerRef.current.pause();
     if (wsRef.current) {
       wsRef.current.close();
