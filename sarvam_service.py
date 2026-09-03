@@ -106,7 +106,7 @@ def text_to_speech(
         return ""
 
     if not is_valid_sarvam_key():
-        logger.error("SARVAM_API_KEY is not configured. Sarvam audio cannot be generated.")
+        logger.info("SARVAM_API_KEY is not configured. Returning empty string to trigger fallback.")
         return ""
 
     headers = {

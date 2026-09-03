@@ -87,6 +87,10 @@ export default function Layout({ children }) {
           onClose={closeVoiceModal}
           onResponse={setVoiceAssistantResponse}
           preferredLanguage={preferredLanguage}
+          onNavigate={(path) => {
+            navigate(path);
+            closeVoiceModal();
+          }}
         />
       )}
     </div>
