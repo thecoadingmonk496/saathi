@@ -74,7 +74,7 @@ const CropBadgeIcon = ({ crop, isSelected }) => {
 
 export default function MarketPrices() {
   const { t } = useUser();
-  const { address, permissionStatus, requestLocation } = useLocationContext();
+  const { address, permissionStatus, requestLocation, refreshLocation, accuracy, loading: locationLoading } = useLocationContext();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Filter states
@@ -452,26 +452,77 @@ export default function MarketPrices() {
         <p className="text-xs font-extrabold uppercase tracking-widest text-[var(--saathi-primary)]">{t('prices.tagline')}</p>
         <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">{t('prices.title')}</h1>
 
-        {/* Location Detection Panel */}
-        <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-white p-4 border border-[var(--saathi-border-light)] shadow-sm sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <span className="text-2xl mt-0.5" role="img" aria-label="Pin">📍</span>
-            <div>
-              <p className="text-sm font-bold text-[var(--saathi-text)]">
-                {address?.formatted || t('location.notSet')}
-              </p>
-              <p className="text-xs font-medium text-[var(--saathi-text-muted)] mt-0.5">
-                {permissionStatus === 'granted' ? t('prices.autoDetected') : t('location.notSet')}
-              </p>
+        {/* Elevated Location Status Bar - Stitch Modern UI */}
+        <div className="mt-5 relative bg-white/95 backdrop-blur-md border border-slate-200/90 hover:border-emerald-500/40 transition-all duration-300 rounded-2xl shadow-sm p-3.5 sm:px-6 sm:py-4" data-purpose="location-status-bar">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Left Side: Icon badge + Location details */}
+            <div className="flex items-start sm:items-center gap-3.5 sm:gap-4 flex-1 min-w-0">
+              {/* Location Beacon Icon Badge */}
+              <div className="relative shrink-0 flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100/90 border border-emerald-200 text-emerald-700 shadow-sm">
+                <svg aria-hidden="true" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M12 21c-4.97-4.97-8-8.5-8-12a8 8 0 1 1 16 0c0 3.5-3.03 7.03-8 12z" strokeLinecap="round" strokeLinejoin="round"></path>
+                  <circle cx="12" cy="9" fill="currentColor" r="2.5"></circle>
+                </svg>
+                {/* Pulsing live GPS dot anchor */}
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full animate-pulse" title="Live GPS Active"></span>
+              </div>
+
+              {/* Location Hierarchy Text Block */}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight truncate">
+                    {address?.locality || address?.city || address?.formatted?.split(',')[0] || (address?.formatted ? address.formatted : t('location.notSet'))}
+                  </h2>
+                  {address?.state && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/80">
+                      {address.state}
+                    </span>
+                  )}
+                </div>
+
+                {/* Contextual Metadata */}
+                <div className="flex flex-wrap items-center gap-y-1 gap-x-2.5 text-xs text-slate-500">
+                  <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+                    <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" strokeLinecap="round" strokeLinejoin="round"></path>
+                    </svg>
+                    {permissionStatus === 'granted' ? 'Auto-detected via GPS' : (address?.formatted ? 'Location Set' : 'Location Not Detected')}
+                  </span>
+                  {accuracy && (
+                    <>
+                      <span className="text-slate-300 hidden md:inline">•</span>
+                      <span className="text-slate-400 text-[11px] hidden md:inline">
+                        Accuracy: ±{Math.round(accuracy)}m
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Side: Refresh Action Button */}
+            <div className="flex items-center gap-2.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof refreshLocation === 'function') {
+                    refreshLocation();
+                  } else {
+                    requestLocation();
+                  }
+                }}
+                disabled={locationLoading}
+                aria-label="Re-detect live GPS location"
+                title="Refresh current GPS coordinate"
+                className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-semibold text-xs shadow-md hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/40 border border-emerald-500 disabled:opacity-50 cursor-pointer"
+              >
+                <svg className={`w-4 h-4 stroke-[2.5] ${locationLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeLinecap="round" strokeLinejoin="round"></path>
+                </svg>
+                <span>{locationLoading ? 'Refreshing...' : 'Refresh'}</span>
+              </button>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={requestLocation}
-            className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--saathi-primary)] transition hover:bg-[var(--saathi-surface-alt)] hover:underline whitespace-nowrap focus:outline-none"
-          >
-            {t('prices.changeLoc')}
-          </button>
         </div>
 
         {/* Update note */}
