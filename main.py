@@ -295,7 +295,7 @@ async def voice_chat(
         ai_reply = ai_result.get("response", "")
         logger.info(f"AI response: '{ai_reply}'")
 
-        # 3. Text to Speech (Edge → Google → Sarvam fallback)
+        # 3. Text to Speech (Sarvam only)
         tts_lang = ai_result.get("bcp47_code", "hi-IN")
         audio_b64, _mime, _voice = await run_in_threadpool(
             synthesise_speech,
