@@ -4,138 +4,326 @@ import DealTracker from './DealTracker';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')).replace(/\/$/, '') + '/api';
 
+/* ── tiny helpers ── */
+function Badge({ children, variant = 'default' }) {
+  const styles = {
+    accepted: 'bg-green-100 text-green-800 border border-green-300',
+    pending: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
+    countered: 'bg-red-100 text-red-800 border border-red-300',
+    default: 'bg-gray-100 text-gray-700 border border-gray-200',
+  };
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide ${styles[variant] || styles.default}`}>
+      ● {children}
+    </span>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════ */
 export default function FarmerDashboard() {
   const { user } = useUser();
   const [requests, setRequests] = useState([]);
   const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('browse'); // 'browse', 'deals'
+  const [activeTab, setActiveTab] = useState('browse');
   const [selectedRequest, setSelectedRequest] = useState(null);
-  const [offerForm, setOfferForm] = useState({ quantity: '', counterOfferPrice: '', message: '' });
+  const [offerForm, setOfferForm] = useState({ quantity: '', counterOfferPrice: '', message: '', declaration: false });
+  const [myOffers, setMyOffers] = useState([]);
+  const [selectedDeal, setSelectedDeal] = useState(null);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      
-      const reqRes = await fetch(`${API_BASE}/buyer-discovery/requests/published`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+
+      const reqRes = await fetch(`${API_BASE}/buyer-discovery/requests/published`, { headers: { Authorization: `Bearer ${token}` } });
       const reqData = await reqRes.json();
       if (reqData.success) setRequests(reqData.data);
 
-      const dealRes = await fetch(`${API_BASE}/buyer-discovery/deals`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const dealRes = await fetch(`${API_BASE}/buyer-discovery/deals`, { headers: { Authorization: `Bearer ${token}` } });
       const dealData = await dealRes.json();
       if (dealData.success) setDeals(dealData.data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
   useEffect(() => { fetchData(); }, []);
 
   const handleMakeOffer = async (e) => {
     e.preventDefault();
+    if (!offerForm.declaration) {
+      alert('Please accept the Quality Assurance Declaration.');
+      return;
+    }
     const token = localStorage.getItem('token');
     const res = await fetch(`${API_BASE}/buyer-discovery/requests/${selectedRequest._id}/offers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(offerForm)
+      body: JSON.stringify({ quantity: offerForm.quantity, counterOfferPrice: offerForm.counterOfferPrice, message: offerForm.message }),
     });
     const data = await res.json();
     if (data.success) {
       setSelectedRequest(null);
-      setOfferForm({ quantity: '', counterOfferPrice: '', message: '' });
-      alert('Offer submitted successfully! Waiting for buyer to accept.');
+      setOfferForm({ quantity: '', counterOfferPrice: '', message: '', declaration: false });
+      fetchData();
     } else {
       alert(data.message || 'Error submitting offer');
     }
   };
 
+  const selectRequest = (req) => {
+    setSelectedRequest(req);
+    setOfferForm({ quantity: '', counterOfferPrice: '', message: '', declaration: false });
+  };
+
+  /* ── render ── */
   return (
     <div className="space-y-6">
-      <div className="flex border-b border-[var(--saathi-border-light)]">
-        <button 
-          className={`px-4 py-2 ${activeTab === 'browse' ? 'border-b-2 border-[var(--saathi-primary)] font-bold text-[var(--saathi-primary)]' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('browse')}
-        >
-          Browse Market
-        </button>
-        <button 
-          className={`px-4 py-2 ${activeTab === 'deals' ? 'border-b-2 border-[var(--saathi-primary)] font-bold text-[var(--saathi-primary)]' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('deals')}
-        >
-          My Deals ({deals.length})
-        </button>
+      {/* ─── Tabs ─── */}
+      <div className="flex items-center gap-1 border-b border-gray-200">
+        {[
+          { key: 'browse', label: 'Browse Requests' },
+          { key: 'deals', label: `My Deals (${deals.length})` },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={`px-5 py-3 text-sm font-bold transition-colors border-b-2 ${
+              activeTab === t.key
+                ? 'border-red-700 text-red-800'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
+      {/* ════════ Browse Requests Tab ════════ */}
       {activeTab === 'browse' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow border border-[var(--saathi-border-light)]">
-            <h2 className="text-xl font-bold mb-4">Current Buyer Requests</h2>
-            {loading ? <p>Loading...</p> : requests.length === 0 ? <p>No active requests found.</p> : (
-              <div className="space-y-4">
-                {requests.map(req => (
-                  <div key={req._id} className="border p-4 rounded-lg hover:shadow-md transition">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-bold text-lg text-[var(--saathi-primary)]">{req.crop} - {req.quantity} qtl</h3>
-                        <p className="text-sm font-semibold">Offer: ₹{req.offeredPrice}/qtl</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Buyer: {req.buyerId?.firstName} {req.buyerId?.lastName?.charAt(0)}. <br/>
-                          Location: {req.location || req.buyerId?.district || 'Not specified'}
-                        </p>
-                        <p className="text-sm mt-2">{req.description}</p>
-                      </div>
-                      <button 
-                        onClick={() => { setSelectedRequest(req); setOfferForm({ quantity: req.quantity, counterOfferPrice: req.offeredPrice, message: '' }); }}
-                        className="bg-[var(--saathi-accent)] text-white px-3 py-1 rounded text-sm hover:brightness-110"
-                      >
-                        Make Offer
-                      </button>
+        <>
+          {loading ? (
+            <p className="text-center text-gray-400 py-10">Loading requests…</p>
+          ) : selectedRequest ? (
+            /* ── Buyer Request Details View ── */
+            <div className="space-y-6">
+              <button onClick={() => setSelectedRequest(null)} className="text-sm font-bold text-red-700 hover:underline">← Back to all requests</button>
+
+              {/* Request details card */}
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="border-t-4 border-red-700" />
+                <div className="p-6">
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <span className="w-5 h-5 bg-red-100 rounded-full flex items-center justify-center text-red-700 text-[10px]">📋</span>
+                        REQUEST #{selectedRequest._id?.slice(-6).toUpperCase()}
+                      </p>
+                      <h2 className="text-2xl font-extrabold text-gray-900 mt-2">{selectedRequest.crop}</h2>
+                      <p className="text-sm text-gray-500 mt-1">📍 {selectedRequest.location || 'India'}</p>
+                      {selectedRequest.description && (
+                        <p className="text-sm text-gray-500 mt-2 italic">"{selectedRequest.description}"</p>
+                      )}
+                    </div>
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-right md:min-w-[200px]">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Target Price</p>
+                      <p className="text-2xl font-extrabold text-red-700 mt-0.5">
+                        ₹{Number(selectedRequest.offeredPrice).toLocaleString('en-IN')} <span className="text-sm font-bold text-gray-500">/ Quintal</span>
+                      </p>
+                      <div className="border-t border-gray-200 my-3" />
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Requested Quantity</p>
+                      <p className="text-lg font-extrabold text-gray-900 mt-0.5">
+                        {Number(selectedRequest.quantity).toLocaleString('en-IN')} Quintals
+                      </p>
                     </div>
                   </div>
-                ))}
+                </div>
               </div>
-            )}
-          </div>
 
-          {selectedRequest && (
-            <div className="bg-white p-6 rounded-lg shadow border border-[var(--saathi-border-light)] sticky top-4">
-              <h2 className="text-xl font-bold mb-4">Submit Offer for {selectedRequest.crop}</h2>
-              <form onSubmit={handleMakeOffer} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium">Quantity you can supply (qtl)</label>
-                  <input required type="number" min="1" max={selectedRequest.quantity} className="w-full mt-1 p-2 border rounded" value={offerForm.quantity} onChange={e => setOfferForm({...offerForm, quantity: e.target.value})} />
+              {/* Submit Offer + Recent Offers grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                {/* Submit Offer Form */}
+                <div className="lg:col-span-3">
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-5">Submit Your Offer</h3>
+                    <form onSubmit={handleMakeOffer} className="space-y-5">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Quantity to Sell (Quintals)</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">⊕</span>
+                            <input
+                              required type="number" min="1" max={selectedRequest.quantity}
+                              placeholder="e.g. 100"
+                              className="w-full pl-9 pr-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-red-200 focus:border-red-500 outline-none"
+                              value={offerForm.quantity}
+                              onChange={e => setOfferForm({ ...offerForm, quantity: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Your Price (per Quintal)</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold">₹</span>
+                            <input
+                              required type="number" min="1"
+                              placeholder="e.g. 2750"
+                              className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-red-200 focus:border-red-500 outline-none"
+                              value={offerForm.counterOfferPrice}
+                              onChange={e => setOfferForm({ ...offerForm, counterOfferPrice: e.target.value })}
+                            />
+                          </div>
+                          <p className="text-[10px] text-gray-400 mt-1">Buyer target: ₹{Number(selectedRequest.offeredPrice).toLocaleString('en-IN')}/Qtl</p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Message (optional)</label>
+                        <textarea
+                          rows={2}
+                          placeholder="E.g. Fresh harvest, ready to transport tomorrow."
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-red-200 focus:border-red-500 outline-none resize-none"
+                          value={offerForm.message}
+                          onChange={e => setOfferForm({ ...offerForm, message: e.target.value })}
+                        />
+                      </div>
+
+                      {/* Quality Assurance Declaration */}
+                      <label className="flex items-start gap-3 bg-gray-50 border border-gray-200 rounded-xl p-4 cursor-pointer hover:bg-gray-100 transition">
+                        <input
+                          type="checkbox"
+                          checked={offerForm.declaration}
+                          onChange={e => setOfferForm({ ...offerForm, declaration: e.target.checked })}
+                          className="mt-0.5 w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                        />
+                        <div>
+                          <p className="text-sm font-bold text-gray-800">Quality Assurance Declaration</p>
+                          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                            I certify that the offered produce meets the minimum quality standards set by SAATHI Agri-Tech and matches the description provided. I agree to standard inspection upon delivery.
+                          </p>
+                        </div>
+                      </label>
+
+                      <button
+                        type="submit"
+                        className="px-6 py-3 bg-red-700 text-white font-bold rounded-xl hover:bg-red-800 transition text-sm inline-flex items-center gap-2"
+                      >
+                        Submit Offer <span>▶</span>
+                      </button>
+                    </form>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium">Your Price (₹/qtl)</label>
-                  <input required type="number" min="1" className="w-full mt-1 p-2 border rounded" value={offerForm.counterOfferPrice} onChange={e => setOfferForm({...offerForm, counterOfferPrice: e.target.value})} />
-                  <p className="text-xs text-gray-500 mt-1">Buyer is offering ₹{selectedRequest.offeredPrice}</p>
+
+                {/* Recent Offers Sidebar */}
+                <div className="lg:col-span-2">
+                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-base font-bold text-gray-900">Recent Offers</h3>
+                      <button className="text-xs font-bold text-red-700 hover:underline">View All</button>
+                    </div>
+
+                    {deals.length === 0 ? (
+                      <p className="text-sm text-gray-400 italic py-4">No offers submitted yet.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {deals.slice(0, 5).map(deal => {
+                          const statusVariant =
+                            deal.status === 'ACCEPTED' || deal.status === 'VERIFIED' || deal.status === 'COMPLETED' ? 'accepted' :
+                            deal.status === 'COUNTERED' ? 'countered' : 'pending';
+                          return (
+                            <div key={deal._id} className="border border-gray-200 rounded-xl p-3.5 hover:shadow-sm transition">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <p className="text-sm font-bold text-gray-900">{deal.crop}</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">₹{Number(deal.agreedPrice).toLocaleString('en-IN')}/Q</p>
+                                  <p className="text-[10px] text-gray-400 mt-1">{new Date(deal.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                </div>
+                                <div className="text-right">
+                                  <Badge variant={statusVariant}>{deal.status === 'ACCEPTED' ? 'Accepted' : deal.status === 'COUNTERED' ? 'Countered' : deal.status}</Badge>
+                                  <p className="text-sm font-bold text-gray-700 mt-1.5">{deal.quantity} Q</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium">Message to Buyer</label>
-                  <textarea className="w-full mt-1 p-2 border rounded" value={offerForm.message} onChange={e => setOfferForm({...offerForm, message: e.target.value})} placeholder="E.g. Fresh harvest, ready to transport tomorrow." />
+              </div>
+            </div>
+          ) : (
+            /* ── Request List (Browse) ── */
+            <div className="space-y-4">
+              {requests.length === 0 ? (
+                <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
+                  <p className="text-gray-400 font-semibold">No active buyer requests found.</p>
+                  <p className="text-gray-400 text-sm mt-1">Check back later for new opportunities.</p>
                 </div>
-                <div className="flex gap-3">
-                  <button type="submit" className="flex-1 bg-[var(--saathi-primary)] text-white py-2 rounded-lg font-bold">Submit</button>
-                  <button type="button" onClick={() => setSelectedRequest(null)} className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg font-bold">Cancel</button>
-                </div>
-              </form>
+              ) : (
+                requests.map(req => (
+                  <div
+                    key={req._id}
+                    onClick={() => selectRequest(req)}
+                    className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-red-200 transition cursor-pointer"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-lg">🌾</div>
+                        <div>
+                          <h3 className="font-bold text-gray-900">{req.crop}</h3>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {req.buyerId?.firstName} {req.buyerId?.lastName?.charAt(0)}.
+                            &nbsp;·&nbsp; 📍 {req.location || req.buyerId?.district || 'India'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-lg font-extrabold text-gray-900">
+                          {Number(req.quantity).toLocaleString('en-IN')} <span className="text-xs text-gray-500">Qtl</span>
+                        </p>
+                        <p className="text-sm font-bold text-red-700">₹{Number(req.offeredPrice).toLocaleString('en-IN')}/Q</p>
+                      </div>
+                    </div>
+                    {req.description && (
+                      <p className="text-xs text-gray-400 mt-2 line-clamp-1">{req.description}</p>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
 
+      {/* ════════ Deals Tab ════════ */}
       {activeTab === 'deals' && (
         <div className="space-y-6">
-          {deals.length === 0 ? <p className="bg-white p-6 rounded shadow text-center">No active deals.</p> : 
-            deals.map(deal => <DealTracker key={deal._id} deal={deal} userRole="FARMER" onRefresh={fetchData} />)
-          }
+          {deals.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
+              <p className="text-gray-400 font-semibold">No active deals.</p>
+            </div>
+          ) : selectedDeal ? (
+            <div>
+              <button onClick={() => setSelectedDeal(null)} className="mb-4 text-sm font-bold text-red-700 hover:underline">← Back to all deals</button>
+              <DealTracker deal={selectedDeal} userRole="FARMER" onRefresh={() => { setSelectedDeal(null); fetchData(); }} />
+            </div>
+          ) : (
+            deals.map(deal => (
+              <div
+                key={deal._id}
+                onClick={() => setSelectedDeal(deal)}
+                className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-red-200 transition cursor-pointer"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-gray-900">{deal.crop} — {deal.quantity} Qtl</p>
+                    <p className="text-sm text-gray-500">₹{Number(deal.agreedPrice).toLocaleString('en-IN')}/Qtl</p>
+                  </div>
+                  <Badge variant={deal.status === 'COMPLETED' ? 'accepted' : 'pending'}>{deal.status}</Badge>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>
