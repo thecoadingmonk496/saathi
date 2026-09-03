@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { MicrophoneIcon, PaperAirplaneIcon, SpeakerWaveIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useUser } from '../context/UserContext';
 
-const API_BASE = import.meta.env.VITE_FASTAPI_URL || 'http://localhost:8000';
-const WS_BASE = import.meta.env.VITE_FASTAPI_WS_URL || API_BASE.replace(/^http/, 'ws') + '/ws/voice';
+const API_BASE = import.meta.env.VITE_FASTAPI_URL
+  || (import.meta.env.DEV ? 'http://localhost:8000' : 'https://saathi-backend-7t91.onrender.com');
+const WS_BASE = import.meta.env.VITE_FASTAPI_WS_URL
+  || API_BASE.replace(/^http/, 'ws') + '/ws/voice';
 
 const languageTagMap = {
   English: 'en-IN',
@@ -20,7 +22,7 @@ const languageTagMap = {
   Assamese: 'as-IN',
 };
 
-export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 'Hindi', onNavigate }) {
+export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 'Hindi' }) {
   const { t } = useUser();
   const [status, setStatus] = useState('idle');
   const [transcript, setTranscript] = useState('');
