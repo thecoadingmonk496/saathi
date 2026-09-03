@@ -13,8 +13,6 @@ load_dotenv(override=True)
 from fastapi import FastAPI, File, UploadFile, HTTPException, WebSocket, WebSocketDisconnect, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from starlette.requests import ClientDisconnect
 from pydantic import BaseModel, Field
 import uvicorn
@@ -108,14 +106,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve the frontend (index.html) and any static assets from the project root.
-# This lets users open http://localhost:8000 instead of file:///…/index.html,
-# which eliminates the 'file:// unique origin' browser security warning and
-# the cross-origin fetch restrictions that cause premature request aborts (499).
-_FRONTEND_DIR = os.path.dirname(os.path.abspath(__file__))
-app.mount("/static", StaticFiles(directory=_FRONTEND_DIR), name="static")
-
-
 # Request and Response Models
 class ChatRequest(BaseModel):
     message: str = Field(..., example="उत्तर प्रदेश में गेहूं का भाव क्या है?")
@@ -161,13 +151,16 @@ class VoiceChatResponse(BaseModel):
     audio_base64: str
 
 
-# Frontend Entrypoint — serve index.html at the root URL so the app is always
-# accessed via http://localhost:8000 and never via the file:// protocol.
 @app.get("/", tags=["Frontend"], include_in_schema=False)
-def serve_frontend():
-    """Serve the Saathi frontend (index.html) over HTTP."""
-    index_path = os.path.join(_FRONTEND_DIR, "index.html")
-    return FileResponse(index_path, media_type="text/html")
+def backend_root():
+    """Identify the API service without serving a legacy frontend."""
+    return {
+        "service": "saathi-backend",
+        "status": "ok",
+        "voice_protocol": "sarvam-websocket-only",
+        "voice_endpoint": "/ws/voice",
+        "frontend": "Deploy and open the Vercel frontend.",
+    }
 
 
 # Health Check Endpoint
