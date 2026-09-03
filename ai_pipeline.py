@@ -114,7 +114,12 @@ KNOWN_LOCATIONS = [
     'rajasthan', 'jaipur', 'jodhpur', 'udaipur', 'kota',
     'bihar', 'patna', 'gaya', 'muzaffarpur',
     'west bengal', 'kolkata', 'howrah', 'darjeeling',
-    'uttar pradesh', 'andhra pradesh', 'telangana', 'hyderabad'
+    'uttar pradesh', 'andhra pradesh', 'telangana', 'hyderabad',
+    'arunachal pradesh', 'assam', 'chhattisgarh', 'goa', 'himachal pradesh',
+    'jharkhand', 'kerala', 'odisha', 'sikkim', 'tripura', 'uttarakhand',
+    'delhi', 'jammu and kashmir', 'ladakh', 'puducherry', 'chandigarh',
+    'dadra and nagar haveli and daman and diu', 'lakshadweep', 'manipur',
+    'meghalaya', 'mizoram', 'nagaland'
 ]
 
 LOCATION_NORMALIZATION: dict[str, tuple[str, Optional[str]]] = {
@@ -161,13 +166,32 @@ LOCATION_NORMALIZATION: dict[str, tuple[str, Optional[str]]] = {
     "howrah": ("West Bengal", "Howrah"),
     "darjeeling": ("West Bengal", "Darjeeling"),
 }
+INDIAN_STATE_NAMES = {
+    "andhra pradesh", "arunachal pradesh", "assam", "bihar", "chhattisgarh",
+    "goa", "gujarat", "haryana", "himachal pradesh", "jharkhand", "karnataka",
+    "kerala", "madhya pradesh", "maharashtra", "manipur", "meghalaya",
+    "mizoram", "nagaland", "odisha", "punjab", "rajasthan", "sikkim",
+    "tamil nadu", "telangana", "tripura", "uttar pradesh", "uttarakhand",
+    "west bengal", "delhi", "jammu and kashmir", "ladakh", "puducherry",
+    "chandigarh", "dadra and nagar haveli and daman and diu", "lakshadweep",
+}
 
 def extract_location_from_message(message: str) -> Optional[str]:
     """Extract location mentioned in user message."""
     msg_lower = (message or "").lower()
-    for loc in KNOWN_LOCATIONS:
+    for loc in sorted(LOCATION_NORMALIZATION, key=len, reverse=True):
         if loc in msg_lower:
             return loc
+    for loc in sorted(INDIAN_STATE_NAMES, key=len, reverse=True):
+        if loc in msg_lower:
+            return loc
+    # Support districts not listed above, e.g. "price in Raisen".
+    match = re.search(r"\b(?:in|at|from)\s+([a-z][a-z .'-]{1,40})", msg_lower)
+    if match:
+        candidate = re.split(r"\b(?:for|today|currently|what|which)\b", match.group(1), maxsplit=1)[0]
+        candidate = candidate.strip(" .,'?-")
+        if candidate:
+            return candidate
     return None
 
 def normalize_location(location: Optional[str]) -> tuple[Optional[str], Optional[str]]:
@@ -177,10 +201,7 @@ def normalize_location(location: Optional[str]) -> tuple[Optional[str], Optional
     normalized = LOCATION_NORMALIZATION.get(location.lower().strip())
     if normalized:
         return normalized
-    if location.lower().strip() in {"punjab", "tamil nadu", "karnataka", "maharashtra",
-                                    "gujarat", "haryana", "madhya pradesh", "rajasthan",
-                                    "bihar", "west bengal", "uttar pradesh", "andhra pradesh",
-                                    "telangana"}:
+    if location.lower().strip() in INDIAN_STATE_NAMES:
         return location.strip(), None
     return None, location.strip()
 
