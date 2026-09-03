@@ -419,6 +419,7 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                         synthesise_speech,
                         ai_reply,
                         ai_result.get("bcp47_code", "hi-IN"),
+                        _SARVAM_SPEAKER,
                     )
 
                     await websocket.send_json({
@@ -427,6 +428,7 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                         "ai_response": ai_reply,
                         "audio_base64": tts_audio,
                         "mime_type": tts_mime,
+                        "voice": _v,
                     })
                 except Exception as ex:
                     logger.error(f"WebSocket voice action error: {ex}")
@@ -450,6 +452,7 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                         synthesise_speech,
                         ai_reply,
                         ai_result.get("bcp47_code", "hi-IN"),
+                        _SARVAM_SPEAKER,
                     )
                     if generate_tts
                     else ("", "", "")
@@ -461,6 +464,7 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                     "ai_response": ai_reply,
                     "audio_base64": tts_audio,
                     "mime_type": tts_mime,
+                    "voice": _v,
                 })
 
     except WebSocketDisconnect:

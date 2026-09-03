@@ -180,10 +180,13 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             setResponseText(aiResponse);
             onResponse?.(aiResponse);
 
-            if (data.audio_base64) {
+            if (data.audio_base64 && typeof data.voice === 'string' && data.voice.startsWith('sarvam-')) {
               await playBackendTTSData(data.audio_base64, data.mime_type || 'audio/wav');
             } else {
-              console.error('Sarvam returned no audio');
+              console.error('Refusing non-Sarvam or missing TTS audio', {
+                voice: data.voice,
+                hasAudio: Boolean(data.audio_base64),
+              });
               setStatus('error');
             }
           } else {
