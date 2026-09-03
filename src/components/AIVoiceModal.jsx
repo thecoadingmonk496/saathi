@@ -38,14 +38,6 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
   const langTag = languageTagMap[preferredLanguage] || 'hi-IN';
 
-  useEffect(() => {
-    return () => {
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-      }
-    };
-  }, [audioUrl]);
-
   const playBackendTTSData = async (audioBase64, mimeType) => {
     try {
       if (audioPlayerRef.current && !audioPlayerRef.current.paused) {
