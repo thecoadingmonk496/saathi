@@ -17,6 +17,14 @@ const parseArrivalDateValue = (dateStr) => {
   return Number(`${match[3]}${match[2].padStart(2, '0')}${match[1].padStart(2, '0')}`);
 };
 
+// Today's date formatted as DD/MM/YYYY to compare against arrival_date values
+const getTodayDateString = () => {
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, '0');
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${now.getFullYear()}`;
+};
+
 // Crop Badge Icon Component for Popular Crops Tab Bar
 const CropBadgeIcon = ({ crop, isSelected }) => {
   const c = String(crop || '').toLowerCase();
