@@ -630,16 +630,6 @@ export default function MarketPrices() {
         </div>
       ) : records.length > 0 ? (
         <>
-          {/* Explicit note when showing most recent available data instead of today's report */}
-          {showLatestAvailableNote && (
-            <div className="mb-4 flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm">
-              <span className="mt-0.5 text-lg leading-none" role="img" aria-label="Info">ℹ️</span>
-              <p className="text-sm font-semibold text-amber-800">
-                Showing most recent available prices from{' '}
-                <span className="font-extrabold">{latestArrivalDate}</span> — no data reported for this market today.
-              </p>
-            </div>
-          )}
           <div className="rounded-3xl border border-[var(--saathi-border-light)] bg-white shadow-sm overflow-hidden">
           {/* Table view for larger screens */}
           <div className="hidden md:block overflow-x-auto">
