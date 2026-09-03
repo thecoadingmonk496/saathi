@@ -147,78 +147,97 @@ def extract_crop_from_message(message: str) -> Optional[str]:
             return crop
     return None
 
-def get_mandi_price(crop_name: str, state: str) -> str:
+def get_mandi_prices_context(
+    crop_name: Optional[str] = None,
+    state: Optional[str] = None,
+    district: Optional[str] = None,
+    limit: int = 20,
+) -> str:
     """
-    Fetches agricultural Mandi market rates for a crop in an Indian state
-    directly from live MongoDB (MandiPriceCache collection).
-    Returns raw structured data — the calling system will translate it into
-    the user's language.
+    Retrieves current mandi price rows from MongoDB for use as grounded
+    context. This is structured retrieval rather than semantic document RAG:
+    mandi prices are live database facts and must not be embedded or invented.
 
     Args:
-        crop_name (str): Name of the crop (wheat/गेहूं/கோதுமை/rice/potato…)
-        state (str): Indian state name (Uttar Pradesh, Punjab, Maharashtra…)
+        crop_name: Optional crop name or alias.
+        state: Optional Indian state name.
+        district: Optional district name.
+        limit: Maximum number of rows injected into the LLM context.
     Returns:
-        str: Raw price fact in English for the LLM to translate.
+        str: Grounded, formatted price context for the LLM.
     """
-    if not crop_name:
-        return "MANDI_DATA: Live price is currently unavailable for this crop."
-
-    canonical_crop = get_canonical_crop_name(crop_name)
-    target_state = (state or "").strip()
-
     collection = get_mongo_collection()
     if collection is None:
-        logger.warning(f"[MANDI] MongoDB collection unavailable for crop '{canonical_crop}'")
-        return "MANDI_DATA: Live price is currently unavailable for this crop."
+        logger.warning("[MANDI] MongoDB collection unavailable")
+        return "MANDI_DATA: Live price is currently unavailable."
 
     try:
-        crop_regex = re.compile(f"^{re.escape(canonical_crop)}$", re.IGNORECASE)
-        record = None
+        filters: dict[str, Any] = {}
+        if crop_name:
+            canonical_crop = get_canonical_crop_name(crop_name)
+            filters["commodity"] = re.compile(re.escape(canonical_crop), re.IGNORECASE)
+        if state:
+            filters["state"] = re.compile(re.escape(state.strip()), re.IGNORECASE)
+        if district:
+            filters["district"] = re.compile(re.escape(district.strip()), re.IGNORECASE)
 
-        if target_state:
-            state_regex = re.compile(f"^{re.escape(target_state)}$", re.IGNORECASE)
-            # Match both commodity and state
-            record = collection.find_one(
-                {"commodity": crop_regex, "state": state_regex},
-                sort=[("arrival_date", -1), ("fetched_at", -1)]
+        safe_limit = max(1, min(int(limit), 50))
+        records = collection.find(
+            filters,
+            {
+                "_id": 0,
+                "state": 1,
+                "district": 1,
+                "market": 1,
+                "commodity": 1,
+                "variety": 1,
+                "grade": 1,
+                "arrival_date": 1,
+                "min_price": 1,
+                "max_price": 1,
+                "modal_price": 1,
+            },
+        ).sort(
+            [("arrival_date", -1), ("fetched_at", -1)]
+        ).limit(safe_limit)
+        records = list(records)
+
+        if not records:
+            logger.info("[MANDI] No records matched filters=%s", filters)
+            return "MANDI_DATA: Live price is currently unavailable for the requested area or crop."
+
+        lines = ["MANDI_DATA: The following prices come directly from the live mandi database:"]
+        for record in records:
+            location = ", ".join(
+                value for value in (record.get("market"), record.get("district"), record.get("state")) if value
             )
-
-        # Fallback: match commodity across any state if state query yielded nothing
-        if not record:
-            record = collection.find_one(
-                {"commodity": crop_regex},
-                sort=[("arrival_date", -1), ("fetched_at", -1)]
+            price_range = f"Rs.{record.get('min_price')}-Rs.{record.get('max_price')}"
+            modal_price = record.get("modal_price")
+            if modal_price is not None:
+                price_range += f", modal Rs.{modal_price}"
+            details = ", ".join(
+                value for value in (record.get("variety"), record.get("grade")) if value
             )
-
-        # Second fallback: partial substring match on commodity
-        if not record:
-            partial_regex = re.compile(re.escape(canonical_crop), re.IGNORECASE)
-            record = collection.find_one(
-                {"commodity": partial_regex},
-                sort=[("arrival_date", -1), ("fetched_at", -1)]
+            line = (
+                f"- {record.get('commodity', 'Unknown crop')} at {location}: "
+                f"{price_range} per quintal"
             )
-
-        if record:
-            modal_price = record.get("modal_price") or record.get("Modal_Price")
-            if modal_price:
-                rec_state = record.get("state") or target_state.title()
-                market = record.get("market", "")
-                arrival_date = record.get("arrival_date", "")
-                market_info = f" at {market} mandi" if market else ""
-                date_info = f" (arrival date: {arrival_date})" if arrival_date else ""
-
-                return (
-                    f"MANDI_DATA: crop={canonical_crop}, state={rec_state}, "
-                    f"price=Rs.{modal_price} per quintal{market_info}{date_info}. "
-                    f"Translate this into the user's language and present it naturally."
-                )
-
-        logger.info(f"[MANDI] No live record found in DB for crop '{canonical_crop}', state '{target_state}'")
-        return "MANDI_DATA: Live price is currently unavailable for this crop."
+            if details:
+                line += f" ({details})"
+            if record.get("arrival_date"):
+                line += f"; arrival date {record['arrival_date']}"
+            lines.append(line)
+        lines.append("Use only these database values when answering price questions.")
+        return "\n".join(lines)
 
     except Exception as e:
-        logger.error(f"[MANDI] Error querying MongoDB for crop '{canonical_crop}': {e}")
-        return "MANDI_DATA: Live price is currently unavailable for this crop."
+        logger.error("[MANDI] Error querying MongoDB: %s", e)
+        return "MANDI_DATA: Live price is currently unavailable."
+
+
+def get_mandi_price(crop_name: str, state: str) -> str:
+    """Backward-compatible single-crop wrapper for existing callers."""
+    return get_mandi_prices_context(crop_name=crop_name, state=state, limit=1)
 
 
 # ---------------------------------------------------------------------------
@@ -491,13 +510,26 @@ def run_ai_pipeline(
     )
 
     mandi_ctx = ""
+    price_query = bool(re.search(
+        r"(?i)(mandi|price|rate|bhav|भाव|कीमत|दाम|விலை|ధర|দাম|ભાવ|ಬೆಲೆ|വില)",
+        query,
+    ))
     detected_crop = user_crop or extract_crop_from_message(query)
-    if detected_crop:
-        logger.info(f"[MANDI] tool started for '{detected_crop}'")
+    if price_query:
+        logger.info(
+            "[MANDI] retrieval started | crop=%s | state=%s | district=%s",
+            detected_crop,
+            effective_profile.get("state"),
+            effective_profile.get("district"),
+        )
         tool_start = time.time()
-        state_hint = effective_profile.get("state", "Uttar Pradesh")
-        mandi_ctx = get_mandi_price(detected_crop, state_hint)
-        logger.info(f"[MANDI] tool completed in {time.time() - tool_start:.2f}s")
+        mandi_ctx = get_mandi_prices_context(
+            crop_name=detected_crop,
+            state=effective_profile.get("state"),
+            district=effective_profile.get("district"),
+            limit=int(os.getenv("MANDI_CONTEXT_LIMIT", "20")),
+        )
+        logger.info("[MANDI] retrieval completed in %.2fs", time.time() - tool_start)
 
     if mandi_ctx:
         system_prompt_text += f"\\n\\n{mandi_ctx}"
