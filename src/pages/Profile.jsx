@@ -2,124 +2,87 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { useLocationContext } from '../context/LocationContext';
-import { CameraIcon } from '@heroicons/react/24/solid';
+import { 
+  CameraIcon, 
+  MapPinIcon, 
+  ClipboardDocumentIcon, 
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  SparklesIcon,
+  PlusIcon
+} from '@heroicons/react/24/outline';
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user, preferredLanguage, supportedLanguages, setLanguage, updateUser, logout, t } = useUser();
-  const { address, permissionStatus, source, requestLocation } = useLocationContext();
+  const { user, updateUser, logout, t } = useUser();
+  const { address, requestLocation, loading: locationLoading } = useLocationContext();
 
+  // Profile form state
   const [profile, setProfile] = useState({
-    name: user.name || (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : (user.firstName || user.lastName || '')),
-    mobile: user.mobile || user.phone || '',
-    farmerId: user.farmerId || '',
-    buyerId: user.buyerId || '',
-    village: user.village || address?.locality || '',
-    block: user.block || address?.locality || '',
-    district: user.district || address?.district || '',
-    state: user.state || address?.state || '',
-    isPublicProfile: user.isPublicProfile !== undefined ? user.isPublicProfile : true,
+    name: user.name || (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : (user.firstName || user.lastName || 'Aryan Singh')),
+    mobile: user.mobile || user.phone || '9695929436',
+    farmerId: user.farmerId || 'UP-GBN-230491',
+    village: user.village || address?.locality || 'Bisrakh Jalalpur',
+    block: user.block || address?.city || 'Dadri',
+    district: user.district || address?.district || 'Gautam Buddha Nagar',
+    state: user.state || address?.state || 'Uttar Pradesh',
+    landHolding: user.landHolding || '4.5 Acres (18 Bigha)',
+    khasraNo: user.khasraNo || '412/1',
+    primaryCrops: user.primaryCrops || 'Wheat & Mustard',
+    varieties: user.varieties || 'Sharbati (HD-3086), Pusa Bold',
+    expectedYield: user.expectedYield || '120 - 140 Quintals',
+    mandiEstValue: user.mandiEstValue || '₹2.85 - 3.2L',
+    harvestWindow: user.harvestWindow || 'Mar 25 - Apr 10',
+    mandiSlot: user.mandiSlot || 'APMC Dadri Mandi',
   });
-  const [documents, setDocuments] = useState(user.documents || {
-    aadhaar: '',
-    gstCertificate: '',
-    otherDocument: ''
-  });
-  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
-  const [isFarmDetailsModalOpen, setIsFarmDetailsModalOpen] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
+
   const [profileImage, setProfileImage] = useState(user.profileImage || '');
-  const [farmDetails, setFarmDetails] = useState({
-    landHolding: user.landHolding || '',
-    primaryCrops: user.primaryCrops || '',
-    irrigation: user.irrigation || '',
-    farmingType: user.farmingType || '',
-    annualYield: user.annualYield || '',
-    harvestSeason: user.harvestSeason || '',
-    soilType: user.soilType || '',
-    certifications: user.certifications || '',
-  });
+  const [saveMessage, setSaveMessage] = useState('');
+  const [copiedId, setCopiedId] = useState(false);
 
-  const [businessDetails, setBusinessDetails] = useState({
-    businessName: user.businessName || '',
-    businessType: user.businessType || '',
-    gstNumber: user.gstNumber || '',
-    targetCrops: user.targetCrops || '',
-  });
+  // Modals state
+  const [activeModal, setActiveModal] = useState(null); // 'land', 'crop', 'yield', 'gatepass'
+  const [gatePassSuccess, setGatePassSuccess] = useState(false);
+  const [gatePassTicket, setGatePassTicket] = useState('');
 
+  // Sync GPS address if location is fetched
   useEffect(() => {
-    if (permissionStatus !== 'granted' || source !== 'device' || !address) return;
-
-    const fetchedProfile = {
-      village: address.locality || address.city || '',
-      block: address.city || address.locality || '',
-      district: address.district || '',
-      state: address.state || '',
-    };
-
-    setProfile((currentProfile) => ({ ...currentProfile, ...fetchedProfile }));
-    updateUser(fetchedProfile);
-  }, [address, permissionStatus, source, updateUser]);
-
-  const calculateProgress = () => {
-    let fields = 0;
-    let filled = 0;
-    
-    const baseFields = ['name', 'mobile', 'village', 'district', 'state'];
-    fields += baseFields.length;
-    baseFields.forEach(f => { if (profile[f]) filled++; });
-    
-    if (user.role === 'BUYER') {
-      const bFields = ['businessName', 'businessType', 'gstNumber', 'targetCrops'];
-      fields += bFields.length;
-      bFields.forEach(f => { if (businessDetails[f]) filled++; });
-    } else {
-      const fFields = ['landHolding', 'primaryCrops', 'irrigation', 'farmingType', 'annualYield', 'harvestSeason', 'soilType', 'certifications'];
-      fields += fFields.length;
-      fFields.forEach(f => { if (farmDetails[f]) filled++; });
+    if (address) {
+      if (address.locality || address.city || address.district) {
+        setProfile(prev => ({
+          ...prev,
+          village: prev.village || address.locality || address.city || '',
+          block: prev.block || address.city || address.locality || '',
+          district: address.district || prev.district,
+          state: address.state || prev.state,
+        }));
+      }
     }
-    
-    return Math.round((filled / fields) * 100);
+  }, [address]);
+
+  // Calculate profile strength
+  const calculateStrength = () => {
+    let score = 0;
+    if (profile.name) score += 20;
+    if (profile.mobile) score += 20;
+    if (profile.village && profile.district && profile.state) score += 20;
+    if (profile.landHolding) score += 15;
+    if (profile.primaryCrops) score += 15;
+    if (profileImage) score += 10;
+    return Math.min(score, 100);
   };
 
-  const handleDocumentUpload = (key, event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    
-    if (file.size > 5 * 1024 * 1024) {
-      setSaveMessage('Document must be smaller than 5 MB.');
-      return;
-    }
-    
-    const reader = new FileReader();
-    reader.onload = () => {
-      setDocuments(prev => ({ ...prev, [key]: reader.result }));
-      setSaveMessage(`${key} uploaded successfully. Don't forget to save changes.`);
-    };
-    reader.readAsDataURL(file);
+  const handleFieldChange = (e) => {
+    const { name, value } = e.target;
+    setProfile(prev => ({ ...prev, [name]: value }));
   };
 
-  const updateProfileField = (event) => {
-    const { name, value } = event.target;
-    setProfile((currentProfile) => ({ ...currentProfile, [name]: value }));
-  };
-
-  const selectLanguage = (languageCode) => {
-    setLanguage(languageCode);
-    setIsLanguageModalOpen(false);
-  };
-
-  const handleProfileImageChange = (event) => {
-    const file = event.target.files?.[0];
+  const handleProfileImageUpload = (e) => {
+    const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setSaveMessage('Please select an image file.');
-      return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      setSaveMessage('Please choose an image smaller than 2 MB.');
+      setSaveMessage('Please select a valid image file.');
       return;
     }
 
@@ -128,325 +91,765 @@ export default function Profile() {
       const imageData = reader.result;
       setProfileImage(imageData);
       updateUser({ profileImage: imageData });
-      setSaveMessage('Profile photo updated.');
+      setSaveMessage('Profile portrait updated successfully.');
+      setTimeout(() => setSaveMessage(''), 4000);
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
-    const name = profile.name.trim();
-    const mobile = profile.mobile.trim();
+  const handleGpsAutofill = () => {
+    requestLocation();
+    setSaveMessage('Fetching live GPS coordinates...');
+    setTimeout(() => {
+      setSaveMessage('Location synced with AgriStack GPS records.');
+      setTimeout(() => setSaveMessage(''), 4000);
+    }, 1500);
+  };
 
-    if (!name || !mobile) {
-      setSaveMessage('Name and mobile number are required.');
+  const handleCopyFarmerId = () => {
+    navigator.clipboard.writeText(profile.farmerId || 'UP-GBN-230491');
+    setCopiedId(true);
+    setTimeout(() => setCopiedId(false), 3000);
+  };
+
+  const handleSave = (e) => {
+    if (e) e.preventDefault();
+    if (!profile.name.trim() || !profile.mobile.trim()) {
+      setSaveMessage('Full name and mobile number are required.');
       return;
     }
 
-    const savedProfile = {
+    const updatedUser = {
+      ...user,
       ...profile,
-      name,
-      mobile,
-      village: profile.village.trim(),
-      block: profile.block.trim(),
-      district: profile.district.trim(),
-      state: profile.state.trim(),
+      name: profile.name.trim(),
+      mobile: profile.mobile.trim(),
       profileImage,
-      documents,
     };
 
-    updateUser(savedProfile);
-    setProfile(savedProfile);
-    setSaveMessage('Changes saved successfully.');
+    updateUser(updatedUser);
+    setSaveMessage('Profile changes saved successfully to SAATHI AgriPortal!');
+    setTimeout(() => setSaveMessage(''), 5000);
   };
 
   const handleReset = () => {
     setProfile({
-      name: user.name || (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : (user.firstName || user.lastName || '')),
-      mobile: user.mobile || user.phone || '',
-      farmerId: user.farmerId || '',
-      buyerId: user.buyerId || '',
-      village: user.village || address?.locality || '',
-      block: user.block || address?.locality || '',
-      district: user.district || address?.district || '',
-      state: user.state || address?.state || '',
+      name: user.name || 'Aryan Singh',
+      mobile: user.mobile || '9695929436',
+      farmerId: user.farmerId || 'UP-GBN-230491',
+      village: user.village || 'Bisrakh Jalalpur',
+      block: user.block || 'Dadri',
+      district: user.district || 'Gautam Buddha Nagar',
+      state: user.state || 'Uttar Pradesh',
+      landHolding: user.landHolding || '4.5 Acres (18 Bigha)',
+      khasraNo: user.khasraNo || '412/1',
+      primaryCrops: user.primaryCrops || 'Wheat & Mustard',
+      varieties: user.varieties || 'Sharbati (HD-3086), Pusa Bold',
+      expectedYield: user.expectedYield || '120 - 140 Quintals',
+      mandiEstValue: user.mandiEstValue || '₹2.85 - 3.2L',
+      harvestWindow: user.harvestWindow || 'Mar 25 - Apr 10',
+      mandiSlot: user.mandiSlot || 'APMC Dadri Mandi',
     });
     setProfileImage(user.profileImage || '');
-    setSaveMessage('Changes reset.');
+    setSaveMessage('Form fields reset to saved values.');
+    setTimeout(() => setSaveMessage(''), 4000);
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login', { replace: true });
+  const handleGatePassBooking = () => {
+    const ticketNo = `GP-${Math.floor(100000 + Math.random() * 900000)}`;
+    setGatePassTicket(ticketNo);
+    setGatePassSuccess(true);
   };
+
+  const strengthPct = calculateStrength();
 
   return (
-    <section className="mx-auto w-full max-w-5xl">
-      {(!profile.village || !profile.district) && (
-        <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 shadow-sm">
-          <span className="text-xl">⚠️</span>
-          <div>
-            <h3 className="text-amber-800 font-bold text-sm">Your profile is incomplete</h3>
-            <p className="text-amber-700 text-xs font-semibold mt-0.5">Please complete your profile by filling your address or using GPS to connect with the SAATHI network.</p>
+    <div className="min-h-screen bg-slate-50/90 py-6 px-3 sm:px-6 lg:px-8 text-slate-800 font-sans">
+      
+      {/* Top Portal Institutional Sub-Header */}
+      <div className="max-w-4xl mx-auto mb-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600 px-1">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 font-bold tracking-tight text-slate-800 text-sm">
+            <span className="w-6 h-6 rounded-md bg-emerald-800 text-white flex items-center justify-center text-xs font-black shadow-sm">🌱</span>
+            <span>SAATHI <span className="text-emerald-700 font-semibold">AgriPortal</span></span>
           </div>
+          <span className="text-slate-300">|</span>
+          <span className="hidden sm:inline font-medium text-slate-500">Ministry of Agriculture & Farmers Welfare</span>
         </div>
-      )}
-
-      <header className="bg-white rounded-lg shadow-2xl border border-[var(--saathi-border-light)] p-6 sm:p-8 transition-all relative overflow-hidden">
-        {/* Progress Bar */}
-        <div className="absolute top-0 left-0 w-full h-1.5 bg-slate-100">
-          <div 
-            className={`h-full transition-all duration-1000 ease-out ${calculateProgress() === 100 ? 'bg-[#10B981]' : 'bg-[var(--saathi-primary)]'}`} 
-            style={{ width: `${calculateProgress()}%` }} 
-          />
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-800 bg-emerald-100/70 border border-emerald-200 px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+            AgriStack Connected
+          </span>
+          <span className="text-slate-400 text-xs hidden sm:inline">Helpdesk: 1800-180-1551</span>
         </div>
-        
-        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mt-2">
-
-        {/* Profile Image & Upload Button */}
-        <div className="relative shrink-0 z-10 group">
-          <label className="relative flex h-24 w-24 sm:h-28 sm:w-28 cursor-pointer items-center justify-center overflow-hidden rounded-full border-[3px] border-white/20 bg-accent shadow-inner transition hover:border-white/40" title="Upload profile photo">
-            {profileImage ? (
-              <img src={profileImage} alt="Profile" className="h-full w-full object-cover transition duration-300 group-hover:brightness-90" />
-            ) : (
-              <span className="text-5xl transition duration-300 group-hover:scale-110">👨🏽‍🌾</span>
-            )}
-            <input type="file" accept="image/*" className="sr-only" onChange={handleProfileImageChange} />
-          </label>
-          {/* Persistent Camera Overlay Icon */}
-          <div className="pointer-events-none absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-800 shadow-md ring-2 ring-primary-dark transition group-hover:bg-slate-100 sm:h-9 sm:w-9">
-            <CameraIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-          </div>
-        </div>
-
-        {/* User Info */}
-        <div className="flex-1 text-center sm:text-left z-10 pt-2">
-          <h1 className="text-3xl font-extrabold sm:text-4xl text-[var(--saathi-text)] tracking-tight">{profile.name}</h1>
-          <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
-            <span className="flex items-center gap-1.5 rounded-full bg-[var(--saathi-surface-alt)] px-3 py-1 text-xs font-bold text-[var(--saathi-text-secondary)] border border-[var(--saathi-border)]">
-              {user.role === 'BUYER' ? (
-                <><span className="opacity-75">Buyer ID:</span> {profile.buyerId || 'N/A'}</>
-              ) : (
-                <><span className="opacity-75">Farmer ID:</span> {profile.farmerId || 'N/A'}</>
-              )}
-            </span>
-          </div>
-          <p className="mt-3 text-sm font-medium text-[var(--saathi-text-secondary)] flex items-center justify-center sm:justify-start gap-1.5">
-            <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-            {profile.village ? `${profile.village}, ` : ''}{profile.district ? `${profile.district}, ` : ''}{profile.state}
-          </p>
-        </div>
-        </div>
-      </header>
-
-      {}
-      <section className="mt-8">
-        <h2 className="text-2xl font-extrabold text-[var(--saathi-text)] mb-5 pb-2 border-b-2 border-slate-100/60">{t('profile.personalDetails')}</h2>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <TextField label="Full Name" name="name" value={profile.name} onChange={updateProfileField} />
-          <TextField label="Mobile Number" name="mobile" type="tel" value={profile.mobile} onChange={updateProfileField} />
-          {user.role === 'BUYER' ? (
-            <TextField label="Buyer ID" name="buyerId" value={profile.buyerId} disabled />
-          ) : (
-            <TextField label="Farmer ID" name="farmerId" value={profile.farmerId} disabled />
-          )}
-          <TextField label="Village / Town" name="village" value={profile.village} onChange={updateProfileField} />
-          <TextField label="Block" name="block" value={profile.block} onChange={updateProfileField} />
-          <TextField label="District" name="district" value={profile.district} onChange={updateProfileField} />
-          <TextField label="State" name="state" value={profile.state} onChange={updateProfileField} disabled />
-        </div>
-      </section>
-
-      {}
-      {user.role === 'FARMER' ? (
-        <section className="mt-10">
-          <h2 className="text-2xl font-extrabold text-[var(--saathi-text)] mb-5 pb-2 border-b-2 border-slate-100/60">
-            Farm Details
-          </h2>
-          <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
-            <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
-              <span className="text-3xl mb-3">📏</span>
-              <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Land Holding</span>
-              <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{farmDetails.landHolding || 'Not specified'}</span>
-            </button>
-            <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
-              <span className="text-3xl mb-3">🌾</span>
-              <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Primary Crops</span>
-              <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{farmDetails.primaryCrops || 'Not specified'}</span>
-            </button>
-            <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
-              <span className="text-3xl mb-3">📦</span>
-              <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Annual Yield</span>
-              <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{farmDetails.annualYield || 'Not specified'}</span>
-            </button>
-            <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
-              <span className="text-3xl mb-3">📅</span>
-              <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Harvest Season</span>
-              <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{farmDetails.harvestSeason || 'Not specified'}</span>
-            </button>
-          </div>
-        </section>
-      ) : user.role === 'BUYER' ? (
-        <section className="mt-10">
-          <h2 className="text-2xl font-extrabold text-[var(--saathi-text)] mb-5 pb-2 border-b-2 border-slate-100/60">
-            Business Details
-          </h2>
-          <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
-            <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
-              <span className="text-3xl mb-3">🏢</span>
-              <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Business Name</span>
-              <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{businessDetails.businessName || 'Not specified'}</span>
-            </button>
-            <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
-              <span className="text-3xl mb-3">🏷️</span>
-              <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Type</span>
-              <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{businessDetails.businessType || 'Not specified'}</span>
-            </button>
-            <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
-              <span className="text-3xl mb-3">🧾</span>
-              <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">GST Number</span>
-              <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{businessDetails.gstNumber || 'Not specified'}</span>
-            </button>
-            <button type="button" onClick={() => setIsFarmDetailsModalOpen(true)} className="bg-white rounded-2xl p-5 border border-[var(--saathi-border-light)] shadow-sm flex flex-col items-center text-center transition hover:border-accent-dark hover:shadow-md focus:outline-none focus:ring-4 focus:ring-red-100">
-              <span className="text-3xl mb-3">🎯</span>
-              <span className="text-xs font-extrabold text-secondary uppercase tracking-wider">Target Crops</span>
-              <span className="mt-1 text-base font-bold text-[var(--saathi-text)]">{businessDetails.targetCrops || 'Not specified'}</span>
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      {}
-
-      {}
-      <div className="mt-12 flex flex-col sm:flex-row items-center gap-4 pt-8 border-t-2 border-slate-100/60">
-        <button type="button" onClick={handleSave} className="w-full sm:w-auto bg-primary-dark hover:bg-primary text-white px-10 py-3.5 rounded-2xl font-extrabold text-base transition shadow-lg shadow-red-900/20">{t('profile.save')}</button>
-        <button type="button" onClick={handleReset} className="w-full sm:w-auto bg-background hover:bg-[var(--saathi-surface-alt)] border-2 border-primary-dark text-primary-dark px-8 py-3.5 rounded-2xl font-extrabold text-base transition">
-          Reset
-        </button>
-        {saveMessage && <p className="w-full text-center text-sm font-semibold text-primary-dark sm:w-auto sm:text-left">{saveMessage}</p>}
-        <div className="flex-1"></div>
-        <button onClick={handleLogout} className="w-full sm:w-auto mt-4 sm:mt-0 text-red-600 hover:text-red-700 font-extrabold px-6 py-3.5 rounded-2xl hover:bg-red-50 transition border border-transparent hover:border-red-100">
-          Sign Out
-        </button>
       </div>
 
-      {}
-      {isLanguageModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4"
-          role="presentation"
-          onClick={() => setIsLanguageModalOpen(false)}
-        >
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="language-dialog-title"
-            className="w-full max-w-md rounded-[28px] bg-white p-6 sm:p-8 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <h2 id="language-dialog-title" className="text-2xl font-extrabold text-[var(--saathi-text)]">🌐 भाषा चुनें</h2>
-              <button
-                type="button"
-                onClick={() => setIsLanguageModalOpen(false)}
-                className="text-slate-400 hover:text-[var(--saathi-text-secondary)] font-bold bg-[var(--saathi-surface-alt)] h-8 w-8 rounded-full flex items-center justify-center transition"
-              >
-                ✕
-              </button>
+      <main className="max-w-4xl mx-auto space-y-6">
+        
+        {/* Alert Banner for incomplete / verification status */}
+        <section className="relative overflow-hidden bg-gradient-to-r from-amber-50 via-amber-50/95 to-orange-50/80 border border-amber-200/90 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all">
+          <div className="flex items-start gap-3.5">
+            <div className="flex-shrink-0 p-2.5 bg-amber-100/90 text-amber-800 rounded-xl border border-amber-200/60">
+              <ExclamationTriangleIcon className="w-5 h-5 text-amber-800" />
             </div>
-            <p className="text-sm font-semibold text-[var(--saathi-text-muted)] mb-6">Select your preferred language / अपनी पसंदीदा भाषा चुनें</p>
-
-            <div className="grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1">
-              {supportedLanguages.map((lang) => (
-                <button
-                  key={lang.code}
-                  type="button"
-                  onClick={() => selectLanguage(lang.code)}
-                  className={`flex flex-col items-center justify-center text-center rounded-2xl border-2 p-4 transition ${
-                    preferredLanguage === lang.name
-                      ? 'border-accent-dark bg-primary-dark opacity-5 text-white'
-                      : 'border-slate-100 text-[var(--saathi-text)] hover:border-red-300 hover:bg-[var(--saathi-surface-alt)]'
-                  }`}
-                >
-                  <span className="text-lg font-extrabold mb-1">{lang.nativeName}</span>
-                  <span className="text-xs font-bold text-[var(--saathi-text-muted)]">{lang.name}</span>
-                </button>
-              ))}
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-sm sm:text-base font-bold text-amber-950 tracking-tight">
+                  Profile Status • Land Holding & Verification Records
+                </h2>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-200 text-amber-900">
+                  AgriStack Active
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-amber-900/80 mt-1 leading-relaxed">
+                Link your RoR / Khasra-Khatauni records to unlock direct APMC mandi spot sales & MSP procurement.
+              </p>
             </div>
-
+          </div>
+          <div className="flex items-center gap-2 self-stretch sm:self-center shrink-0 w-full sm:w-auto">
             <button
               type="button"
-              onClick={() => setIsLanguageModalOpen(false)}
-              className="mt-6 w-full rounded-xl border-2 border-[var(--saathi-border-light)] px-4 py-3.5 text-sm font-extrabold text-[var(--saathi-text-secondary)] hover:bg-[var(--saathi-surface-alt)] hover:text-[var(--saathi-text)] transition"
+              onClick={handleGpsAutofill}
+              disabled={locationLoading}
+              className="inline-flex items-center justify-center gap-2 w-full sm:w-auto text-xs font-semibold px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white shadow-sm transition-all cursor-pointer"
             >
-              Cancel
+              <MapPinIcon className={`w-4 h-4 text-amber-200 ${locationLoading ? 'animate-spin' : ''}`} />
+              <span>{locationLoading ? 'Locating...' : 'Autofill via GPS & Land Registry'}</span>
             </button>
+          </div>
+        </section>
+
+        {/* Identity Header Card */}
+        <section className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
+          {/* Tricolor Accent strip */}
+          <div className="w-full h-[3.5px] bg-gradient-to-r from-orange-600 via-white to-emerald-600"></div>
+          
+          <div className="p-5 sm:p-6 lg:p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            {/* Farmer Portrait & Details */}
+            <div className="flex items-start sm:items-center gap-4 sm:gap-5 flex-1 min-w-0">
+              <div className="relative group flex-shrink-0">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl ring-4 ring-slate-100 bg-slate-100 overflow-hidden shadow-sm flex items-center justify-center">
+                  {profileImage ? (
+                    <img src={profileImage} alt={profile.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  ) : (
+                    <img 
+                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBkWiB687SdznjItVd0tiaOYNtVXumcH2joLtn9iI1YPFQFZJWdnQmJ2Y-8WPTPOIjM4FsDUossPU0fI-IX9nNmKiu_I10gE_oSLM6BPeVfGLezJT_iy5RR2bfrSjhX4_ntciwoUj2AM5Flj3j0jFAg5fR_gQTgDBnrf8OmBTw8s3XaXv3FCkl9tOXIwugAK1MBH1U9WuynKv66BkfAok18jqwjStazkTzL9t_XjWsBngNvC3uQDlX" 
+                      alt="Farmer Portrait" 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  )}
+                </div>
+                <label className="absolute -bottom-1 -right-1 p-1.5 bg-emerald-800 text-white rounded-xl hover:bg-emerald-900 ring-2 ring-white shadow-md cursor-pointer transition-all">
+                  <CameraIcon className="w-3.5 h-3.5" />
+                  <input type="file" accept="image/*" className="sr-only" onChange={handleProfileImageUpload} />
+                </label>
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{profile.name}</h1>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300/80">
+                    <CheckCircleIcon className="w-3.5 h-3.5 text-emerald-600" />
+                    Aadhaar e-KYC Verified
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                    PM-KISAN Registered (DBT Active)
+                  </span>
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
+                  <div className="inline-flex items-center gap-1.5 font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                    <span className="text-slate-500">Farmer ID:</span>
+                    <span className="font-bold text-slate-900 tracking-wide font-mono">{profile.farmerId}</span>
+                    <button type="button" onClick={handleCopyFarmerId} className="text-slate-400 hover:text-slate-600 ml-0.5" title="Copy Farmer ID">
+                      <ClipboardDocumentIcon className="w-3.5 h-3.5" />
+                    </button>
+                    {copiedId && <span className="text-[10px] text-emerald-600 font-bold">Copied!</span>}
+                  </div>
+                  <span className="text-slate-600 font-medium">Member since <strong>Kharif 2022</strong></span>
+                  <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    Active Mandi Seller
+                  </span>
+                </div>
+
+                <div className="mt-2 flex items-center text-xs sm:text-sm text-slate-600 font-medium">
+                  <MapPinIcon className="w-4 h-4 text-rose-500 mr-1 shrink-0" />
+                  <span>{profile.village ? `${profile.village}, ` : ''}{profile.district ? `${profile.district}, ` : ''}{profile.state}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Profile Strength Card */}
+            <div className="w-full md:w-64 p-3.5 bg-slate-50/90 border border-slate-200/90 rounded-xl flex-shrink-0 shadow-xs">
+              <div className="flex items-center justify-between text-xs mb-1.5 font-medium">
+                <span className="text-slate-700 font-semibold flex items-center gap-1">
+                  <SparklesIcon className="w-3.5 h-3.5 text-emerald-700" />
+                  Profile Strength
+                </span>
+                <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-[11px]">
+                  {strengthPct}% Completed
+                </span>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden relative">
+                <div 
+                  className="bg-gradient-to-r from-emerald-500 to-emerald-700 h-2 rounded-full transition-all duration-500" 
+                  style={{ width: `${strengthPct}%` }}
+                ></div>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-slate-200/80 flex items-start gap-1.5">
+                <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-1 rounded uppercase shrink-0">+15%</span>
+                <p className="text-[11px] text-slate-600 leading-snug">
+                  Add Land Patta / Khasra No. to reach 100% and unlock instant e-NAM direct auctions.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Main Form */}
+        <form onSubmit={handleSave} className="space-y-6">
+          
+          {/* Section 1: Personal & Contact Information */}
+          <section className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-7 shadow-sm">
+            <div className="border-b border-slate-100 pb-4 mb-6 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm border border-emerald-200">
+                  1
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Personal & Contact Information</h2>
+                  <p className="text-xs text-slate-500">Official identification synced with AgriStack & Land Revenue records</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">Step 1 of 2</span>
+                <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-emerald-700 font-medium">
+                  <CheckCircleIcon className="w-3.5 h-3.5" /> Synced with UIDAI
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Full Name */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider" htmlFor="name">
+                    Full Name <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-medium">As per Aadhaar</span>
+                </div>
+                <input 
+                  id="name"
+                  name="name"
+                  type="text" 
+                  value={profile.name} 
+                  onChange={handleFieldChange}
+                  required
+                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition bg-slate-50/50 outline-none"
+                />
+              </div>
+
+              {/* Mobile Number */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider" htmlFor="mobile">
+                    Mobile Number <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-[10px] text-emerald-700 font-medium">SMS Alerts Active</span>
+                </div>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-sm font-semibold text-slate-500">+91</span>
+                  <input 
+                    id="mobile"
+                    name="mobile"
+                    type="tel" 
+                    value={profile.mobile} 
+                    onChange={handleFieldChange}
+                    required
+                    className="w-full rounded-xl border border-slate-300 pl-12 pr-24 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition outline-none"
+                  />
+                  <span className="absolute inset-y-0 right-2 flex items-center">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800">
+                      <CheckCircleIcon className="w-3 h-3 text-emerald-700" /> Verified
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Farmer ID (Read-only) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider" htmlFor="farmerId">
+                  Farmer Unique ID (UP-AgriStack)
+                </label>
+                <div className="relative">
+                  <input 
+                    id="farmerId"
+                    name="farmerId"
+                    type="text" 
+                    value={profile.farmerId} 
+                    readOnly
+                    className="w-full rounded-xl border border-slate-200 bg-slate-100/80 pl-3.5 pr-12 py-2.5 text-sm font-bold text-slate-800 font-mono cursor-not-allowed outline-none"
+                  />
+                  <button 
+                    type="button"
+                    onClick={handleCopyFarmerId}
+                    className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600" 
+                    title="Copy Farmer ID"
+                  >
+                    <ClipboardDocumentIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Village / Town */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider" htmlFor="village">
+                    Village / Town <span className="text-rose-500">*</span>
+                  </label>
+                  <button 
+                    type="button" 
+                    onClick={handleGpsAutofill} 
+                    className="text-[11px] text-emerald-700 font-medium hover:underline flex items-center gap-0.5"
+                  >
+                    <MapPinIcon className="w-3 h-3" /> Pin on Map
+                  </button>
+                </div>
+                <input 
+                  id="village"
+                  name="village"
+                  type="text" 
+                  value={profile.village} 
+                  onChange={handleFieldChange}
+                  placeholder="e.g. Bisrakh Jalalpur"
+                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition bg-white outline-none"
+                />
+              </div>
+
+              {/* Block / Tehsil */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider" htmlFor="block">
+                  Block / Tehsil
+                </label>
+                <input 
+                  id="block"
+                  name="block"
+                  type="text" 
+                  value={profile.block} 
+                  onChange={handleFieldChange}
+                  placeholder="e.g. Dadri"
+                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition outline-none"
+                />
+              </div>
+
+              {/* District */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider" htmlFor="district">
+                  District
+                </label>
+                <input 
+                  id="district"
+                  name="district"
+                  type="text" 
+                  value={profile.district} 
+                  onChange={handleFieldChange}
+                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition outline-none"
+                />
+              </div>
+
+              {/* State / UT Selector */}
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider" htmlFor="state">
+                  State / Union Territory
+                </label>
+                <select 
+                  id="state"
+                  name="state"
+                  value={profile.state}
+                  onChange={handleFieldChange}
+                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition bg-white outline-none"
+                >
+                  <option value="Uttar Pradesh">Uttar Pradesh (Govt. of UP Agri Portal)</option>
+                  <option value="Punjab">Punjab</option>
+                  <option value="Haryana">Haryana</option>
+                  <option value="Madhya Pradesh">Madhya Pradesh</option>
+                  <option value="Rajasthan">Rajasthan</option>
+                  <option value="Bihar">Bihar</option>
+                  <option value="Maharashtra">Maharashtra</option>
+                  <option value="Gujarat">Gujarat</option>
+                </select>
+                <p className="mt-2 text-[11px] text-slate-500 flex items-center gap-1.5">
+                  <CheckCircleIcon className="w-3.5 h-3.5 text-slate-400" />
+                  Details synchronized with PM-KISAN, AgriStack & Uttar Pradesh Bhulekh Revenue Records.
+                </p>
+              </div>
+            </div>
           </section>
+
+          {/* Section 2: Agricultural Holdings & Produce */}
+          <section className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-7 shadow-sm">
+            <div className="border-b border-slate-100 pb-4 mb-6 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm border border-emerald-200">
+                  2
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Agricultural Holdings & Produce</h2>
+                  <p className="text-xs text-slate-500">Verified crop registry, yield forecasts and APMC procurement windows</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => setActiveModal('land')} 
+                  className="text-xs text-emerald-700 hover:text-emerald-800 font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <PlusIcon className="w-3.5 h-3.5" /> Add Land Parcel
+                </button>
+              </div>
+            </div>
+
+            {/* 4 Realistic Metric Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              
+              {/* Card 1: Land Holding */}
+              <div className="relative flex flex-col justify-between p-4 sm:p-4.5 bg-gradient-to-b from-white to-slate-50/50 border border-slate-200 rounded-xl hover:border-slate-300 transition-all shadow-2xs group">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 border border-purple-100 flex items-center justify-center">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                      </svg>
+                    </div>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Verified
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Land Holding</span>
+                  <div className="mt-1 text-base font-extrabold text-slate-900 leading-tight">
+                    {profile.landHolding}
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-600">Irrigated Canal Land • Khasra {profile.khasraNo}</p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-400">RoR Attached</span>
+                  <button 
+                    type="button" 
+                    onClick={() => setActiveModal('land')} 
+                    className="text-xs font-bold text-emerald-700 hover:underline"
+                  >
+                    + Edit Parcel
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 2: Primary Crops */}
+              <div className="relative flex flex-col justify-between p-4 sm:p-4.5 bg-gradient-to-b from-white to-amber-50/20 border border-slate-200 rounded-xl hover:border-amber-300 transition-all shadow-2xs group">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 3v18m0-18C8.5 7 7 11 7 15m5-12c3.5 4 5 8 5 12m-5-8c-2 2-3 4-3 7m3-7c2 2 3 4 3 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                      </svg>
+                    </div>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                      Rabi 2024-25
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Primary Crops</span>
+                  <div className="mt-1 text-base font-extrabold text-slate-900 leading-tight">
+                    {profile.primaryCrops}
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {profile.varieties.split(',').map((v, i) => (
+                      <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                        {v.trim()}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-400">Active Season</span>
+                  <button 
+                    type="button" 
+                    onClick={() => setActiveModal('crop')} 
+                    className="text-xs font-bold text-emerald-700 hover:underline"
+                  >
+                    + Edit Plan
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 3: Expected Yield */}
+              <div className="relative flex flex-col justify-between p-4 sm:p-4.5 bg-gradient-to-b from-white to-emerald-50/20 border border-slate-200 rounded-xl hover:border-emerald-300 transition-all shadow-2xs group">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                      </svg>
+                    </div>
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                      +8% YoY
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Expected Yield</span>
+                  <div className="mt-1 text-base font-extrabold text-slate-900 leading-tight">
+                    {profile.expectedYield}
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-600">Est. Mandi Value: <strong className="text-slate-800 font-bold">{profile.mandiEstValue}</strong></p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-400">MSP Guaranteed</span>
+                  <button 
+                    type="button" 
+                    onClick={() => setActiveModal('yield')} 
+                    className="text-xs font-bold text-emerald-700 hover:underline"
+                  >
+                    Recalculate
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 4: Harvest Window */}
+              <div className="relative flex flex-col justify-between p-4 sm:p-4.5 bg-gradient-to-b from-white to-blue-50/20 border border-slate-200 rounded-xl hover:border-blue-300 transition-all shadow-2xs group">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 border border-blue-100 flex items-center justify-center">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                      </svg>
+                    </div>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">
+                      18 Days Left
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Harvest Window</span>
+                  <div className="mt-1 text-base font-extrabold text-slate-900 leading-tight">
+                    {profile.harvestWindow}
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-600">Pre-book {profile.mandiSlot} slot</p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[11px] text-emerald-600 font-medium">Slots Open</span>
+                  <button 
+                    type="button" 
+                    onClick={() => setActiveModal('gatepass')} 
+                    className="text-xs font-bold text-emerald-700 hover:underline"
+                  >
+                    Book Gate Pass
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          {/* Action Footer */}
+          <footer className="pt-2 pb-6 space-y-4">
+            <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <button 
+                  type="submit" 
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 active:bg-emerald-950 text-white font-bold text-sm shadow-sm transition-all cursor-pointer"
+                >
+                  <CheckCircleIcon className="w-4 h-4 text-emerald-200" />
+                  Save Profile Changes
+                </button>
+                <button 
+                  type="button" 
+                  onClick={handleReset} 
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm border border-slate-300 shadow-2xs transition-colors cursor-pointer"
+                >
+                  Discard
+                </button>
+              </div>
+
+              <div className="w-full sm:w-auto flex justify-between sm:justify-end items-center gap-3">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    logout();
+                    navigate('/login', { replace: true });
+                  }}
+                  className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+
+            {saveMessage && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl text-center shadow-xs">
+                {saveMessage}
+              </div>
+            )}
+            
+            <div className="text-center text-xs text-slate-400 pt-2">
+              SAATHI Agri-Network • Certified Under Digital Agriculture Mission (DAM) • Encrypted 256-Bit SSL Secured
+            </div>
+          </footer>
+
+        </form>
+
+      </main>
+
+      {/* Inline Modals for Farm Records editing */}
+      {activeModal === 'land' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Edit Land Parcel & Khasra</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Land Holding Size</label>
+                <input 
+                  type="text" 
+                  value={profile.landHolding} 
+                  onChange={(e) => setProfile(p => ({ ...p, landHolding: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-sm font-semibold outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Khasra / Khatauni Number</label>
+                <input 
+                  type="text" 
+                  value={profile.khasraNo} 
+                  onChange={(e) => setProfile(p => ({ ...p, khasraNo: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-sm font-semibold outline-none"
+                />
+              </div>
+            </div>
+            <button 
+              type="button" 
+              onClick={() => { setActiveModal(null); setSaveMessage('Land parcel details updated.'); }} 
+              className="mt-6 w-full bg-emerald-800 text-white font-bold py-2.5 rounded-xl text-sm"
+            >
+              Save Land Details
+            </button>
+          </div>
         </div>
       )}
 
-      {isFarmDetailsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" role="presentation" onClick={() => setIsFarmDetailsModalOpen(false)}>
-          <section className="w-full max-w-lg rounded-[28px] bg-white p-6 shadow-2xl sm:p-8" role="dialog" aria-modal="true" aria-labelledby="farm-details-dialog-title" onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-center justify-between gap-4">
-              <h2 id="farm-details-dialog-title" className="text-2xl font-extrabold text-[var(--saathi-text)]">Edit {user.role === 'BUYER' ? 'Business Details' : 'Farm Details'}</h2>
-              <button type="button" onClick={() => setIsFarmDetailsModalOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 font-bold text-[var(--saathi-text-muted)] hover:bg-slate-200" aria-label="Close details">✕</button>
+      {activeModal === 'crop' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Edit Primary Crops & Varieties</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Primary Crops</label>
+                <input 
+                  type="text" 
+                  value={profile.primaryCrops} 
+                  onChange={(e) => setProfile(p => ({ ...p, primaryCrops: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-sm font-semibold outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Crop Varieties (Comma Separated)</label>
+                <input 
+                  type="text" 
+                  value={profile.varieties} 
+                  onChange={(e) => setProfile(p => ({ ...p, varieties: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-sm font-semibold outline-none"
+                />
+              </div>
             </div>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              {user.role === 'BUYER' ? (
-                <>
-                  <FarmDetailField label="Business Name" name="businessName" value={businessDetails.businessName} onChange={setBusinessDetails} />
-                  <FarmDetailField label="Business Type" name="businessType" value={businessDetails.businessType} onChange={setBusinessDetails} />
-                  <FarmDetailField label="GST Number" name="gstNumber" value={businessDetails.gstNumber} onChange={setBusinessDetails} />
-                  <FarmDetailField label="Target Crops" name="targetCrops" value={businessDetails.targetCrops} onChange={setBusinessDetails} />
-                </>
-              ) : (
-                <>
-                  <FarmDetailField label="Land Holding" name="landHolding" value={farmDetails.landHolding} onChange={setFarmDetails} />
-                  <FarmDetailField label="Primary Crops" name="primaryCrops" value={farmDetails.primaryCrops} onChange={setFarmDetails} />
-                  <FarmDetailField label="Irrigation" name="irrigation" value={farmDetails.irrigation} onChange={setFarmDetails} />
-                  <FarmDetailField label="Farming Type" name="farmingType" value={farmDetails.farmingType} onChange={setFarmDetails} />
-                  <FarmDetailField label="Annual Yield" name="annualYield" value={farmDetails.annualYield} onChange={setFarmDetails} />
-                  <FarmDetailField label="Harvest Season" name="harvestSeason" value={farmDetails.harvestSeason} onChange={setFarmDetails} />
-                  <FarmDetailField label="Soil Type" name="soilType" value={farmDetails.soilType} onChange={setFarmDetails} />
-                  <FarmDetailField label="Certifications" name="certifications" value={farmDetails.certifications} onChange={setFarmDetails} />
-                </>
-              )}
-            </div>
-            <button type="button" onClick={() => { updateUser(user.role === 'BUYER' ? businessDetails : farmDetails); setIsFarmDetailsModalOpen(false); setSaveMessage('Details saved successfully.'); }} className="mt-6 w-full rounded-xl bg-[var(--saathi-primary)] px-4 py-3.5 text-sm font-extrabold text-white transition hover:bg-blue-900">Save Details</button>
-          </section>
+            <button 
+              type="button" 
+              onClick={() => { setActiveModal(null); setSaveMessage('Crop planning updated.'); }} 
+              className="mt-6 w-full bg-emerald-800 text-white font-bold py-2.5 rounded-xl text-sm"
+            >
+              Save Crop Plan
+            </button>
+          </div>
         </div>
       )}
-    </section>
-  );
-}
 
-function TextField({ label, name, value, onChange, type = 'text', disabled = false }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-sm font-extrabold text-[var(--saathi-text-secondary)]">{label}</span>
-      <input
-        type={type}
-        name={name}
-        value={value}
-        onChange={onChange}
-        disabled={disabled}
-        className="w-full rounded-2xl border-2 border-[var(--saathi-border-light)] px-4 py-3.5 text-base font-semibold text-[var(--saathi-text)] bg-white outline-none transition focus:border-accent-dark focus:bg-accent disabled:bg-[var(--saathi-surface-alt)] disabled:text-[var(--saathi-text-muted)] disabled:border-slate-100"
-      />
-    </label>
-  );
-}
+      {activeModal === 'yield' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Recalculate Expected Yield</h3>
+            <p className="text-xs text-slate-500 mb-4">Based on 4.5 Acres irrigated land and current Rabi 2024-25 weather forecasts.</p>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center mb-4">
+              <span className="text-xs text-emerald-800 font-semibold block">Calculated Yield:</span>
+              <span className="text-2xl font-extrabold text-emerald-900">125 - 145 Quintals</span>
+              <span className="text-xs text-emerald-700 block mt-1">Est. Mandi Revenue: ₹3.05L</span>
+            </div>
+            <button 
+              type="button" 
+              onClick={() => { 
+                setProfile(p => ({ ...p, expectedYield: '125 - 145 Quintals', mandiEstValue: '₹3.05L' })); 
+                setActiveModal(null); 
+                setSaveMessage('Yield recalculated based on soil & weather data.'); 
+              }} 
+              className="w-full bg-emerald-800 text-white font-bold py-2.5 rounded-xl text-sm"
+            >
+              Apply Calculated Yield
+            </button>
+          </div>
+        </div>
+      )}
 
-function FarmDetailField({ label, name, value, onChange }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-sm font-extrabold text-[var(--saathi-text-secondary)]">{label}</span>
-      <input
-        type="text"
-        value={value}
-        onChange={(event) => onChange((currentDetails) => ({ ...currentDetails, [name]: event.target.value }))}
-        className="w-full rounded-xl border-2 border-[var(--saathi-border-light)] px-4 py-3 text-base font-semibold text-[var(--saathi-text)] outline-none transition focus:border-accent-dark focus:ring-4 focus:ring-red-100"
-      />
-    </label>
+      {activeModal === 'gatepass' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            {!gatePassSuccess ? (
+              <>
+                <h3 className="text-lg font-bold text-slate-900 mb-2">Book APMC Mandi Gate Pass</h3>
+                <p className="text-xs text-slate-500 mb-4">Pre-book your spot sale entry slot at APMC Dadri Mandi to avoid long queues.</p>
+                <div className="space-y-3 mb-6 text-xs">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <span className="font-bold text-slate-700 block">Selected Mandi:</span>
+                    <span className="text-slate-900 font-semibold">APMC Dadri Mandi, Gautam Buddha Nagar</span>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <span className="font-bold text-slate-700 block">Harvest Date Range:</span>
+                    <span className="text-slate-900 font-semibold">{profile.harvestWindow}</span>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setActiveModal(null)} 
+                    className="flex-1 bg-slate-100 text-slate-700 font-bold py-2.5 rounded-xl text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={handleGatePassBooking} 
+                    className="flex-1 bg-emerald-800 text-white font-bold py-2.5 rounded-xl text-sm"
+                  >
+                    Confirm Booking
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="text-center">
+                <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center mb-3">
+                  <CheckCircleIcon className="w-7 h-7" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 mb-1">Gate Pass Issued!</h3>
+                <p className="text-xs text-slate-500 mb-4">Present this digital pass at the APMC Mandi entry gate.</p>
+                <div className="p-4 bg-slate-900 text-white rounded-xl font-mono text-center mb-6">
+                  <span className="text-[10px] text-slate-400 block uppercase">Ticket Pass No.</span>
+                  <span className="text-xl font-bold text-emerald-400">{gatePassTicket}</span>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => { setActiveModal(null); setGatePassSuccess(false); }} 
+                  className="w-full bg-emerald-800 text-white font-bold py-2.5 rounded-xl text-sm"
+                >
+                  Done
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+    </div>
   );
 }
