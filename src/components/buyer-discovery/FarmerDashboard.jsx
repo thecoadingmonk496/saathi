@@ -365,29 +365,66 @@ export default function FarmerDashboard() {
         <div className="space-y-6">
           {deals.length === 0 ? (
             <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
-              <p className="text-gray-400 font-semibold">No active deals.</p>
+              <p className="text-gray-400 font-semibold">No active deals yet.</p>
+              <p className="text-gray-400 text-xs mt-1">Once a buyer accepts your offer, the deal will appear here for photo upload and verification.</p>
             </div>
           ) : selectedDeal ? (
             <div>
-              <button onClick={() => setSelectedDeal(null)} className="mb-4 text-sm font-bold text-red-700 hover:underline">← Back to all deals</button>
+              <button onClick={() => setSelectedDeal(null)} className="mb-4 text-sm font-bold text-red-700 hover:underline flex items-center gap-1">
+                <span>←</span>
+                <span>Back to all deals</span>
+              </button>
               <DealTracker deal={selectedDeal} userRole="FARMER" onRefresh={() => { setSelectedDeal(null); fetchData(); }} />
             </div>
           ) : (
-            deals.map(deal => (
-              <div
-                key={deal._id}
-                onClick={() => setSelectedDeal(deal)}
-                className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-red-200 transition cursor-pointer"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-bold text-gray-900">{deal.crop} — {deal.quantity} Qtl</p>
-                    <p className="text-sm text-gray-500">₹{Number(deal.agreedPrice).toLocaleString('en-IN')}/Qtl</p>
-                  </div>
-                  <Badge variant={deal.status === 'COMPLETED' ? 'accepted' : 'pending'}>{deal.status}</Badge>
-                </div>
+            <div className="space-y-4">
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 font-semibold flex items-center justify-between">
+                <span>📸 You have {deals.length} locked deal{deals.length > 1 ? 's' : ''}. Select a deal below to upload crop photos for AI verification.</span>
               </div>
-            ))
+
+              {deals.map(deal => {
+                const needsPhotos = deal.status === 'ACCEPTED' || deal.status === 'AI_FLAGGED';
+
+                return (
+                  <div
+                    key={deal._id}
+                    onClick={() => setSelectedDeal(deal)}
+                    className="bg-white rounded-2xl border-2 border-slate-200 p-6 hover:shadow-lg hover:border-red-600 transition-all cursor-pointer group relative overflow-hidden"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <h3 className="text-lg font-extrabold text-gray-900 group-hover:text-red-700 transition">
+                            {deal.crop} — {deal.quantity} Quintals
+                          </h3>
+                          <Badge variant={deal.status === 'COMPLETED' ? 'accepted' : 'pending'}>
+                            {deal.status.replace(/_/g, ' ')}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Agreed Price: <strong className="text-red-700 font-bold">₹{Number(deal.agreedPrice).toLocaleString('en-IN')}/Qtl</strong>
+                          &nbsp;·&nbsp; Total Value: <strong className="text-gray-800">₹{(Number(deal.quantity) * Number(deal.agreedPrice)).toLocaleString('en-IN')}</strong>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        {needsPhotos ? (
+                          <span className="px-4 py-2 bg-red-700 text-white rounded-xl text-xs font-bold shadow group-hover:bg-red-800 transition flex items-center gap-1.5">
+                            <span>📷</span>
+                            <span>Upload 5+ Photos →</span>
+                          </span>
+                        ) : (
+                          <span className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold group-hover:bg-slate-200 transition flex items-center gap-1.5">
+                            <span>🔍</span>
+                            <span>View Progress Tracker →</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}

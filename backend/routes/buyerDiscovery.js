@@ -211,19 +211,21 @@ router.post('/offers/:id/accept', requireAuth, async (req, res) => {
     offer.respondedAt = new Date();
     await offer.save();
 
-    // Create the Deal
+    // Create the Deal with correct schema fields
     const deal = await Deal.create({
       buyerId: offer.buyerRequestId.buyerId,
       farmerId: offer.farmerId,
       buyerRequestId: offer.buyerRequestId._id,
       farmerOfferId: offer._id,
-      agreedQuantity: offer.quantity,
-      agreedPrice: offer.counterOfferPrice,
+      crop: offer.buyerRequestId.crop || 'Agricultural Produce',
+      quantity: Number(offer.quantity) || 1,
+      agreedPrice: Number(offer.counterOfferPrice || offer.buyerRequestId.offeredPrice) || 0,
       status: 'ACCEPTED'
     });
 
     res.json({ success: true, data: { offer, deal } });
   } catch (error) {
+    console.error('Accept offer error:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -296,13 +298,44 @@ router.get('/requests/:id/offers', requireAuth, requireRole('BUYER'), async (req
 
 // ==========================================
 // DEALS & VERIFICATION
-
 // ==========================================
 
 // Get user's deals
 router.get('/deals', requireAuth, async (req, res) => {
   try {
-    const query = req.user.role === 'BUYER' ? { buyerId: req.user._id } : { farmerId: req.user._id };
+    const isBuyer = req.user.role === 'BUYER';
+    const query = isBuyer ? { buyerId: req.user._id } : { farmerId: req.user._id };
+
+    // Auto-heal: Ensure any ACCEPTED offer has its Deal record in MongoDB
+    try {
+      const acceptedOffers = await FarmerOffer.find({
+        status: 'ACCEPTED',
+        ...(isBuyer ? {} : { farmerId: req.user._id })
+      }).populate('buyerRequestId');
+
+      for (const off of acceptedOffers) {
+        if (off.buyerRequestId) {
+          const reqBuyerId = off.buyerRequestId.buyerId?.toString();
+          if (isBuyer && reqBuyerId !== req.user._id.toString()) continue;
+
+          const existingDeal = await Deal.findOne({ farmerOfferId: off._id });
+          if (!existingDeal) {
+            await Deal.create({
+              buyerId: off.buyerRequestId.buyerId,
+              farmerId: off.farmerId,
+              buyerRequestId: off.buyerRequestId._id,
+              farmerOfferId: off._id,
+              crop: off.buyerRequestId.crop || 'Agricultural Produce',
+              quantity: Number(off.quantity) || 1,
+              agreedPrice: Number(off.counterOfferPrice || off.buyerRequestId.offeredPrice) || 0,
+              status: 'ACCEPTED',
+            });
+          }
+        }
+      }
+    } catch (healErr) {
+      console.error('Auto-heal deals error:', healErr.message);
+    }
     
     let deals = await Deal.find(query)
       .populate('buyerId', 'firstName lastName phone email village block district state')

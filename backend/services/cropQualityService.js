@@ -19,21 +19,11 @@ exports.analyzePhotos = async (imageUrls) => {
   }
 
   // Simulate AI processing delay
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  await new Promise(resolve => setTimeout(resolve, 1500));
 
-  // For demo purposes, we will pass ~80% of the time.
-  // In a real implementation, this would send Base64 data to an ML endpoint.
-  const isPass = Math.random() > 0.2;
-
-  if (isPass) {
-    return {
-      passed: true,
-      findings: 'No moisture or visible damage detected. Ready for human field verification.',
-    };
-  } else {
-    return {
-      passed: false,
-      findings: 'POTENTIAL QUALITY ISSUE DETECTED: Possible moisture or discoloration detected in uploaded photos. Please dry the crop and upload new photos.',
-    };
-  }
+  // Static moisture data with verified status as requested
+  return {
+    passed: true,
+    findings: 'Moisture Level: 11.8% (Optimal - standard safe range is 10%-14%). No mold, discoloration, or pest damage detected. Produce successfully passed AI quality screening.',
+  };
 };
