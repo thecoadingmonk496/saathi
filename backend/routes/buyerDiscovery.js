@@ -30,14 +30,50 @@ router.post('/requests', requireAuth, requireRole('BUYER'), async (req, res) => 
       buyerId: req.user._id,
       crop,
       quantity,
-      unit,
+      unit: unit || 'quintals',
       offeredPrice,
       location,
       description,
-      status: 'PUBLISHED',
-      publishedAt: new Date()
+      status: 'PENDING_REVIEW',
     });
-    res.status(201).json({ success: true, data: newRequest });
+    res.status(201).json({ success: true, data: newRequest, message: 'Requirement submitted for Saathi verification.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Re-apply / edit a rejected request (Buyer only)
+router.post('/requests/:id/reapply', requireAuth, requireRole('BUYER'), async (req, res) => {
+  try {
+    const { crop, quantity, unit, offeredPrice, location, description } = req.body;
+    const request = await BuyerRequest.findOne({ _id: req.params.id, buyerId: req.user._id });
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+    request.crop = crop || request.crop;
+    request.quantity = quantity || request.quantity;
+    request.unit = unit || request.unit;
+    request.offeredPrice = offeredPrice || request.offeredPrice;
+    request.location = location || request.location;
+    request.description = description !== undefined ? description : request.description;
+    request.status = 'PENDING_REVIEW';
+    request.adminRemarks = '';
+    request.reviewedAt = null;
+    request.reviewedBy = '';
+    await request.save();
+    res.json({ success: true, data: request, message: 'Request resubmitted for admin verification.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get all published requests for marketplace viewing (Any authenticated user / Buyer browse)
+router.get('/requests/all-published', requireAuth, async (req, res) => {
+  try {
+    const requests = await BuyerRequest.find({ status: 'PUBLISHED' })
+      .populate('buyerId', 'firstName lastName village district state')
+      .sort('-publishedAt');
+    res.json({ success: true, data: requests });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

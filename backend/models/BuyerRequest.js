@@ -46,6 +46,20 @@ const buyerRequestSchema = new mongoose.Schema(
     expiresAt: {
       type: Date,
     },
+    adminRemarks: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    reviewedAt: {
+      type: Date,
+      default: null,
+    },
+    reviewedBy: {
+      type: String,
+      default: '',
+      trim: true,
+    },
   },
   { timestamps: true }
 );
