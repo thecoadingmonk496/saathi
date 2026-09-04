@@ -1,4 +1,4 @@
-﻿.vercel
+.vercel
 .env
 .env.local
 .env.development.local
@@ -10,5 +10,10 @@ package-lock.json
 pnpm-lock.yaml
 live_html.txt
 *.log
-.vercel
-.env*
+*.bak
+test*.json
+backend/reconciliation_report.txt
+.venv/
+venv/
+__pycache__/
+.DS_Store
