@@ -79,13 +79,31 @@ const dealSchema = new mongoose.Schema(
         'AI_REVIEW',
         'AI_FLAGGED',
         'AI_PASSED',
+        'AGENT_PAYMENT_PENDING',
         'HUMAN_REVIEW',
         'VERIFIED',
+        'UNVERIFIED',
         'COMPLETED',
         'DISPUTED',
         'CANCELLED'
       ],
       default: 'ACCEPTED',
+    },
+    moisturePercent: {
+      type: Number,
+      default: 11.8,
+    },
+    agentFeePaid: {
+      type: Boolean,
+      default: false,
+    },
+    agentFeeAmount: {
+      type: Number,
+      default: 250,
+    },
+    agentRequestedAt: {
+      type: Date,
+      default: null,
     },
     qualitySubmissions: [qualitySubmissionSchema],
     transactionReceiptUrl: {

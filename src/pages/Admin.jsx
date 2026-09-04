@@ -12,6 +12,8 @@ export default function Admin() {
   const [users, setUsers] = useState([]);
   const [buyerRequests, setBuyerRequests] = useState([]);
   const [buyerApplications, setBuyerApplications] = useState([]);
+  const [dealInspections, setDealInspections] = useState([]);
+  const [inspectionFilter, setInspectionFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [requestFilter, setRequestFilter] = useState('ALL');
   const [loading, setLoading] = useState(true);
@@ -82,6 +84,15 @@ export default function Admin() {
       const appData = await appRes.json();
       if (appRes.ok && appData.success) {
         setBuyerApplications(appData.data || []);
+      }
+
+      // 4. Fetch Crop Deal Inspections
+      const dealsRes = await fetch(apiUrl('/api/admin/deals/inspections'), {
+        headers: { Authorization: `Bearer ${activeToken}` },
+      });
+      const dealsData = await dealsRes.json();
+      if (dealsRes.ok && dealsData.success) {
+        setDealInspections(dealsData.data || []);
       }
     } catch (err) {
       setError('Unable to communicate with the backend. Please ensure the server is active.');
@@ -304,9 +315,97 @@ export default function Admin() {
     }
   };
 
+  /* ── Crop Deal Inspections Actions ── */
+  const handleVerifyDeal = async (dealId, cropName) => {
+    const token = localStorage.getItem('adminToken');
+    if (!token) { handleLogout(); return; }
+
+    setActionLoadingId(dealId);
+    setError('');
+    setSuccessMsg('');
+
+    try {
+      const res = await fetch(apiUrl(`/api/admin/deals/${dealId}/verify`), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ notes: 'Physically inspected and verified by Saathi Admin.' }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccessMsg(`✓ Deal for "${cropName}" marked VERIFIED! Contact and delivery details are now unlocked.`);
+        setDealInspections((prev) =>
+          prev.map((d) => (d._id === dealId ? { ...d, status: 'VERIFIED' } : d))
+        );
+        setTimeout(() => setSuccessMsg(''), 6000);
+      } else {
+        setError(data.message || 'Failed to verify deal.');
+      }
+    } catch (err) {
+      setError('Network error while verifying deal.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleUnverifyDeal = async (dealId, cropName) => {
+    const token = localStorage.getItem('adminToken');
+    if (!token) { handleLogout(); return; }
+
+    const reason = window.prompt(`Enter reason for marking "${cropName}" as unverified:`, 'Moisture level or physical stock quality failed field criteria.');
+    if (reason === null) return;
+
+    setActionLoadingId(dealId);
+    setError('');
+    setSuccessMsg('');
+
+    try {
+      const res = await fetch(apiUrl(`/api/admin/deals/${dealId}/unverify`), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reason }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccessMsg(`✕ Marked "${cropName}" as UNVERIFIED.`);
+        setDealInspections((prev) =>
+          prev.map((d) => (d._id === dealId ? { ...d, status: 'UNVERIFIED' } : d))
+        );
+        setTimeout(() => setSuccessMsg(''), 6000);
+      } else {
+        setError(data.message || 'Failed to update deal to unverified.');
+      }
+    } catch (err) {
+      setError('Network error while marking deal unverified.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
   // Counts
   const pendingRequestsCount = buyerRequests.filter((r) => r.status === 'PENDING_REVIEW').length;
   const pendingAppsCount = buyerApplications.filter((a) => a.verificationStatus === 'PENDING' || a.verificationStatus === 'UNDER_REVIEW').length;
+  const pendingInspectionsCount = dealInspections.filter(
+    (d) => d.status === 'HUMAN_REVIEW' || d.status === 'AGENT_PAYMENT_PENDING'
+  ).length;
+
+  // Filtered Deal Inspections
+  const filteredInspections = dealInspections.filter((deal) => {
+    if (inspectionFilter !== 'ALL' && deal.status !== inspectionFilter) return false;
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    const crop = (deal.crop || '').toLowerCase();
+    const farmerName = `${deal.farmerId?.firstName || ''} ${deal.farmerId?.lastName || ''}`.toLowerCase();
+    const buyerName = `${deal.buyerId?.firstName || ''} ${deal.buyerId?.lastName || ''}`.toLowerCase();
+    const farmerPhone = (deal.farmerId?.phone || '').toLowerCase();
+    const address = `${deal.farmerId?.village || ''} ${deal.farmerId?.district || ''}`.toLowerCase();
+    return crop.includes(q) || farmerName.includes(q) || buyerName.includes(q) || farmerPhone.includes(q) || address.includes(q);
+  });
 
   // Filtered Buyer Requests
   const filteredRequests = buyerRequests.filter((req) => {
@@ -386,11 +485,17 @@ export default function Admin() {
         )}
 
         {/* Top Summary Badges */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-slate-900/70 border border-slate-800/80 p-5 rounded-2xl">
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Publications Pending Verification</div>
-            <div className="text-3xl font-black text-amber-400">{pendingRequestsCount}</div>
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Buyer Publications</div>
+            <div className="text-3xl font-black text-amber-400">{pendingRequestsCount} Pending</div>
             <div className="text-xs text-slate-400 mt-1">Requires Admin Accept or Reject</div>
+          </div>
+
+          <div className="bg-slate-900/70 border border-slate-800/80 p-5 rounded-2xl">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">On-Ground Inspections</div>
+            <div className="text-3xl font-black text-emerald-400">{pendingInspectionsCount} Pending</div>
+            <div className="text-xs text-slate-400 mt-1">₹250 Paid • 11.8% Moisture</div>
           </div>
 
           <div className="bg-slate-900/70 border border-slate-800/80 p-5 rounded-2xl">
@@ -401,22 +506,22 @@ export default function Admin() {
 
           <div className="bg-slate-900/70 border border-slate-800/80 p-5 rounded-2xl">
             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Users</div>
-            <div className="text-3xl font-black text-emerald-400">{users.length}</div>
+            <div className="text-3xl font-black text-purple-400">{users.length}</div>
             <div className="text-xs text-slate-400 mt-1">Direct read & manage access</div>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-slate-800 pb-3 mb-6">
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-3 mb-6 overflow-x-auto">
           <button
             onClick={() => setActiveTab('buyer-requests')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 ${
+            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shrink-0 ${
               activeTab === 'buyer-requests'
                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
             }`}
           >
-            <span>🌾 Buyer Publications (Requests)</span>
+            <span>🌾 Buyer Publications</span>
             {pendingRequestsCount > 0 && (
               <span className="px-2 py-0.5 rounded-full text-xs font-black bg-amber-500 text-slate-950">
                 {pendingRequestsCount}
@@ -425,8 +530,24 @@ export default function Admin() {
           </button>
 
           <button
+            onClick={() => setActiveTab('deal-inspections')}
+            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shrink-0 ${
+              activeTab === 'deal-inspections'
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+            }`}
+          >
+            <span>🛵 On-Ground Crop Inspections</span>
+            {pendingInspectionsCount > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-black bg-emerald-500 text-slate-950">
+                {pendingInspectionsCount}
+              </span>
+            )}
+          </button>
+
+          <button
             onClick={() => setActiveTab('buyer-applications')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 ${
+            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shrink-0 ${
               activeTab === 'buyer-applications'
                 ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
@@ -442,9 +563,9 @@ export default function Admin() {
 
           <button
             onClick={() => setActiveTab('users')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 ${
+            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shrink-0 ${
               activeTab === 'users'
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
             }`}
           >
@@ -802,6 +923,296 @@ export default function Admin() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* ── Tab: On-Ground Crop Inspections ── */}
+        {activeTab === 'deal-inspections' && (
+          <div className="space-y-4">
+            {/* Filter controls */}
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+                {[
+                  { key: 'ALL', label: 'All Deals' },
+                  { key: 'HUMAN_REVIEW', label: 'Awaiting Admin Verify (₹250 Paid)' },
+                  { key: 'AGENT_PAYMENT_PENDING', label: 'Fee Pending' },
+                  { key: 'VERIFIED', label: 'Verified' },
+                  { key: 'UNVERIFIED', label: 'Unverified' },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    onClick={() => setInspectionFilter(item.key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
+                      inspectionFilter === item.key
+                        ? 'bg-emerald-600 text-white shadow'
+                        : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative max-w-sm">
+                <input
+                  type="text"
+                  placeholder="Search crop, farmer name, phone, village..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-9 pl-8 pr-3 bg-slate-900 border border-slate-800 rounded-lg text-white text-xs font-medium placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
+                />
+                <span className="absolute left-2.5 top-2.5 text-xs text-slate-500">🔍</span>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="py-20 text-center text-slate-400">Loading inspection deals…</div>
+            ) : filteredInspections.length === 0 ? (
+              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-12 text-center text-slate-400">
+                <div className="text-4xl mb-2">🌾</div>
+                <p className="font-bold text-white">No crop inspections found</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  When farmers upload photos and pay the ₹250 agent verification fee, deals will appear here for admin review.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-5">
+                {filteredInspections.map((deal) => {
+                  const isAwaiting = deal.status === 'HUMAN_REVIEW';
+                  const isVerified = deal.status === 'VERIFIED';
+                  const isUnverified = deal.status === 'UNVERIFIED';
+
+                  const latestSub = deal.qualitySubmissions && deal.qualitySubmissions.length > 0
+                    ? deal.qualitySubmissions[deal.qualitySubmissions.length - 1]
+                    : null;
+                  const images = latestSub?.imageUrls || [];
+
+                  return (
+                    <div
+                      key={deal._id}
+                      className={`bg-slate-900/90 border rounded-3xl p-6 shadow-xl transition relative overflow-hidden ${
+                        isAwaiting
+                          ? 'border-amber-500/60 ring-1 ring-amber-500/30'
+                          : isVerified
+                          ? 'border-emerald-500/50 ring-1 ring-emerald-500/20'
+                          : isUnverified
+                          ? 'border-red-500/50'
+                          : 'border-slate-800'
+                      }`}
+                    >
+                      {/* Top Header */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-800">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                              DEAL #{deal._id?.slice(-6).toUpperCase()}
+                            </span>
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
+                              isAwaiting
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                : isVerified
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                : isUnverified
+                                ? 'bg-red-500/20 text-red-300 border border-red-500/40'
+                                : 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+                            }`}>
+                              {isAwaiting ? '🛵 Agent Assigned • Awaiting Admin Verify' :
+                               isVerified ? '✓ Verified' :
+                               isUnverified ? '✕ Unverified' : deal.status}
+                            </span>
+                          </div>
+                          <h3 className="text-xl font-black text-white mt-1">
+                            {deal.crop} — {deal.quantity} Qtl
+                          </h3>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className="text-xs text-slate-400">Agreed Price</p>
+                            <p className="text-base font-black text-amber-400">₹{Number(deal.agreedPrice).toLocaleString('en-IN')}/Qtl</p>
+                          </div>
+                          <div className="text-right pl-3 border-l border-slate-800">
+                            <p className="text-xs text-slate-400">Total Value</p>
+                            <p className="text-base font-black text-emerald-400">₹{(Number(deal.agreedPrice) * Number(deal.quantity)).toLocaleString('en-IN')}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Status Badges Row: Moisture + Agent Fee */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-4 border-b border-slate-800/80">
+                        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">💧</span>
+                            <div>
+                              <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-wide">Moisture Analysis</p>
+                              <p className="text-xs font-semibold text-emerald-200">
+                                {deal.moisturePercent || 11.8}% (Acceptable standard 10%-14%)
+                              </p>
+                            </div>
+                          </div>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500 text-slate-950 uppercase">
+                            Screening Passed
+                          </span>
+                        </div>
+
+                        <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                          deal.agentFeePaid
+                            ? 'bg-blue-500/10 border-blue-500/30'
+                            : 'bg-slate-800/50 border-slate-700'
+                        }`}>
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">💳</span>
+                            <div>
+                              <p className="text-[11px] font-bold text-blue-400 uppercase tracking-wide">Agent Connection Fee</p>
+                              <p className="text-xs font-semibold text-slate-200">
+                                {deal.agentFeePaid ? '₹250 Paid by Farmer' : '₹250 Payment Pending'}
+                              </p>
+                            </div>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                            deal.agentFeePaid
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-slate-700 text-slate-300'
+                          }`}>
+                            {deal.agentFeePaid ? 'PAID ✓' : 'UNPAID'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 2-Column Info: Farmer Address/Phone vs Buyer Info */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4 border-b border-slate-800/80">
+                        {/* Farmer on-ground address card */}
+                        <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
+                              <span>👨‍🌾</span> Farmer & Field Inspection Location
+                            </span>
+                          </div>
+                          <h4 className="text-base font-bold text-white">
+                            {deal.farmerId?.firstName} {deal.farmerId?.lastName}
+                          </h4>
+                          <div className="mt-2 space-y-1.5 text-xs text-slate-300">
+                            <p className="flex items-center gap-2">
+                              <span className="text-slate-500">Phone:</span>
+                              <span className="font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 select-all">
+                                📞 {deal.farmerId?.phone || 'Not provided'}
+                              </span>
+                            </p>
+                            <p className="flex items-start gap-2">
+                              <span className="text-slate-500 shrink-0">Field Address:</span>
+                              <span className="font-medium text-slate-200">
+                                📍 {deal.farmerId?.village ? `Village: ${deal.farmerId.village}, ` : ''}
+                                {deal.farmerId?.block ? `Block: ${deal.farmerId.block}, ` : ''}
+                                {deal.farmerId?.district ? `District: ${deal.farmerId.district}, ` : ''}
+                                {deal.farmerId?.state || ''}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Buyer Info Card */}
+                        <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-black uppercase text-blue-400 tracking-wider flex items-center gap-1.5">
+                              <span>🏢</span> Buyer Details
+                            </span>
+                          </div>
+                          <h4 className="text-base font-bold text-white">
+                            {deal.buyerId?.firstName} {deal.buyerId?.lastName}
+                          </h4>
+                          <div className="mt-2 space-y-1.5 text-xs text-slate-300">
+                            <p className="flex items-center gap-2">
+                              <span className="text-slate-500">Phone:</span>
+                              <span className="font-mono font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20 select-all">
+                                📞 {deal.buyerId?.phone || 'Not provided'}
+                              </span>
+                            </p>
+                            <p className="flex items-start gap-2">
+                              <span className="text-slate-500 shrink-0">Location:</span>
+                              <span className="font-medium text-slate-200">
+                                📍 {deal.buyerId?.district ? `${deal.buyerId.district}, ` : ''}
+                                {deal.buyerId?.state || 'N/A'}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Uploaded Crop Photos */}
+                      {images.length > 0 && (
+                        <div className="py-4 border-b border-slate-800/80">
+                          <div className="flex items-center justify-between mb-2.5">
+                            <span className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
+                              <span>📷</span> Uploaded Crop Photos ({images.length})
+                            </span>
+                            <span className="text-[11px] text-slate-500">Click any photo to zoom in full screen</span>
+                          </div>
+                          <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2.5">
+                            {images.map((img, idx) => (
+                              <div
+                                key={idx}
+                                onClick={() => setPreviewImage(img)}
+                                className="aspect-square rounded-xl overflow-hidden border border-slate-700 hover:border-amber-400 transition cursor-zoom-in group relative bg-slate-950"
+                              >
+                                <img
+                                  src={img}
+                                  alt={`Crop ${idx + 1}`}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
+                                />
+                                <span className="absolute bottom-1 right-1 text-[9px] bg-black/70 text-white px-1.5 py-0.5 rounded">
+                                  #{idx + 1}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action Bar (Verified / Unverified) */}
+                      <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                        <div className="text-xs text-slate-400">
+                          {isVerified && (
+                            <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                              <span>✓</span> Crop physically verified. Both parties have access to direct contact info.
+                            </span>
+                          )}
+                          {isUnverified && (
+                            <span className="text-red-400 font-bold flex items-center gap-1.5">
+                              <span>✕</span> Crop marked unverified. Deal paused.
+                            </span>
+                          )}
+                          {isAwaiting && (
+                            <span className="text-amber-400 font-bold flex items-center gap-1.5">
+                              <span>🛵</span> Agent has farmer's address and phone number for physical check. Tap below to verify or reject.
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 justify-end">
+                          <button
+                            onClick={() => handleUnverifyDeal(deal._id, deal.crop)}
+                            disabled={actionLoadingId === deal._id}
+                            className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-300 hover:text-red-200 border border-red-500/30 rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center gap-1.5"
+                          >
+                            <span>✕</span>
+                            <span>{actionLoadingId === deal._id ? 'Updating…' : 'Unverified'}</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleVerifyDeal(deal._id, deal.crop)}
+                            disabled={actionLoadingId === deal._id}
+                            className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black rounded-xl text-xs transition disabled:opacity-50 shadow-lg shadow-emerald-500/20 flex items-center gap-1.5"
+                          >
+                            <span>✓</span>
+                            <span>{actionLoadingId === deal._id ? 'Verifying…' : 'Verified'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

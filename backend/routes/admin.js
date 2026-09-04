@@ -85,6 +85,8 @@ router.patch('/buyer-requests/:id/approve', verifyAdminToken, async (req, res) =
   }
 });
 
+const Deal = require('../models/Deal');
+
 router.patch('/buyer-requests/:id/reject', verifyAdminToken, async (req, res) => {
   try {
     const { reason } = req.body || {};
@@ -101,6 +103,71 @@ router.patch('/buyer-requests/:id/reject', verifyAdminToken, async (req, res) =>
   } catch (error) {
     console.error('Error rejecting buyer request:', error.message);
     res.status(500).json({ success: false, message: 'Server error while rejecting request' });
+  }
+});
+
+// ── On-Ground Field Agent Inspections Admin Routes ──
+router.get('/deals/inspections', verifyAdminToken, async (req, res) => {
+  try {
+    const deals = await Deal.find()
+      .populate('farmerId', 'firstName lastName phone email village block district state')
+      .populate('buyerId', 'firstName lastName phone email village block district state')
+      .populate('buyerRequestId', 'crop quantity unit offeredPrice location description')
+      .sort({ updatedAt: -1 });
+    res.status(200).json({ success: true, count: deals.length, data: deals });
+  } catch (error) {
+    console.error('Error fetching inspections:', error.message);
+    res.status(500).json({ success: false, message: 'Server error while fetching inspections' });
+  }
+});
+
+// Admin taps "Verified" (Approve on-ground physical inspection)
+router.patch('/deals/:id/verify', verifyAdminToken, async (req, res) => {
+  try {
+    const { notes } = req.body || {};
+    const deal = await Deal.findById(req.params.id);
+    if (!deal) return res.status(404).json({ success: false, message: 'Deal not found' });
+
+    deal.status = 'VERIFIED';
+    deal.verifiedAt = new Date();
+
+    if (deal.qualitySubmissions && deal.qualitySubmissions.length > 0) {
+      const lastSub = deal.qualitySubmissions[deal.qualitySubmissions.length - 1];
+      lastSub.humanStatus = 'APPROVED';
+      lastSub.humanNotes = notes || 'Physical crop check verified on-ground by Saathi field agent.';
+      lastSub.reviewedAt = new Date();
+      lastSub.verifiedAt = new Date();
+    }
+
+    await deal.save();
+    res.status(200).json({ success: true, message: 'Crop verified successfully! Contact and delivery details unlocked for both parties.', data: deal });
+  } catch (error) {
+    console.error('Error verifying deal:', error.message);
+    res.status(500).json({ success: false, message: 'Server error while verifying deal' });
+  }
+});
+
+// Admin taps "Unverified"
+router.patch('/deals/:id/unverify', verifyAdminToken, async (req, res) => {
+  try {
+    const { reason } = req.body || {};
+    const deal = await Deal.findById(req.params.id);
+    if (!deal) return res.status(404).json({ success: false, message: 'Deal not found' });
+
+    deal.status = 'UNVERIFIED';
+
+    if (deal.qualitySubmissions && deal.qualitySubmissions.length > 0) {
+      const lastSub = deal.qualitySubmissions[deal.qualitySubmissions.length - 1];
+      lastSub.humanStatus = 'REJECTED';
+      lastSub.humanNotes = reason || 'Produce failed on-ground physical quality parameters.';
+      lastSub.reviewedAt = new Date();
+    }
+
+    await deal.save();
+    res.status(200).json({ success: true, message: 'Produce marked Unverified.', data: deal });
+  } catch (error) {
+    console.error('Error un-verifying deal:', error.message);
+    res.status(500).json({ success: false, message: 'Server error while updating deal status' });
   }
 });
 

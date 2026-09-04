@@ -384,12 +384,23 @@ export default function FarmerDashboard() {
 
               {deals.map(deal => {
                 const needsPhotos = deal.status === 'ACCEPTED' || deal.status === 'AI_FLAGGED';
+                const needsAgentPayment = deal.status === 'AGENT_PAYMENT_PENDING';
+                const inInspection = deal.status === 'HUMAN_REVIEW';
+                const isVerified = deal.status === 'VERIFIED';
 
                 return (
                   <div
                     key={deal._id}
                     onClick={() => setSelectedDeal(deal)}
-                    className="bg-white rounded-2xl border-2 border-slate-200 p-6 hover:shadow-lg hover:border-red-600 transition-all cursor-pointer group relative overflow-hidden"
+                    className={`bg-white rounded-2xl border-2 p-6 hover:shadow-lg transition-all cursor-pointer group relative overflow-hidden ${
+                      needsAgentPayment
+                        ? 'border-emerald-300 hover:border-emerald-500'
+                        : inInspection
+                        ? 'border-amber-300 hover:border-amber-500'
+                        : isVerified
+                        ? 'border-green-300 hover:border-green-500'
+                        : 'border-slate-200 hover:border-red-600'
+                    }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
@@ -397,7 +408,7 @@ export default function FarmerDashboard() {
                           <h3 className="text-lg font-extrabold text-gray-900 group-hover:text-red-700 transition">
                             {deal.crop} — {deal.quantity} Quintals
                           </h3>
-                          <Badge variant={deal.status === 'COMPLETED' ? 'accepted' : 'pending'}>
+                          <Badge variant={deal.status === 'COMPLETED' || isVerified ? 'accepted' : inInspection || needsAgentPayment ? 'pending' : 'default'}>
                             {deal.status.replace(/_/g, ' ')}
                           </Badge>
                         </div>
@@ -412,6 +423,21 @@ export default function FarmerDashboard() {
                           <span className="px-4 py-2 bg-red-700 text-white rounded-xl text-xs font-bold shadow group-hover:bg-red-800 transition flex items-center gap-1.5">
                             <span>📷</span>
                             <span>Upload 5+ Photos →</span>
+                          </span>
+                        ) : needsAgentPayment ? (
+                          <span className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow group-hover:bg-emerald-700 transition flex items-center gap-1.5">
+                            <span>💧</span>
+                            <span>Moisture 11.8% • Pay ₹250 Fee →</span>
+                          </span>
+                        ) : inInspection ? (
+                          <span className="px-4 py-2 bg-amber-500 text-slate-950 rounded-xl text-xs font-black shadow group-hover:bg-amber-400 transition flex items-center gap-1.5">
+                            <span>🛵</span>
+                            <span>Agent Contacting • View Status →</span>
+                          </span>
+                        ) : isVerified ? (
+                          <span className="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-bold shadow group-hover:bg-green-700 transition flex items-center gap-1.5">
+                            <span>✅</span>
+                            <span>Verified • View Buyer Contact →</span>
                           </span>
                         ) : (
                           <span className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold group-hover:bg-slate-200 transition flex items-center gap-1.5">
