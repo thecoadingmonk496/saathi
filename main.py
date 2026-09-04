@@ -162,6 +162,7 @@ class ChatResponse(BaseModel):
     detected_language_bcp47: Optional[str] = Field(
         default=None, description="BCP-47 code used for AI/TTS, e.g. 'hi-IN'"
     )
+    detail_error: Optional[str] = None
 
 class TTSRequest(BaseModel):
     text: str = Field(..., description="Text to synthesize")
@@ -202,6 +203,38 @@ def serve_frontend():
 def health_check():
     """Health check endpoint to verify backend status."""
     return {"status": "ok", "message": "Saathi Backend is running"}
+
+
+@app.get("/debug-llm", tags=["Debug"])
+def debug_llm(q: str = "who are you"):
+    import traceback, requests as req
+    key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
+    masked_key = key[:6] + "..." + key[-4:] if len(key) > 10 else "missing"
+    
+    models_res = {}
+    try:
+        r = req.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={key}", timeout=10)
+        if r.ok:
+            data = r.json()
+            models_res["models"] = [m.get("name") for m in data.get("models", []) if "gemini" in m.get("name", "")]
+        else:
+            models_res["error"] = f"{r.status_code}: {r.text}"
+    except Exception as me:
+        models_res["exception"] = str(me)
+
+    pipeline_res = {}
+    try:
+        pipeline_res = run_ai_pipeline(q)
+    except Exception as pe:
+        pipeline_res["exception"] = str(pe)
+        pipeline_res["traceback"] = traceback.format_exc()
+
+    return {
+        "model_env": os.getenv("MODEL_NAME", "unset"),
+        "key_preview": masked_key,
+        "models_available": models_res,
+        "pipeline_result": pipeline_res
+    }
 
 
 # TTS Endpoint
@@ -272,7 +305,8 @@ async def text_chat(request: ChatRequest) -> Optional[ChatResponse]:
             ai_response=ai_result.get("response", ""),
             detected_language=ai_result.get("language_name", "English"),
             detected_language_code=ai_result.get("language_code", "en"),
-            detected_language_bcp47=ai_result.get("bcp47_code", "en-IN")
+            detected_language_bcp47=ai_result.get("bcp47_code", "en-IN"),
+            detail_error=ai_result.get("detail_error")
         )
     except HTTPException:
         raise

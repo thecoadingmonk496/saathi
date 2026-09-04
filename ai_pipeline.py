@@ -586,14 +586,13 @@ def run_ai_pipeline(
                 }
     except Exception as e:
         logger.error(f"[Gemini] Non-transient failure after {time.time() - start_time:.2f}s | {type(e).__name__}: {e}")
-
-    logger.error("[Gemini] Returning fallback message")
-    return {
-        "language_code": "en",
-        "bcp47_code": "en-IN",
-        "language_name": "English",
-        "response": _FALLBACK["en-IN"]
-    }
+        return {
+            "language_code": "en",
+            "bcp47_code": "en-IN",
+            "language_name": "English",
+            "response": _FALLBACK["en-IN"],
+            "detail_error": f"{type(e).__name__}: {str(e)}"
+        }
 
 
 # ---------------------------------------------------------------------------
