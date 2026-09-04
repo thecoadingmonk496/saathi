@@ -56,6 +56,9 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
   const isProcessingRef = useRef(false);
   const langTag = languageTagMap[preferredLanguage] || 'hi-IN';
 
+  const speechBufferRef = useRef('');
+  const silenceTimerRef = useRef(null);
+
   // Auto-scroll to latest message
   useEffect(() => {
     if (chatEndRef.current) {
@@ -156,12 +159,28 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
           }
         }
 
-        if (currentFinal) {
-          setTranscript((prev) => (prev ? `${prev} ${currentFinal}` : currentFinal));
+        const activeText = (currentFinal || currentInterim).trim();
+        if (activeText) {
+          speechBufferRef.current = activeText;
+          setTranscript(activeText);
           setInterimTranscript('');
-          handleFinalSpeech(currentFinal);
-        } else {
-          setInterimTranscript(currentInterim);
+
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+          }
+
+          if (currentFinal) {
+            handleFinalSpeech(currentFinal);
+          } else {
+            // Auto-submit when user pauses speaking for 1.2 seconds
+            silenceTimerRef.current = setTimeout(() => {
+              if (speechBufferRef.current && !isProcessingRef.current) {
+                const query = speechBufferRef.current;
+                speechBufferRef.current = '';
+                handleFinalSpeech(query);
+              }
+            }, 1200);
+          }
         }
       };
 
@@ -174,13 +193,15 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
       recognition.onend = () => {
         if (isProcessingRef.current) return;
-        setInterimTranscript((prevInterim) => {
-          if (prevInterim && !transcript) {
-            setTranscript(prevInterim);
-            handleFinalSpeech(prevInterim);
-          }
-          return '';
-        });
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
+        if (speechBufferRef.current && speechBufferRef.current.trim()) {
+          const query = speechBufferRef.current.trim();
+          speechBufferRef.current = '';
+          handleFinalSpeech(query);
+        }
       };
 
       recognitionRef.current = recognition;
@@ -322,6 +343,11 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
   };
 
   const handleFinalSpeech = async (queryText) => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    speechBufferRef.current = '';
     if (!queryText.trim() || isProcessingRef.current) return;
     isProcessingRef.current = true;
 
@@ -414,6 +440,11 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
   const handleRestartListening = () => {
     isProcessingRef.current = false;
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    speechBufferRef.current = '';
     if (audioPlayerRef.current && !audioPlayerRef.current.paused) {
       audioPlayerRef.current.pause();
     }
