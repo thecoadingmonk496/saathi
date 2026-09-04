@@ -20,6 +20,10 @@ const STATUS_MAP = {
 
 export default function DealTracker({ deal, userRole, onRefresh }) {
   const [loading, setLoading] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('UPI');
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
   const fileInputRef = useRef(null);
 
   const currentIdx = STATUS_MAP[deal.status] ?? -1;
@@ -54,8 +58,11 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
   };
 
   const handlePayAgentFee = async () => {
-    setLoading(true);
+    setPaymentProcessing(true);
     try {
+      // Simulate realistic payment gateway processing
+      await new Promise(r => setTimeout(r, 800));
+
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/pay-agent-fee`, {
         method: 'POST',
@@ -63,16 +70,21 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message || 'Payment of ₹250 received! Our agent will come in contact with you.');
-        onRefresh();
+        setPaymentSuccess(true);
+        setTimeout(() => {
+          setShowPaymentModal(false);
+          setPaymentSuccess(false);
+          setPaymentProcessing(false);
+          onRefresh();
+        }, 1200);
       } else {
         alert(data.message || 'Error processing payment');
+        setPaymentProcessing(false);
       }
     } catch (err) {
       console.error(err);
       alert('Network error while paying agent fee.');
-    } finally {
-      setLoading(false);
+      setPaymentProcessing(false);
     }
   };
 
@@ -242,12 +254,11 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                       Pay ₹250 for getting in connect with our agent. <strong>He will come in contact with you</strong> for on-ground physical inspection and verification.
                     </p>
                     <button
-                      onClick={handlePayAgentFee}
-                      disabled={loading}
-                      className="w-full py-3 bg-red-700 hover:bg-red-800 text-white font-bold rounded-xl shadow transition disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+                      onClick={() => setShowPaymentModal(true)}
+                      className="w-full py-3 bg-red-700 hover:bg-red-800 text-white font-bold rounded-xl shadow transition text-sm flex items-center justify-center gap-2"
                     >
                       <span>💳</span>
-                      <span>{loading ? 'Processing…' : 'Pay ₹250 & Connect with Agent'}</span>
+                      <span>Pay ₹250 & Connect with Agent →</span>
                     </button>
                   </div>
                 ) : (
@@ -355,6 +366,199 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
           </div>
         </div>
       </div>
+
+      {/* ── Fake Payment View Modal ── */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="bg-slate-900 text-white p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black text-sm">
+                    🔒
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm tracking-tight text-white">SAATHI Secure FastPay</h4>
+                    <p className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                      <span>✓</span> 256-Bit SSL Encrypted
+                    </p>
+                  </div>
+                </div>
+
+                {!paymentProcessing && !paymentSuccess && (
+                  <button
+                    onClick={() => setShowPaymentModal(false)}
+                    className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-xs font-bold transition"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-800 flex items-end justify-between">
+                <div>
+                  <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Amount to Pay</p>
+                  <p className="text-2xl font-black text-white">₹250.00</p>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Field Agent Assignment Fee
+                </span>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            {paymentSuccess ? (
+              <div className="p-8 text-center space-y-3">
+                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-3xl mx-auto animate-bounce text-emerald-600">
+                  ✓
+                </div>
+                <h4 className="text-lg font-black text-gray-900">Payment of ₹250 Successful!</h4>
+                <p className="text-xs text-gray-500">
+                  Transaction Reference: <span className="font-mono font-bold text-gray-700">TXN_{Date.now().toString().slice(-8)}</span>
+                </p>
+                <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-200">
+                  🛵 Our agent will come in contact with you!
+                </div>
+              </div>
+            ) : (
+              <div className="p-5 space-y-4">
+                {/* Deal details recap */}
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-gray-500">Crop Inspection:</span>{' '}
+                    <strong className="text-gray-800">{deal.crop} ({deal.quantity} Qtl)</strong>
+                  </div>
+                  <span className="font-mono font-bold text-red-700">₹250</span>
+                </div>
+
+                {/* Payment Methods */}
+                <div>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Select Payment Method</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { key: 'UPI', label: '📱 UPI', desc: 'GPay, PhonePe' },
+                      { key: 'CARD', label: '💳 Card', desc: 'Debit/Credit' },
+                      { key: 'NETBANKING', label: '🏦 NetBanking', desc: 'All Banks' },
+                    ].map((m) => (
+                      <button
+                        key={m.key}
+                        type="button"
+                        onClick={() => setPaymentMethod(m.key)}
+                        className={`p-2.5 rounded-xl border text-left transition ${
+                          paymentMethod === m.key
+                            ? 'border-red-600 bg-red-50/50 ring-2 ring-red-100'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <p className="text-xs font-bold text-gray-900">{m.label}</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">{m.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Form fields based on selected method */}
+                {paymentMethod === 'UPI' && (
+                  <div className="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                    <label className="text-[11px] font-bold text-gray-600">Enter UPI ID</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value="farmer@okhdfcbank"
+                        className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-mono font-semibold text-gray-800"
+                      />
+                      <span className="px-3 py-2 bg-green-50 text-green-700 rounded-lg text-xs font-bold border border-green-200 flex items-center">
+                        Verified ✓
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 pt-1 text-[10px] text-gray-500">
+                      <span>Popular apps:</span>
+                      <span className="font-bold text-blue-600">GPay</span>
+                      <span>•</span>
+                      <span className="font-bold text-purple-600">PhonePe</span>
+                      <span>•</span>
+                      <span className="font-bold text-sky-600">Paytm</span>
+                    </div>
+                  </div>
+                )}
+
+                {paymentMethod === 'CARD' && (
+                  <div className="space-y-2.5 p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs">
+                    <div>
+                      <label className="text-[11px] font-bold text-gray-600">Card Number</label>
+                      <input
+                        type="text"
+                        readOnly
+                        value="4532 •••• •••• 8821"
+                        className="w-full mt-1 px-3 py-2 bg-white border border-gray-300 rounded-lg font-mono font-semibold text-gray-800"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] font-bold text-gray-600">Expiry</label>
+                        <input
+                          type="text"
+                          readOnly
+                          value="08/29"
+                          className="w-full mt-1 px-3 py-2 bg-white border border-gray-300 rounded-lg font-mono font-semibold text-gray-800"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-gray-600">CVV</label>
+                        <input
+                          type="password"
+                          readOnly
+                          value="•••"
+                          className="w-full mt-1 px-3 py-2 bg-white border border-gray-300 rounded-lg font-mono font-semibold text-gray-800"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {paymentMethod === 'NETBANKING' && (
+                  <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                    <label className="text-[11px] font-bold text-gray-600 block mb-2">Select Bank</label>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {['State Bank of India', 'HDFC Bank', 'ICICI Bank', 'Punjab National Bank'].map((b, i) => (
+                        <div key={b} className={`p-2 rounded-lg border bg-white flex items-center gap-2 ${i === 0 ? 'border-red-600 font-bold text-red-700' : 'border-gray-200 text-gray-700'}`}>
+                          <span>🏦</span>
+                          <span className="truncate">{b}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Primary Pay Button */}
+                <button
+                  onClick={handlePayAgentFee}
+                  disabled={paymentProcessing}
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl shadow-lg shadow-emerald-600/20 transition disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+                >
+                  {paymentProcessing ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Processing ₹250 Payment…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🔒</span>
+                      <span>Pay ₹250</span>
+                    </>
+                  )}
+                </button>
+
+                <p className="text-[10px] text-gray-400 text-center">
+                  Clicking Pay completes the ₹250 field agent fee and advances to admin verification.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
