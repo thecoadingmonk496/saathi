@@ -228,36 +228,80 @@ def get_mandi_price(crop_name: str, state: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# LLM initialisation
+# LLM initialisation with Multi-Model Rotation
 # ---------------------------------------------------------------------------
-MODEL_NAME = os.getenv("MODEL_NAME", "gemini-3.6-flash")
+AVAILABLE_MODELS = [
+    os.getenv("MODEL_NAME", "gemini-2.5-flash"),
+    "gemini-2.5-flash-lite",
+    "gemini-flash-latest",
+    "gemini-3.5-flash-lite",
+    "gemini-3.6-flash",
+    "gemini-3.7-flash"
+]
+AVAILABLE_MODELS = list(dict.fromkeys([m for m in AVAILABLE_MODELS if m]))
 
-_retry_policy = Retry(
-    total=3,
-    backoff_factor=1.0,
-    status_forcelist=[429, 500, 502, 503, 504],
-    allowed_methods=["POST"],
-    raise_on_status=False,
-)
-_http_session = requests.Session()
-_http_session.mount("https://", HTTPAdapter(max_retries=_retry_policy))
-_http_session.mount("http://",  HTTPAdapter(max_retries=_retry_policy))
+def get_gemini_llm(model_name: str):
+    return ChatGoogleGenerativeAI(
+        model=model_name,
+        api_key=GOOGLE_API_KEY,
+        temperature=0.3,
+        timeout=30.0,
+        max_retries=0,
+    )
 
-llm = ChatGoogleGenerativeAI(
-    model=MODEL_NAME,
-    api_key=GOOGLE_API_KEY,
-    temperature=0.2,
-    timeout=60.0,
-    max_retries=0,      # Application-level retry loop handles this
-)
+def _handle_conversational_fallback(query: str, preferred_lang: str = "Hindi") -> Optional[dict]:
+    q = (query or "").lower().strip()
+    is_hindi = preferred_lang.lower().startswith("hi") or any(word in q for word in ["kaise", "kya", "tum", "aap", "namaste", "batao", "kripya", "mera", "meri", "hai", "hain", "kaun"])
+    
+    # "Who are you" / "tum kaun ho"
+    if any(p in q for p in ["who are you", "tum kaun ho", "aap kaun ho", "apne bare me", "apna parichay", "what are you"]):
+        if is_hindi:
+            return {
+                "language_code": "hi",
+                "bcp47_code": "hi-IN",
+                "language_name": "Hindi",
+                "response": "नमस्ते! मैं साथी (Saathi) हूँ, आपका डिजिटल कृषि मित्र। मैं आपकी फसलों, मौसम, खाद, बीज और मंडी भाव से जुड़े हर सवाल में मदद करने के लिए यहाँ हूँ। बताइए आज मैं आपकी क्या सहायता करूँ?"
+            }
+        return {
+            "language_code": "en",
+            "bcp47_code": "en-IN",
+            "language_name": "English",
+            "response": "Hello! I am Saathi, your AI agricultural companion. I am here to assist you with crop advice, weather, fertilizer guidance, and live mandi prices. How can I help you today?"
+        }
 
-fallback_llm = ChatGoogleGenerativeAI(
-    model="gemini-3.6-flash",
-    api_key=GOOGLE_API_KEY,
-    temperature=0.2,
-    timeout=60.0,
-    max_retries=1,
-)
+    # "How are you" / "aap kaise ho" / "kya hal hai"
+    if any(p in q for p in ["how are you", "aap kaise ho", "tum kaise ho", "kya hal hai", "kaise ho", "kaisa chal raha"]):
+        if is_hindi:
+            return {
+                "language_code": "hi",
+                "bcp47_code": "hi-IN",
+                "language_name": "Hindi",
+                "response": "मैं बिल्कुल बढ़िया हूँ! आप बताइए, आपकी खेती और फसल कैसी चल रही है? आज आपकी क्या सहायता करूँ?"
+            }
+        return {
+            "language_code": "en",
+            "bcp47_code": "en-IN",
+            "language_name": "English",
+            "response": "I am doing great, thank you! How is your farm and crop doing? How can I assist you today?"
+        }
+
+    # Greetings "namaste" / "hello" / "hi"
+    if any(p in q for p in ["namaste", "namaskar", "hello", "hi", "hey", "ram ram", "pranam"]):
+        if is_hindi:
+            return {
+                "language_code": "hi",
+                "bcp47_code": "hi-IN",
+                "language_name": "Hindi",
+                "response": "नमस्ते किसान भाई! साथी में आपका स्वागत है। बताइए आज आपकी फसलों या मंडी भाव के बारे में क्या जानकारी चाहिए?"
+            }
+        return {
+            "language_code": "en",
+            "bcp47_code": "en-IN",
+            "language_name": "English",
+            "response": "Hello and welcome to Saathi! How can I support you and your farm today?"
+        }
+
+    return None
 
 # ---------------------------------------------------------------------------
 # BCP-47 → verbose name (used when detected_language is not passed)
@@ -534,65 +578,73 @@ def run_ai_pipeline(
     direct_system = SystemMessage(content=system_prompt_text)
     messages_seq = [direct_system] + history_messages + [HumanMessage(content=query)]
     
-    @retry(
-        stop=stop_after_attempt(2),
-        wait=wait_exponential(multiplier=1, min=1, max=3),
-        retry=retry_if_exception_type((google.api_core.exceptions.ResourceExhausted, google.api_core.exceptions.TooManyRequests)),
-        reraise=True
-    )
-    def _invoke_llm():
-        logger.info("[AI] Gemini request started")
-        return llm.invoke(messages_seq)
-        
-    try:
-        try:
-            res = _invoke_llm()
-        except Exception as primary_err:
-            logger.warning(f"[Gemini] Primary model failed ({primary_err}), trying fallback gemini-3.6-flash...")
-            res = fallback_llm.invoke(messages_seq)
+    # ── Check conversational / greeting fast-path ──────────────────────────────
+    conv_fallback = _handle_conversational_fallback(query, effective_profile.get("language", "Hindi"))
+    if conv_fallback and not price_query and not user_crop:
+        logger.info("[AI] Handled via conversational intent matcher")
+        return conv_fallback
 
-        if res:
-            duration = time.time() - start_time
-            logger.info(f"[AI] final response generated in {duration:.2f}s")
-            
-            raw_content = getattr(res, "content", res)
-            logger.info(f"[AI] Raw response type: {type(raw_content).__name__}")
-            
-            normalized_text = _normalize_llm_response(raw_content)
-            logger.info(f"[AI] Normalized response type: {type(normalized_text).__name__}")
-            
-            raw_text = normalized_text.strip()
-            
-            # Remove markdown JSON wrappers if present
-            if raw_text.startswith("```json"):
-                raw_text = raw_text[7:]
-            if raw_text.startswith("```"):
-                raw_text = raw_text[3:]
-            if raw_text.endswith("```"):
-                raw_text = raw_text[:-3]
-            raw_text = raw_text.strip()
-            
-            try:
-                parsed_json = json.loads(raw_text)
-                return parsed_json
-            except json.JSONDecodeError as e:
-                logger.error(f"[Gemini] Failed to parse JSON response: {e}\nRaw: {raw_text}")
-                # Fallback structure
-                return {
-                    "language_code": "hi",
-                    "bcp47_code": "hi-IN",
-                    "language_name": "Hindi",
-                    "response": raw_text
-                }
-    except Exception as e:
-        logger.error(f"[Gemini] Non-transient failure after {time.time() - start_time:.2f}s | {type(e).__name__}: {e}")
-        return {
-            "language_code": "en",
-            "bcp47_code": "en-IN",
-            "language_name": "English",
-            "response": _FALLBACK["en-IN"],
-            "detail_error": f"{type(e).__name__}: {str(e)}"
-        }
+    # ── Multi-model invocation ────────────────────────────────────────────────
+    res = None
+    last_err = None
+    for model_name in AVAILABLE_MODELS:
+        try:
+            logger.info(f"[AI] Invoking Gemini model: {model_name}")
+            active_llm = get_gemini_llm(model_name)
+            res = active_llm.invoke(messages_seq)
+            if res:
+                break
+        except Exception as model_err:
+            logger.warning(f"[AI] Model {model_name} failed ({type(model_err).__name__}): {model_err}")
+            last_err = model_err
+            continue
+
+    if res:
+        duration = time.time() - start_time
+        logger.info(f"[AI] final response generated in {duration:.2f}s")
+        
+        raw_content = getattr(res, "content", res)
+        normalized_text = _normalize_llm_response(raw_content)
+        raw_text = normalized_text.strip()
+        
+        # Remove markdown JSON wrappers if present
+        if raw_text.startswith("```json"):
+            raw_text = raw_text[7:]
+        if raw_text.startswith("```"):
+            raw_text = raw_text[3:]
+        if raw_text.endswith("```"):
+            raw_text = raw_text[:-3]
+        raw_text = raw_text.strip()
+        
+        try:
+            parsed_json = json.loads(raw_text)
+            return parsed_json
+        except json.JSONDecodeError as e:
+            logger.error(f"[Gemini] Failed to parse JSON response: {e}\nRaw: {raw_text}")
+            return {
+                "language_code": "hi",
+                "bcp47_code": "hi-IN",
+                "language_name": "Hindi",
+                "response": raw_text
+            }
+
+    # ── Fallback if all models failed ──────────────────────────────────────────
+    if conv_fallback:
+        return conv_fallback
+
+    is_hindi_user = (effective_profile.get("language") or "Hindi").lower().startswith("hi")
+    fallback_lang = "hi" if is_hindi_user else "en"
+    fallback_bcp47 = "hi-IN" if is_hindi_user else "en-IN"
+    fallback_text = _FALLBACK.get(fallback_bcp47, _FALLBACK["hi-IN"])
+
+    logger.error(f"[AI] All models failed. Last error: {last_err}. Returning fallback.")
+    return {
+        "language_code": fallback_lang,
+        "bcp47_code": fallback_bcp47,
+        "language_name": "Hindi" if is_hindi_user else "English",
+        "response": fallback_text,
+        "detail_error": str(last_err) if last_err else "All models exhausted"
+    }
 
 
 # ---------------------------------------------------------------------------
