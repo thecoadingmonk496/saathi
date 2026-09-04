@@ -47,7 +47,15 @@ router.post('/requests', requireAuth, requireRole('BUYER'), async (req, res) => 
 router.get('/requests/mine', requireAuth, requireRole('BUYER'), async (req, res) => {
   try {
     const requests = await BuyerRequest.find({ buyerId: req.user._id }).sort('-createdAt');
-    res.json({ success: true, data: requests });
+    
+    // Compute fulfilled quantity for each request from ACCEPTED offers
+    const requestsWithFulfilled = await Promise.all(requests.map(async (req) => {
+      const acceptedOffers = await FarmerOffer.find({ buyerRequestId: req._id, status: 'ACCEPTED' });
+      const fulfilledQuantity = acceptedOffers.reduce((sum, o) => sum + Number(o.quantity || 0), 0);
+      return { ...req.toObject(), fulfilledQuantity };
+    }));
+    
+    res.json({ success: true, data: requestsWithFulfilled });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -81,21 +89,15 @@ router.post('/requests/:id/approve', requireAuth, async (req, res) => {
 });
 
 // ==========================================
-// OFFERS
+// OFFERS & NEGOTIATION
 // ==========================================
 
-// Make an offer (Farmer only)
+// Make an initial offer (Farmer only)
 router.post('/requests/:id/offers', requireAuth, requireRole('FARMER'), async (req, res) => {
   try {
     const buyerRequest = await BuyerRequest.findById(req.params.id);
     if (!buyerRequest || buyerRequest.status !== 'PUBLISHED') {
       return res.status(400).json({ success: false, message: 'Invalid or unavailable request.' });
-    }
-
-    // Check if farmer already made an offer
-    const existingOffer = await FarmerOffer.findOne({ buyerRequestId: req.params.id, farmerId: req.user._id });
-    if (existingOffer) {
-      return res.status(400).json({ success: false, message: 'You have already made an offer on this request.' });
     }
 
     const { quantity, counterOfferPrice, message } = req.body;
@@ -105,7 +107,13 @@ router.post('/requests/:id/offers', requireAuth, requireRole('FARMER'), async (r
       quantity,
       counterOfferPrice,
       message,
-      status: 'PENDING'
+      status: 'PENDING',
+      negotiationHistory: [{
+        price: counterOfferPrice,
+        message,
+        byRole: 'FARMER',
+        date: new Date()
+      }]
     });
     res.status(201).json({ success: true, data: offer });
   } catch (error) {
@@ -113,80 +121,88 @@ router.post('/requests/:id/offers', requireAuth, requireRole('FARMER'), async (r
   }
 });
 
-// Get farmer's own offers (Farmer only)
-router.get('/offers/mine', requireAuth, requireRole('FARMER'), async (req, res) => {
-  try {
-    const offers = await FarmerOffer.find({ farmerId: req.user._id })
-      .populate({
-        path: 'buyerRequestId',
-        populate: { path: 'buyerId', select: 'firstName lastName village' }
-      })
-      .sort('-createdAt');
-    res.json({ success: true, data: offers });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// Get offers for a specific request (Buyer only)
-router.get('/requests/:id/offers', requireAuth, requireRole('BUYER'), async (req, res) => {
-  try {
-    // Verify ownership
-    const request = await BuyerRequest.findOne({ _id: req.params.id, buyerId: req.user._id });
-    if (!request) return res.status(403).json({ success: false, message: 'Unauthorized' });
-
-    const offers = await FarmerOffer.find({ buyerRequestId: req.params.id })
-      .populate('farmerId', 'firstName lastName district state')
-      .sort('-createdAt');
-    res.json({ success: true, data: offers });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// Accept an offer (Buyer only)
-router.post('/offers/:id/accept', requireAuth, requireRole('BUYER'), async (req, res) => {
+// Counter an offer (Both Buyer & Farmer)
+router.post('/offers/:id/counter', requireAuth, async (req, res) => {
   try {
     const offer = await FarmerOffer.findById(req.params.id).populate('buyerRequestId');
     if (!offer) return res.status(404).json({ success: false, message: 'Offer not found' });
     
-    if (offer.buyerRequestId.buyerId.toString() !== req.user._id.toString()) {
+    const isBuyer = req.user.role === 'BUYER' && offer.buyerRequestId.buyerId.toString() === req.user._id.toString();
+    const isFarmer = req.user.role === 'FARMER' && offer.farmerId.toString() === req.user._id.toString();
+    
+    if (!isBuyer && !isFarmer) {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
-    if (offer.status !== 'PENDING') {
-      return res.status(400).json({ success: false, message: 'Offer is no longer pending.' });
+
+    const { price, message } = req.body;
+    
+    offer.counterOfferPrice = price;
+    offer.status = isBuyer ? 'COUNTERED_BY_BUYER' : 'COUNTERED_BY_FARMER';
+    offer.negotiationHistory.push({
+      price,
+      message,
+      byRole: req.user.role,
+      date: new Date()
+    });
+    offer.respondedAt = new Date();
+    
+    await offer.save();
+    res.json({ success: true, data: offer });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Accept an offer (Both Buyer & Farmer can accept the OTHER's counter)
+router.post('/offers/:id/accept', requireAuth, async (req, res) => {
+  try {
+    const offer = await FarmerOffer.findById(req.params.id).populate('buyerRequestId');
+    if (!offer) return res.status(404).json({ success: false, message: 'Offer not found' });
+    
+    const isBuyer = req.user.role === 'BUYER' && offer.buyerRequestId.buyerId.toString() === req.user._id.toString();
+    const isFarmer = req.user.role === 'FARMER' && offer.farmerId.toString() === req.user._id.toString();
+    
+    if (!isBuyer && !isFarmer) return res.status(403).json({ success: false, message: 'Unauthorized' });
+    
+    if (isBuyer && (offer.status !== 'PENDING' && offer.status !== 'COUNTERED_BY_FARMER')) {
+      return res.status(400).json({ success: false, message: 'Buyer can only accept Farmer offers/counters.' });
+    }
+    if (isFarmer && offer.status !== 'COUNTERED_BY_BUYER') {
+      return res.status(400).json({ success: false, message: 'Farmer can only accept Buyer counters.' });
     }
 
-    // Atomic update
     offer.status = 'ACCEPTED';
     offer.respondedAt = new Date();
     await offer.save();
 
-    // Create the deal
+    // Create the Deal
     const deal = await Deal.create({
-      buyerRequestId: offer.buyerRequestId._id,
-      buyerId: req.user._id,
+      buyerId: offer.buyerRequestId.buyerId,
       farmerId: offer.farmerId,
+      buyerRequestId: offer.buyerRequestId._id,
       farmerOfferId: offer._id,
-      crop: offer.buyerRequestId.crop,
-      quantity: offer.quantity,
-      agreedPrice: offer.counterOfferPrice || offer.buyerRequestId.offeredPrice,
-      status: 'ACCEPTED' // Immediate state
+      agreedQuantity: offer.quantity,
+      agreedPrice: offer.counterOfferPrice,
+      status: 'ACCEPTED'
     });
 
-    res.json({ success: true, data: deal });
+    res.json({ success: true, data: { offer, deal } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
 // Reject an offer
-router.post('/offers/:id/reject', requireAuth, requireRole('BUYER'), async (req, res) => {
+router.post('/offers/:id/reject', requireAuth, async (req, res) => {
   try {
     const offer = await FarmerOffer.findById(req.params.id).populate('buyerRequestId');
-    if (!offer || offer.buyerRequestId.buyerId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Unauthorized' });
-    }
+    if (!offer) return res.status(404).json({ success: false, message: 'Offer not found' });
+
+    const isBuyer = req.user.role === 'BUYER' && offer.buyerRequestId.buyerId.toString() === req.user._id.toString();
+    const isFarmer = req.user.role === 'FARMER' && offer.farmerId.toString() === req.user._id.toString();
+    
+    if (!isBuyer && !isFarmer) return res.status(403).json({ success: false, message: 'Unauthorized' });
+
     offer.status = 'REJECTED';
     offer.respondedAt = new Date();
     await offer.save();
@@ -196,7 +212,7 @@ router.post('/offers/:id/reject', requireAuth, requireRole('BUYER'), async (req,
   }
 });
 
-// Ignore an offer
+// Ignore an offer (Buyer only usually)
 router.post('/offers/:id/ignore', requireAuth, requireRole('BUYER'), async (req, res) => {
   try {
     const offer = await FarmerOffer.findById(req.params.id).populate('buyerRequestId');
@@ -212,8 +228,39 @@ router.post('/offers/:id/ignore', requireAuth, requireRole('BUYER'), async (req,
   }
 });
 
+// Get farmer's own offers
+router.get('/offers/mine', requireAuth, requireRole('FARMER'), async (req, res) => {
+  try {
+    const offers = await FarmerOffer.find({ farmerId: req.user._id })
+      .populate({
+        path: 'buyerRequestId',
+        populate: { path: 'buyerId', select: 'firstName lastName village' }
+      })
+      .sort('-createdAt');
+    res.json({ success: true, data: offers });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get offers for a specific request
+router.get('/requests/:id/offers', requireAuth, requireRole('BUYER'), async (req, res) => {
+  try {
+    const request = await BuyerRequest.findOne({ _id: req.params.id, buyerId: req.user._id });
+    if (!request) return res.status(403).json({ success: false, message: 'Unauthorized' });
+
+    const offers = await FarmerOffer.find({ buyerRequestId: req.params.id })
+      .populate('farmerId', 'firstName lastName district state')
+      .sort('-createdAt');
+    res.json({ success: true, data: offers });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // ==========================================
 // DEALS & VERIFICATION
+
 // ==========================================
 
 // Get user's deals

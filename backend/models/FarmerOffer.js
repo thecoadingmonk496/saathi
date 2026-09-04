@@ -27,9 +27,17 @@ const farmerOfferSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['PENDING', 'ACCEPTED', 'REJECTED', 'IGNORED', 'EXPIRED'],
+      enum: ['PENDING', 'ACCEPTED', 'REJECTED', 'IGNORED', 'EXPIRED', 'COUNTERED_BY_BUYER', 'COUNTERED_BY_FARMER'],
       default: 'PENDING',
     },
+    negotiationHistory: [
+      {
+        price: Number,
+        message: String,
+        byRole: { type: String, enum: ['BUYER', 'FARMER'] },
+        date: { type: Date, default: Date.now }
+      }
+    ],
     respondedAt: {
       type: Date,
     },

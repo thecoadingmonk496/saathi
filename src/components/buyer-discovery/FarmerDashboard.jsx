@@ -29,7 +29,31 @@ export default function FarmerDashboard() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [offerForm, setOfferForm] = useState({ quantity: '', counterOfferPrice: '', message: '', declaration: false });
   const [myOffers, setMyOffers] = useState([]);
+  const [showAllOffers, setShowAllOffers] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState(null);
+
+  
+  const [counterForms, setCounterForms] = useState({});
+
+  const handleOfferAction = async (offerId, action, payload = null) => {
+    const token = localStorage.getItem('token');
+    const options = {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    };
+    if (payload) {
+      options.headers['Content-Type'] = 'application/json';
+      options.body = JSON.stringify(payload);
+    }
+    const res = await fetch(`${API_BASE}/buyer-discovery/offers/${offerId}/${action}`, options);
+    const data = await res.json();
+    if (data.success) {
+      fetchData();
+      setCounterForms({ ...counterForms, [offerId]: null }); // close form
+    } else {
+      alert(data.message || 'Error processing action');
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -113,7 +137,7 @@ export default function FarmerDashboard() {
               <button onClick={() => setSelectedRequest(null)} className="text-sm font-bold text-red-700 hover:underline">← Back to all requests</button>
 
               {/* Request details card */}
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden relative">
                 <div className="border-t-4 border-red-700" />
                 <div className="p-6">
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
@@ -222,14 +246,14 @@ export default function FarmerDashboard() {
                   <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-base font-bold text-gray-900">Recent Offers</h3>
-                      <button className="text-xs font-bold text-red-700 hover:underline">View All</button>
+                      <button type="button" onClick={() => setShowAllOffers(!showAllOffers)} className="text-xs font-bold text-red-700 hover:underline">{showAllOffers ? "Show Less" : "View All"}</button>
                     </div>
 
                     {myOffers.length === 0 ? (
                       <p className="text-sm text-gray-400 italic py-4">No offers submitted yet.</p>
                     ) : (
                       <div className="space-y-3">
-                        {myOffers.slice(0, 5).map(offer => {
+                        {(showAllOffers ? myOffers : myOffers.slice(0, 5)).map(offer => {
                           const statusVariant =
                             offer.status === 'ACCEPTED' ? 'accepted' :
                             offer.status === 'REJECTED' ? 'countered' : // Use red variant
@@ -238,18 +262,51 @@ export default function FarmerDashboard() {
                           const cropName = offer.buyerRequestId?.crop || 'Unknown Crop';
                           
                           return (
-                            <div key={offer._id} className="border border-gray-200 rounded-xl p-3.5 hover:shadow-sm transition">
-                              <div className="flex items-start justify-between">
+                            <div key={offer._id} className="border border-slate-200 rounded-xl p-3.5 hover:shadow-md hover:-translate-y-0.5 hover:border-red-200 bg-gradient-to-br from-white to-slate-50/50 transition-all duration-300">
+                              <div className="flex items-start justify-between mb-3">
                                 <div>
                                   <p className="text-sm font-bold text-gray-900">{cropName}</p>
-                                  <p className="text-xs text-gray-500 mt-0.5">₹{Number(offer.counterOfferPrice).toLocaleString('en-IN')}/Q</p>
-                                  <p className="text-[10px] text-gray-400 mt-1">{new Date(offer.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">Current: ₹{Number(offer.counterOfferPrice).toLocaleString('en-IN')}/Q</p>
                                 </div>
                                 <div className="text-right">
-                                  <Badge variant={statusVariant}>{offer.status}</Badge>
+                                  <Badge variant={statusVariant}>{offer.status.replace(/_/g, ' ')}</Badge>
                                   <p className="text-sm font-bold text-gray-700 mt-1.5">{offer.quantity} Q</p>
                                 </div>
                               </div>
+                              
+                              {/* Negotiation History */}
+                              {offer.negotiationHistory && offer.negotiationHistory.length > 1 && (
+                                <div className="bg-white border border-gray-100 rounded-lg p-2 mb-3 max-h-32 overflow-y-auto space-y-1.5">
+                                  {offer.negotiationHistory.map((hist, idx) => (
+                                    <div key={idx} className={`text-[10px] p-1.5 rounded ${hist.byRole === 'FARMER' ? 'bg-red-50 text-red-800 ml-4' : 'bg-gray-100 text-gray-800 mr-4'}`}>
+                                      <span className="font-bold">{hist.byRole}:</span> ₹{hist.price}/Q
+                                      {hist.message && <p className="mt-0.5 opacity-80">{hist.message}</p>}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Action Buttons for Farmer */}
+                              {offer.status === 'COUNTERED_BY_BUYER' && (
+                                <div className="space-y-2 mt-2 pt-3 border-t border-gray-100">
+                                  {!counterForms[offer._id] ? (
+                                    <div className="flex gap-2">
+                                      <button onClick={() => handleOfferAction(offer._id, 'accept')} className="flex-1 py-1.5 bg-red-700 text-white text-xs font-bold rounded-lg">Accept</button>
+                                      <button onClick={() => setCounterForms({ ...counterForms, [offer._id]: { price: offer.counterOfferPrice, message: '' } })} className="flex-1 py-1.5 border border-red-700 text-red-700 text-xs font-bold rounded-lg">Counter</button>
+                                      <button onClick={() => handleOfferAction(offer._id, 'reject')} className="flex-1 py-1.5 bg-gray-200 text-gray-700 text-xs font-bold rounded-lg">Reject</button>
+                                    </div>
+                                  ) : (
+                                    <div className="bg-white p-2 border border-red-100 rounded-lg shadow-sm">
+                                      <input type="number" className="w-full text-xs p-1.5 border border-gray-200 rounded mb-1.5" placeholder="Your Counter Price" value={counterForms[offer._id].price} onChange={(e) => setCounterForms({ ...counterForms, [offer._id]: { ...counterForms[offer._id], price: e.target.value } })} />
+                                      <input type="text" className="w-full text-xs p-1.5 border border-gray-200 rounded mb-2" placeholder="Message (Optional)" value={counterForms[offer._id].message} onChange={(e) => setCounterForms({ ...counterForms, [offer._id]: { ...counterForms[offer._id], message: e.target.value } })} />
+                                      <div className="flex gap-2">
+                                        <button onClick={() => handleOfferAction(offer._id, 'counter', counterForms[offer._id])} className="flex-1 py-1 bg-red-700 text-white text-xs font-bold rounded">Send Counter</button>
+                                        <button onClick={() => setCounterForms({ ...counterForms, [offer._id]: null })} className="py-1 px-2 text-gray-500 text-xs">Cancel</button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           );
                         })}

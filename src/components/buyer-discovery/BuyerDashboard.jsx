@@ -136,15 +136,29 @@ export default function BuyerDashboard() {
     if (data.success) setActiveOffers({ requestId, offers: data.data });
   };
 
-  const handleOfferAction = async (offerId, action) => {
+  const [counterForms, setCounterForms] = useState({});
+
+  const handleOfferAction = async (offerId, action, payload = null) => {
     const token = localStorage.getItem('token');
-    await fetch(`${API_BASE}/buyer-discovery/offers/${offerId}/${action}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+    const options = {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    };
+    if (payload) {
+      options.headers['Content-Type'] = 'application/json';
+      options.body = JSON.stringify(payload);
+    }
+    await fetch(`${API_BASE}/buyer-discovery/offers/${offerId}/${action}`, options);
     if (activeOffers) loadOffers(activeOffers.requestId);
     fetchData();
+    setCounterForms({ ...counterForms, [offerId]: null });
   };
 
-  /* ── fulfilled quantity (sum of accepted offers) ── */
+  /* ── fulfilled quantity (from backend or sum of accepted offers) ── */
   const getFulfilled = (req) => {
+    // Use backend-computed value if available
+    if (req.fulfilledQuantity != null) return req.fulfilledQuantity;
+    // Fallback: compute from loaded offers
     if (!activeOffers || activeOffers.requestId !== req._id) return 0;
     return activeOffers.offers
       .filter(o => o.status === 'ACCEPTED')
@@ -310,55 +324,76 @@ export default function BuyerDashboard() {
                           ) : (
                             <div className="space-y-4">
                               {activeOffers.offers.map(offer => {
-                                const isCounter = offer.counterOfferPrice && Number(offer.counterOfferPrice) !== Number(req.offeredPrice);
-                                return (
-                                  <div key={offer._id} className="border border-gray-200 rounded-xl p-4 hover:shadow-sm transition relative">
-                                    {isCounter && (
-                                      <div className="absolute -top-2.5 right-3">
-                                        <Badge variant="counter">Counter Offer</Badge>
-                                      </div>
-                                    )}
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="flex items-center gap-3">
-                                        <Avatar name={offer.farmerId?.firstName} />
-                                        <div>
-                                          <p className="font-bold text-gray-900 text-sm">
-                                            {offer.farmerId?.firstName} {offer.farmerId?.lastName}
-                                            <span className="ml-1.5 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">Verified</span>
-                                          </p>
-                                          <p className="text-xs text-gray-500">📍 {offer.farmerId?.district || offer.farmerId?.village || 'India'}</p>
+                                  const isCounter = offer.counterOfferPrice && Number(offer.counterOfferPrice) !== Number(req.offeredPrice);
+                                  return (
+                                    <div key={offer._id} className="border border-gray-200 rounded-xl p-4 hover:shadow-sm transition relative">
+                                      {isCounter && (
+                                        <div className="absolute -top-2.5 right-3">
+                                          <Badge variant="counter">Counter Offer</Badge>
+                                        </div>
+                                      )}
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-center gap-3">
+                                          <Avatar name={offer.farmerId?.firstName} />
+                                          <div>
+                                            <p className="font-bold text-gray-900 text-sm">
+                                              {offer.farmerId?.firstName} {offer.farmerId?.lastName}
+                                              <span className="ml-1.5 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">Verified</span>
+                                            </p>
+                                            <p className="text-xs text-gray-500">📍 {offer.farmerId?.district || offer.farmerId?.village || 'India'}</p>
+                                          </div>
+                                        </div>
+                                        <div className="text-right">
+                                          <p className="text-lg font-extrabold text-gray-900">{Number(offer.quantity).toLocaleString('en-IN')} <span className="text-xs font-bold text-gray-500">Qtl</span></p>
                                         </div>
                                       </div>
-                                      <div className="text-right">
-                                        <p className="text-lg font-extrabold text-gray-900">{Number(offer.quantity).toLocaleString('en-IN')} <span className="text-xs font-bold text-gray-500">Qtl</span></p>
+  
+                                      {/* Price row */}
+                                      <div className="mt-3 flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2">
+                                        <span className="text-xs font-bold text-gray-500">{isCounter ? 'Counter Price' : 'Offer Price'}</span>
+                                        <span className="text-base font-extrabold text-gray-900">₹{Number(offer.counterOfferPrice || req.offeredPrice).toLocaleString('en-IN')} <span className="text-xs font-medium text-gray-500">/Qtl</span></span>
                                       </div>
+                                      
+                                      {/* Negotiation History */}
+                                      {offer.negotiationHistory && offer.negotiationHistory.length > 1 && (
+                                        <div className="bg-white border border-gray-100 rounded-lg p-2 mt-3 mb-2 max-h-32 overflow-y-auto space-y-1.5">
+                                          {offer.negotiationHistory.map((hist, idx) => (
+                                            <div key={idx} className={`text-[10px] p-1.5 rounded ${hist.byRole === 'BUYER' ? 'bg-red-50 text-red-800 ml-4' : 'bg-gray-100 text-gray-800 mr-4'}`}>
+                                              <span className="font-bold">{hist.byRole}:</span> ₹{hist.price}/Q
+                                              {hist.message && <p className="mt-0.5 opacity-80">{hist.message}</p>}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      {/* Actions */}
+                                      {(offer.status === 'PENDING' || offer.status === 'COUNTERED_BY_FARMER') ? (
+                                        <div className="mt-3">
+                                          {!counterForms[offer._id] ? (
+                                            <div className="flex items-center gap-2">
+                                              <button onClick={() => handleOfferAction(offer._id, 'accept')} className="flex-1 py-2 bg-red-700 text-white text-sm font-bold rounded-lg hover:bg-red-800 transition">Accept</button>
+                                              <button onClick={() => setCounterForms({ ...counterForms, [offer._id]: { price: offer.counterOfferPrice, message: '' } })} className="flex-1 py-2 border border-red-700 text-red-700 text-sm font-bold rounded-lg hover:bg-red-50 transition">Counter</button>
+                                              <button onClick={() => handleOfferAction(offer._id, 'reject')} className="w-10 h-10 flex items-center justify-center border border-gray-300 text-gray-400 rounded-lg hover:bg-gray-100 transition text-lg">✕</button>
+                                            </div>
+                                          ) : (
+                                            <div className="bg-white p-2 border border-red-100 rounded-lg shadow-sm mt-3">
+                                              <input type="number" className="w-full text-xs p-2 border border-gray-200 rounded mb-2" placeholder="Your Counter Price" value={counterForms[offer._id].price} onChange={(e) => setCounterForms({ ...counterForms, [offer._id]: { ...counterForms[offer._id], price: e.target.value } })} />
+                                              <input type="text" className="w-full text-xs p-2 border border-gray-200 rounded mb-2" placeholder="Message (Optional)" value={counterForms[offer._id].message} onChange={(e) => setCounterForms({ ...counterForms, [offer._id]: { ...counterForms[offer._id], message: e.target.value } })} />
+                                              <div className="flex gap-2">
+                                                <button onClick={() => handleOfferAction(offer._id, 'counter', counterForms[offer._id])} className="flex-1 py-1.5 bg-red-700 text-white text-xs font-bold rounded">Send Counter</button>
+                                                <button onClick={() => setCounterForms({ ...counterForms, [offer._id]: null })} className="py-1.5 px-3 text-gray-500 text-xs font-bold">Cancel</button>
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="mt-3 text-right">
+                                          <Badge variant={offer.status === 'ACCEPTED' ? 'published' : (offer.status === 'COUNTERED_BY_BUYER' || offer.status === 'COUNTERED_BY_FARMER') ? 'counter' : 'default'}>{offer.status.replace(/_/g, ' ')}</Badge>
+                                        </div>
+                                      )}
                                     </div>
-
-                                    {/* Price row */}
-                                    <div className="mt-3 flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2">
-                                      <span className="text-xs font-bold text-gray-500">{isCounter ? 'Counter Price' : 'Offer Price'}</span>
-                                      <span className="text-base font-extrabold text-gray-900">₹{Number(offer.counterOfferPrice || req.offeredPrice).toLocaleString('en-IN')} <span className="text-xs font-medium text-gray-500">/Qtl</span></span>
-                                    </div>
-
-                                    {offer.message && (
-                                      <p className="mt-2 text-xs text-gray-500 italic">"{offer.message}"</p>
-                                    )}
-
-                                    {/* Actions */}
-                                    {offer.status === 'PENDING' ? (
-                                      <div className="mt-3 flex items-center gap-2">
-                                        <button onClick={() => handleOfferAction(offer._id, 'accept')} className="flex-1 py-2 bg-red-700 text-white text-sm font-bold rounded-lg hover:bg-red-800 transition">Accept</button>
-                                        <button onClick={() => handleOfferAction(offer._id, 'reject')} className="flex-1 py-2 border-2 border-red-700 text-red-700 text-sm font-bold rounded-lg hover:bg-red-50 transition">Counter</button>
-                                        <button onClick={() => handleOfferAction(offer._id, 'ignore')} className="w-10 h-10 flex items-center justify-center border border-gray-300 text-gray-400 rounded-lg hover:bg-gray-100 transition text-lg">✕</button>
-                                      </div>
-                                    ) : (
-                                      <div className="mt-3">
-                                        <Badge variant={offer.status === 'ACCEPTED' ? 'published' : 'default'}>{offer.status}</Badge>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
+                                  );
+                                })}
                             </div>
                           )}
                         </div>

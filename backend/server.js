@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
+const { apiLimiter, authLimiter } = require('./middleware/rateLimiter');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const mandiRoutes = require('./routes/mandi');
