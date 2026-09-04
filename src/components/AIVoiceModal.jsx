@@ -169,7 +169,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
                      }
                    }, 100);
                 }
-                return currentTranscript;
+                return '';
              });
              return '';
           });
@@ -246,7 +246,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       if (audioPlayerRef.current && !audioPlayerRef.current.paused) audioPlayerRef.current.pause();
       if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
     };
-  }, [langTag, wsTrigger]);
+  }, [langTag]);
 
   const handleFinalSpeech = (queryText) => {
     if (!queryText.trim()) return;
@@ -255,7 +255,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
     }
     setStatus('processing');
     setChatHistory(prev => [...prev, { role: 'user', content: queryText }]);
-    const trySend = (retries = 10) => {
+    const trySend = (retries = 50) => {
       if (!wsRef.current) return setStatus('error');
       if (wsRef.current.readyState === WebSocket.OPEN) {
          wsRef.current.send(JSON.stringify({
@@ -495,7 +495,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
               <button
                 className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white transition hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-200"
                 type="button"
-                onClick={() => { setStatus('idle'); setResponseText(''); setTranscript(''); setInterimTranscript(''); setWsTrigger(prev => prev + 1); }}
+                onClick={() => { setResponseText(''); setTranscript(''); setInterimTranscript(''); setStatus('listening'); startRecognition(); }}
               >
                 <MicrophoneIcon className="h-5 w-5" />
                 {t('ai.speakAgain') || t('ai.speakAgain')}
