@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { MicrophoneIcon, PaperAirplaneIcon, SpeakerWaveIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { processVoiceQuery } from '../utils/voiceEngine';
 import { useUser } from '../context/UserContext';
-
-const API_BASE = import.meta.env.VITE_FASTAPI_URL || 'http://localhost:8000';
-const WS_BASE = import.meta.env.VITE_FASTAPI_WS_URL || API_BASE.replace(/^http/, 'ws') + '/ws/voice';
 
 const languageTagMap = {
   English: 'en-IN',
@@ -20,96 +18,87 @@ const languageTagMap = {
   Assamese: 'as-IN',
 };
 
-export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 'Hindi' }) {
+const naturalFemaleVoiceKeywords = [
+  'female', 'woman', 'natural', 'neural', 'swara', 'heera', 'neerja', 'kalpana', 'veena',
+  'kavya', 'shruti', 'ananya', 'geeta', 'meera', 'zira', 'samantha', 'jenny',
+  'victoria', 'google हिन्दी', 'google us english', 'google uk english female'
+];
+
+function prepareNaturalSpeechText(text, langTag) {
+  if (!text) return '';
+  const isHindi = langTag.startsWith('hi');
+  let speechText = text
+    .replace(/₹\s*([\d,]+)/g, isHindi ? '$1 रुपये' : '$1 rupees')
+    .replace(/quintal/g, isHindi ? 'क्विंटल' : 'quintal')
+    .replace(/(\d+)\s*km/g, isHindi ? '$1 किलोमीटर' : '$1 kilometers');
+  return speechText;
+}
+
+export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 'Hindi', onNavigate }) {
   const { t } = useUser();
-  const [status, setStatus] = useState('idle');
+  const [status, setStatus] = useState('listening'); 
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
   const [responseText, setResponseText] = useState('');
   const [textInput, setTextInput] = useState('');
   const [isSupported, setIsSupported] = useState(true);
-  const audioPlayerRef = useRef(typeof Audio !== 'undefined' ? new Audio() : null);
-  const audioUrlRef = useRef(null);
+  const [voices, setVoices] = useState([]);
+
+  // Chat history: array of { role: 'user' | 'assistant', content: string }
+  const [chatHistory, setChatHistory] = useState([]);
+
   const recognitionRef = useRef(null);
-  const wsRef = useRef(null);
-  const statusRef = useRef(status);
-
-  useEffect(() => { statusRef.current = status; }, [status]);
-
+  const audioRef = useRef(null);
+  const chatEndRef = useRef(null);
   const langTag = languageTagMap[preferredLanguage] || 'hi-IN';
 
-  const playBackendTTSData = async (audioBase64, mimeType) => {
-    try {
-      if (audioPlayerRef.current && !audioPlayerRef.current.paused) {
-        audioPlayerRef.current.pause();
-        audioPlayerRef.current.currentTime = 0;
-      }
-      if (audioUrlRef.current) {
-        URL.revokeObjectURL(audioUrlRef.current);
-        audioUrlRef.current = null;
-      }
-
-      setStatus('ai_speaking');
-      const binaryString = atob(audioBase64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const audioBlob = new Blob([bytes], { type: mimeType || 'audio/wav' });
-      if (audioBlob.size <= 100) throw new Error('Audio blob too small');
-      audioUrlRef.current = URL.createObjectURL(audioBlob);
-      audioPlayerRef.current.src = audioUrlRef.current;
-      audioPlayerRef.current.volume = 1.0;
-
-      audioPlayerRef.current.onended = () => {
-        if (audioUrlRef.current) {
-          URL.revokeObjectURL(audioUrlRef.current);
-          audioUrlRef.current = null;
-        }
-        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
-          setStatus('listening');
-          startRecognition();
-        }
-      };
-      await audioPlayerRef.current.play();
-    } catch (err) {
-      console.error('Sarvam backend TTS playback failed:', err);
-      setStatus('error');
+  // Auto-scroll to latest message
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  };
+  }, [chatHistory, responseText]);
 
-  const startRecognition = () => {
-    const currentStatus = statusRef.current;
-    if (currentStatus === 'ai_speaking' || currentStatus === 'processing' || currentStatus === 'ended' || currentStatus === 'ending' || currentStatus === 'error') {
-      return;
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    const loadVoices = () => {
+      const availableVoices = window.speechSynthesis.getVoices();
+      if (availableVoices && availableVoices.length > 0) {
+        setVoices(availableVoices);
+      }
+    };
+
+    loadVoices();
+
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
     }
+  }, []);
+
+  useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
     if (!SpeechRecognition) {
       setIsSupported(false);
       setStatus('error');
       return;
     }
+
     try {
-      if (recognitionRef.current) {
-        try { recognitionRef.current.abort(); } catch (e) {}
-      }
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = true;
       recognition.lang = langTag;
 
       recognition.onstart = () => {
-        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
-           setStatus('listening');
-        }
+        setStatus('listening');
       };
 
       recognition.onresult = (event) => {
-        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
-           setStatus('user_speaking');
-        }
         let currentInterim = '';
         let currentFinal = '';
+
         for (let i = event.resultIndex; i < event.results.length; i += 1) {
           const result = event.results[i];
           if (result.isFinal) {
@@ -118,6 +107,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             currentInterim += result[0].transcript;
           }
         }
+
         if (currentFinal) {
           setTranscript((prev) => (prev ? `${prev} ${currentFinal}` : currentFinal));
           setInterimTranscript('');
@@ -129,10 +119,8 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
       recognition.onerror = (event) => {
         console.warn('Speech recognition error:', event.error);
-        if (event.error !== 'no-speech' && event.error !== 'aborted') {
-           if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
-              setStatus('error');
-           }
+        if (event.error !== 'no-speech') {
+          setStatus('error');
         }
       };
 
@@ -141,14 +129,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
           if (prevInterim && !transcript) {
             setTranscript(prevInterim);
             handleFinalSpeech(prevInterim);
-            return '';
           }
-          setTimeout(() => {
-            const st = statusRef.current;
-            if (st === 'listening' || st === 'user_speaking') {
-              startRecognition();
-            }
-          }, 100);
           return '';
         });
       };
@@ -156,90 +137,287 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       recognitionRef.current = recognition;
       recognition.start();
     } catch (err) {
-      console.error('Failed to start speech recognition:', err);
-    }
-  };
-
-  useEffect(() => {
-    let ws = null;
-    try {
-      ws = new WebSocket(WS_BASE);
-      ws.onopen = () => {
-        console.log("SAATHI WebSocket connected");
-        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
-          setStatus('listening');
-          startRecognition();
-        }
-      };
-      ws.onmessage = async (event) => {
-        if (statusRef.current === 'ended' || statusRef.current === 'ending') return;
-        try {
-          const data = JSON.parse(event.data);
-          if (data.status === 'success') {
-            const aiResponse = data.ai_response || "Sorry, I couldn't understand that.";
-            setResponseText(aiResponse);
-            onResponse?.(aiResponse);
-
-            if (data.audio_base64) {
-              await playBackendTTSData(data.audio_base64, data.mime_type || data.format);
-            } else {
-              console.error('Sarvam returned no audio');
-              setStatus('error');
-            }
-          } else {
-            console.error("WS API Error:", data.message);
-            const errorMsg = t('ai.notSupported') || "I'm having trouble connecting right now.";
-            setResponseText(errorMsg);
-            setStatus('error');
-          }
-        } catch (error) {
-          console.error("WS Parse Error:", error);
-        }
-      };
-      ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
-           setStatus('error');
-        }
-      };
-      ws.onclose = () => {
-        console.log("SAATHI WebSocket closed");
-        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
-           setStatus('error');
-        }
-      };
-      wsRef.current = ws;
-    } catch (err) {
-      console.error("Failed to connect to WS:", err);
+      console.error('Failed to initialize speech recognition:', err);
+      setIsSupported(false);
       setStatus('error');
     }
 
     return () => {
-      setStatus('ended');
-      if (wsRef.current) wsRef.current.close();
       if (recognitionRef.current) {
-        try { recognitionRef.current.abort(); } catch (e) {}
+        try {
+          recognitionRef.current.abort();
+        } catch { }
       }
-      if (audioPlayerRef.current && !audioPlayerRef.current.paused) audioPlayerRef.current.pause();
-      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, [langTag]);
 
-  const handleFinalSpeech = (queryText) => {
-    if (!queryText.trim()) return;
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch (e) {}
+  const selectVoiceForLanguage = (targetLangTag) => {
+    if (!voices || voices.length === 0) return null;
+    const baseLang = targetLangTag.split('-')[0];
+
+    const isFemaleVoice = (v) => naturalFemaleVoiceKeywords.some((kw) => v.name.toLowerCase().includes(kw));
+
+    let matched = voices.find((v) => (v.lang === targetLangTag || v.lang.replace('_', '-') === targetLangTag) && isFemaleVoice(v));
+
+    if (!matched) {
+      matched = voices.find((v) => v.lang.startsWith(baseLang) && isFemaleVoice(v));
     }
-    setStatus('processing');
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-       wsRef.current.send(JSON.stringify({
-          action: "text",
-          query: queryText,
-          generate_audio: true
-       }));
-    } else {
-       console.error("WebSocket is not open");
-       setStatus('error');
+
+    if (!matched) {
+      matched = voices.find((v) => v.lang === targetLangTag || v.lang.replace('_', '-') === targetLangTag || v.lang.startsWith(baseLang));
+    }
+
+    if (!matched || !isFemaleVoice(matched)) {
+      const indianFemaleFallback = voices.find((v) => (v.lang.startsWith('hi') || v.lang.includes('IN')) && isFemaleVoice(v));
+      if (indianFemaleFallback) {
+        matched = indianFemaleFallback;
+      }
+    }
+
+    if (!matched || !isFemaleVoice(matched)) {
+      const globalFemale = voices.find(isFemaleVoice);
+      if (globalFemale) {
+        matched = globalFemale;
+      }
+    }
+
+    return matched || voices[0] || null;
+  };
+
+  const speakText = (text) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) {
+      setStatus('done');
+      return;
+    }
+
+    try {
+      window.speechSynthesis.cancel(); 
+
+      const naturalText = prepareNaturalSpeechText(text, langTag);
+      const utterance = new SpeechSynthesisUtterance(naturalText);
+
+      utterance.lang = langTag;
+      utterance.rate = 0.88; 
+      utterance.pitch = 1.0; 
+      utterance.volume = 1.0;
+
+      const pleasantVoice = selectVoiceForLanguage(langTag);
+      if (pleasantVoice) {
+        utterance.voice = pleasantVoice;
+      }
+
+      utterance.onstart = () => {
+        setStatus('speaking');
+      };
+
+      utterance.onend = () => {
+        setStatus('done');
+      };
+
+      utterance.onerror = (err) => {
+        console.warn('Speech synthesis error:', err);
+        setStatus('done');
+      };
+
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.error('TTS execution error:', e);
+      setStatus('done');
+    }
+  };
+
+  const isProcessingRef = useRef(false);
+
+  const handleFinalSpeech = async (queryText) => {
+    if (!queryText.trim() || isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch { }
+    }
+
+    // Add user message to chat history
+    const userMessage = { role: 'user', content: queryText.trim() };
+    setChatHistory((prev) => [...prev, userMessage]);
+
+    setStatus('thinking');
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+      // Build history array for backend context (previous messages in this session)
+      const historyForBackend = chatHistory.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
+      const res = await fetch('https://saathi-backend-7t91.onrender.com/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({ 
+          message: queryText,
+          language: preferredLanguage,
+          history: historyForBackend,
+          profile: {} 
+        })
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (!res.ok) throw new Error('Live AI backend request failed');
+      
+      const data = await res.json();
+      let aiResponse = data.ai_response;
+
+      if (aiResponse && aiResponse.toLowerCase().includes('server is busy')) {
+        throw new Error('Backend returned busy message');
+      }
+
+      // Add assistant message to chat history
+      setChatHistory((prev) => [...prev, { role: 'assistant', content: aiResponse }]);
+      setResponseText(aiResponse);
+      onResponse?.(aiResponse);
+
+      // Try fetching premium TTS from backend
+      try {
+        const ttsRes = await fetch('https://saathi-backend-7t91.onrender.com/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            text: aiResponse,
+            language_code: data.detected_language_bcp47 || langTag
+          })
+        });
+        
+        if (ttsRes.ok) {
+          const ttsData = await ttsRes.json();
+          if (ttsData.audio_base64) {
+            setStatus('speaking');
+            
+            if (audioRef.current) {
+              try { audioRef.current.stop(); } catch (e) {}
+              try { audioRef.current.disconnect(); } catch (e) {}
+            }
+            if (window.sharedAudioContext) {
+              try {
+                const binaryString = window.atob(ttsData.audio_base64);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                  bytes[i] = binaryString.charCodeAt(i);
+                }
+                try {
+                  const buffer = await new Promise((resolve, reject) => {
+                    try {
+                      const decodePromise = window.sharedAudioContext.decodeAudioData(bytes.buffer, resolve, reject);
+                      if (decodePromise && typeof decodePromise.then === 'function') {
+                        decodePromise.then(resolve).catch(reject);
+                      }
+                    } catch (err) {
+                      reject(err);
+                    }
+                  });
+                  
+                  // Ensure browser TTS is absolutely stopped before playing backend audio
+                  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                  }
+                  
+                  const source = window.sharedAudioContext.createBufferSource();
+                  source.buffer = buffer;
+                  source.connect(window.sharedAudioContext.destination);
+                  
+                  source.onended = () => {
+                    setStatus('done');
+                    isProcessingRef.current = false;
+                    if (audioRef.current === source) audioRef.current = null;
+                  };
+                  
+                  audioRef.current = source;
+                  source.start(0);
+                  
+                  // Successfully played backend voice, explicitly return to prevent fallback
+                  return; 
+                } catch (decodeErr) {
+                  console.warn('Decode error', decodeErr);
+                  // Allow fall through to speakText
+                }
+              } catch (e) {
+                console.warn('Web Audio playback failed:', e);
+                // Allow fall through to speakText
+              }
+            }
+          }
+        }
+      } catch (ttsErr) {
+        console.warn('Premium TTS fetch failed:', ttsErr);
+      }
+      
+      // Fallback to browser TTS if backend TTS failed, Web Audio failed, or decode failed
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // Prevent collision with any stuck browser TTS
+      }
+      speakText(aiResponse);
+      isProcessingRef.current = false;
+
+    } catch (e) {
+      console.warn('Live AI failed, falling back to local engine:', e);
+      // Fallback to local rule-based engine
+      const { response, action } = processVoiceQuery(queryText, preferredLanguage);
+
+      // Add assistant message to chat history
+      setChatHistory((prev) => [...prev, { role: 'assistant', content: response }]);
+      setResponseText(response);
+      onResponse?.(response);
+      speakText(response);
+      isProcessingRef.current = false;
+
+      if (action && action.type === 'NAVIGATE' && action.path) {
+        window.setTimeout(() => {
+          onNavigate?.(action.path);
+        }, 1800);
+      }
+    }
+  };
+
+  const handleRestartListening = () => {
+    isProcessingRef.current = false;
+    if (audioRef.current) {
+      try { audioRef.current.stop(); } catch (e) {}
+      try { audioRef.current.disconnect(); } catch (e) {}
+      audioRef.current = null;
+    }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    
+    // Unlock Audio Context again on manual restart
+    if (window.sharedAudioContext && window.sharedAudioContext.state === 'suspended') {
+      window.sharedAudioContext.resume();
+    }
+
+    setTranscript('');
+    setInterimTranscript('');
+    setResponseText('');
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.start();
+        setStatus('listening');
+      } catch {
+        setStatus('listening');
+      }
     }
   };
 
@@ -251,69 +429,53 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
     setTextInput('');
   };
 
-  const handleEndCall = () => {
-    setStatus('ending');
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch (e) {}
-    }
-    if (audioPlayerRef.current && !audioPlayerRef.current.paused) audioPlayerRef.current.pause();
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-    setStatus('ended');
-    onClose();
-  };
-
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') handleEndCall();
+      if (event.key === 'Escape') {
+        onClose();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [onClose]);
 
   const displayTranscript = transcript || interimTranscript;
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/60 p-0 backdrop-blur-md sm:items-center sm:p-4"
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/70 p-0 sm:items-center sm:p-4"
       role="presentation"
-      onClick={handleEndCall}
+      onClick={onClose}
     >
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="ai-voice-modal-title"
-        className="w-full max-w-xl rounded-t-3xl border border-white/60 bg-white/95 p-5 shadow-2xl backdrop-blur-xl sm:rounded-3xl sm:p-7"
+        className="flex w-full max-w-xl flex-col rounded-lg border border-[var(--saathi-border-light)] bg-white shadow-2xl sm:max-h-[85vh]"
+        style={{ maxHeight: '90vh' }}
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex items-start justify-between gap-4">
+        {/* Header - Fixed */}
+        <header className="flex items-start justify-between gap-4 border-b border-slate-100 p-5 sm:p-7 pb-4 sm:pb-5">
           <div className="flex items-center gap-3">
             <span
-              className={`flex h-12 w-12 items-center justify-center rounded-full overflow-hidden text-white shadow-lg ${
+              className={`flex h-12 w-12 items-center justify-center rounded-full overflow-hidden shadow-lg ${
                 status === 'listening'
-                  ? 'animate-pulse bg-[#15803D] shadow-green-900/30 ring-4 ring-green-200'
-                  : status === 'user_speaking'
-                  ? 'animate-pulse bg-blue-600 shadow-blue-900/30 ring-4 ring-blue-200'
-                  : status === 'processing'
-                  ? 'animate-pulse bg-yellow-500 shadow-yellow-900/30 ring-4 ring-yellow-200'
-                  : status === 'ai_speaking'
-                  ? 'bg-emerald-600 shadow-emerald-900/30 ring-4 ring-emerald-200'
+                  ? 'animate-pulse bg-[var(--saathi-primary)] shadow-red-900/30 ring-4 ring-red-200'
+                  : status === 'speaking'
+                  ? 'bg-slate-600 shadow-slate-900/30 ring-4 ring-slate-200'
                   : 'bg-slate-700 shadow-slate-900/20'
               }`}
             >
               <img src="/saathi-mic-logo.png" alt="SAATHI logo" className="h-9 w-9 rounded-full bg-[#fdfbf7] object-contain p-1" />
             </span>
             <div>
-              <h2 id="ai-voice-modal-title" className="text-2xl font-extrabold text-slate-900">
-                {status === 'idle' && (t('ai.connecting') || 'Connecting...')}
+              <h2 id="ai-voice-modal-title" className="text-2xl font-extrabold text-[var(--saathi-text)]">
                 {status === 'listening' && (t('ai.listening') || t('ai.listening'))}
-                {status === 'user_speaking' && (t('ai.hearing') || 'Hearing...')}
-                {status === 'processing' && (t('ai.thinking') || t('ai.thinking'))}
-                {status === 'ai_speaking' && (t('ai.speaking') || t('ai.speaking'))}
-                {status === 'error' && (t('ai.error') || 'Connection Error')}
-                {status === 'ended' && 'Call Ended'}
+                {status === 'thinking' && (t('ai.thinking') || t('ai.thinking'))}
+                {status === 'speaking' && (t('ai.speaking') || t('ai.speaking'))}
+                {status === 'done' && (t('ai.responseReady') || t('ai.responseReady'))}
+                {status === 'error' && (t('ai.title') || 'SAATHI AI Assistant')}
               </h2>
               <p className="mt-0.5 text-xs font-bold text-[#15803D]">
                 {t('ai.languageLabel')}: <span className="underline">{preferredLanguage}</span> ({langTag})
@@ -323,91 +485,167 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
           <button
             aria-label="Close voice assistant"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 focus:outline-none focus:ring-4 focus:ring-slate-200"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-[var(--saathi-text-muted)] transition hover:bg-slate-200 hover:text-[var(--saathi-text-secondary)] focus:outline-none focus:ring-4 focus:ring-slate-200"
             type="button"
-            onClick={handleEndCall}
+            onClick={onClose}
           >
             <XMarkIcon className="h-5 w-5" />
           </button>
         </header>
 
-        <div className="mt-6 rounded-2xl border border-green-100 bg-gradient-to-b from-green-50/90 to-emerald-50/50 p-5">
-          <div className="flex h-20 items-end justify-center gap-2" aria-hidden="true">
-            {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((bar) => (
-              <span
-                key={bar}
-                className={`block w-2.5 rounded-full transition-all duration-300 ${
-                  status === 'listening' || status === 'user_speaking'
-                    ? 'voice-wave-bar bg-[#15803D] shadow-md shadow-green-900/20'
-                    : status === 'ai_speaking'
-                    ? 'animate-pulse bg-emerald-600 shadow-md h-14'
-                    : 'h-4 bg-slate-300'
-                }`}
-                style={{ animationDelay: `${bar * 100}ms` }}
-              />
-            ))}
-          </div>
+        {/* Scrollable Chat Area */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-7 pt-4 sm:pt-5" style={{ minHeight: '200px', maxHeight: '50vh' }}>
+          
+          {/* Previous chat messages */}
+          {chatHistory.length > 0 && (
+            <div className="mb-4 space-y-3">
+              {chatHistory.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm font-semibold leading-relaxed shadow-sm ${
+                      msg.role === 'user'
+                        ? 'bg-[var(--saathi-primary)] text-white rounded-br-md'
+                        : 'bg-gradient-to-br from-emerald-50 to-green-50 text-[var(--saathi-text)] border border-emerald-100 rounded-bl-md'
+                    }`}
+                  >
+                    {msg.role === 'assistant' && (
+                      <div className="mb-1 flex items-center gap-1.5">
+                        <img src="/saathi-mic-logo.png" alt="" className="h-4 w-4 rounded-full bg-[#fdfbf7] object-contain" />
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600">SAATHI</span>
+                        <button
+                          type="button"
+                          onClick={() => speakText(msg.content)}
+                          className="ml-auto inline-flex items-center gap-0.5 rounded bg-emerald-100/70 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 hover:bg-emerald-200 transition"
+                          aria-label="Play this response"
+                        >
+                          <SpeakerWaveIcon className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
+                    {msg.role === 'user' && (
+                      <p className="mb-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white/70">You</p>
+                    )}
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
-          <div className="mt-4 rounded-xl bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
-                {responseText ? t('ai.answerLabel') : t('ai.queryLabel')}
-              </p>
+          {/* Current active area - Listening/Thinking indicator */}
+          <div className="rounded-2xl border border-red-100 bg-gradient-to-b from-red-50/90 to-slate-50/50 p-4">
+            <div className="flex h-16 items-end justify-center gap-2" aria-hidden="true">
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((bar) => (
+                <span
+                  key={bar}
+                  className={`block w-2.5 rounded-full transition-all duration-300 ${
+                    status === 'listening'
+                      ? 'voice-wave-bar bg-[var(--saathi-primary)] shadow-md shadow-red-900/20'
+                      : status === 'speaking'
+                      ? 'animate-pulse bg-slate-600 shadow-md h-14'
+                      : status === 'thinking'
+                      ? 'animate-pulse bg-amber-400 shadow-md h-8'
+                      : 'h-4 bg-slate-300'
+                  }`}
+                  style={{ animationDelay: `${bar * 100}ms` }}
+                />
+              ))}
             </div>
 
-            <p className="mt-1.5 min-h-12 text-base font-bold leading-7 text-slate-800 sm:text-lg">
-              {responseText || displayTranscript || (
-                <span className="italic text-slate-400">
-                  {status === 'listening' || status === 'idle' ? t('ai.speakPrompt') : t('ai.typePrompt')}
-                </span>
-              )}
-            </p>
+            {/* Show current transcript (not yet in history) */}
+            {(displayTranscript && status === 'listening') && (
+              <div className="mt-3 rounded-md bg-white p-3 shadow-sm border border-slate-100">
+                <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                  {t('ai.queryLabel')}
+                </p>
+                <p className="mt-1 text-base font-bold leading-7 text-[var(--saathi-text)]">
+                  {displayTranscript}
+                </p>
+              </div>
+            )}
+
+            {/* Status text when no current transcript */}
+            {!displayTranscript && chatHistory.length === 0 && status === 'listening' && (
+              <p className="mt-3 text-center text-sm font-semibold text-slate-400 italic">
+                {t('ai.speakPrompt')}
+              </p>
+            )}
+
+            {status === 'thinking' && (
+              <p className="mt-3 text-center text-sm font-semibold text-amber-600 animate-pulse">
+                {t('ai.thinking') || 'SAATHI is thinking...'}
+              </p>
+            )}
           </div>
+
+          {/* Scroll anchor */}
+          <div ref={chatEndRef} />
         </div>
 
-        <form onSubmit={handleManualSubmit} className="mt-4 flex items-center gap-2">
-          <input
-            type="text"
-            value={textInput}
-            onChange={(e) => setTextInput(e.target.value)}
-            placeholder={t('ai.typePlaceholder') || t('ai.typePlaceholder')}
-            disabled={status === 'processing' || status === 'ai_speaking' || status === 'ended'}
-            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#15803D] focus:ring-4 focus:ring-green-100 disabled:opacity-50"
-          />
-          <button
-            type="submit"
-            disabled={status === 'processing' || status === 'ai_speaking' || status === 'ended'}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#15803D] text-white shadow-sm transition hover:bg-[#11632f] focus:outline-none focus:ring-4 focus:ring-green-200 disabled:opacity-50"
-            aria-label="Send question"
-          >
-            <PaperAirplaneIcon className="h-4 w-4" />
-          </button>
-        </form>
-
-        {!isSupported && (
-          <p className="mt-2 text-xs font-semibold text-amber-600">
-            {t('ai.notSupported')}
-          </p>
-        )}
-
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-          {status === 'error' || status === 'ended' ? (
+        {/* Input & Actions - Fixed at bottom */}
+        <div className="border-t border-slate-100 p-5 sm:p-7 pt-4 sm:pt-5">
+          <form onSubmit={handleManualSubmit} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              placeholder={t('ai.typePlaceholder') || t('ai.typePlaceholder')}
+              className="flex-1 rounded-md border border-[var(--saathi-border-light)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--saathi-text)] outline-none transition placeholder:text-slate-400 focus:border-[#15803D] focus:ring-2 focus:ring-red-100"
+            />
             <button
-              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-200"
+              type="submit"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--saathi-primary)] text-white shadow-sm transition hover:bg-[var(--saathi-primary-hover)] focus:outline-none focus:ring-2 focus:ring-red-200"
+              aria-label="Send question"
+            >
+              <PaperAirplaneIcon className="h-4 w-4" />
+            </button>
+          </form>
+
+          {!isSupported && (
+            <p className="mt-2 text-xs font-semibold text-red-600">
+              {t('ai.notSupported')}
+            </p>
+          )}
+
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            {status === 'listening' ? (
+              <button
+                className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-200"
+                type="button"
+                onClick={() => {
+                  if (recognitionRef.current) {
+                    try {
+                      recognitionRef.current.stop();
+                    } catch { }
+                  }
+                  if (transcript) handleFinalSpeech(transcript);
+                  else setStatus('done');
+                }}
+              >
+                {t('ai.stopProcess') || t('ai.stopProcess')}
+              </button>
+            ) : (
+              <button
+                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white transition hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-200"
+                type="button"
+                onClick={handleRestartListening}
+              >
+                <MicrophoneIcon className="h-5 w-5" />
+                {t('ai.speakAgain') || t('ai.speakAgain')}
+              </button>
+            )}
+
+            <button
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border-2 border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 hover:border-slate-400 focus:outline-none focus:ring-4 focus:ring-slate-200"
               type="button"
-              onClick={handleEndCall}
+              onClick={onClose}
             >
               {t('ai.close') || t('ai.close')}
             </button>
-          ) : (
-            <button
-              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl bg-red-600 px-5 text-sm font-bold text-white transition hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-200"
-              type="button"
-              onClick={handleEndCall}
-            >
-              End Call / Stop Voice Chat
-            </button>
-          )}
+          </div>
         </div>
       </section>
     </div>
