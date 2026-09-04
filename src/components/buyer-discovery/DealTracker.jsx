@@ -26,8 +26,6 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const fileInputRef = useRef(null);
 
-  const currentIdx = STATUS_MAP[deal.status] ?? -1;
-
   const handlePhotoUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length < 5) { alert('Please select at least 5 photos of the crop for verification.'); return; }
@@ -106,6 +104,22 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
     };
   };
 
+  const hasUploadedPhotos = (deal.qualitySubmissions && deal.qualitySubmissions.length > 0) || deal.moisturePercent || deal.status === 'HUMAN_REVIEW' || deal.status === 'AGENT_PAYMENT_PENDING' || deal.status === 'AI_PASSED';
+  const isFeePaid = Boolean(deal.agentFeePaid);
+
+  let currentIdx = 0;
+  if (deal.status === 'COMPLETED' || deal.status === 'DISPUTED') {
+    currentIdx = 4;
+  } else if (deal.status === 'VERIFIED') {
+    currentIdx = 3;
+  } else if (isFeePaid) {
+    currentIdx = 2; // Agent Assigned (Fee Paid)
+  } else if (hasUploadedPhotos) {
+    currentIdx = 1; // Moisture 11.8% (Payment Bar Pending)
+  } else {
+    currentIdx = 0; // Upload Photos
+  }
+
   const latestSubmission = deal.qualitySubmissions && deal.qualitySubmissions.length > 0
     ? deal.qualitySubmissions[deal.qualitySubmissions.length - 1]
     : null;
@@ -125,10 +139,10 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
             deal.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
             deal.status === 'VERIFIED' ? 'bg-blue-100 text-blue-800' :
             deal.status === 'UNVERIFIED' ? 'bg-red-100 text-red-800' :
-            deal.status === 'HUMAN_REVIEW' ? 'bg-amber-100 text-amber-800' :
-            'bg-red-100 text-red-800'
+            isFeePaid ? 'bg-amber-100 text-amber-800' :
+            'bg-emerald-100 text-emerald-800'
           }`}>
-            {deal.status.replace(/_/g, ' ')}
+            {isFeePaid ? 'FIELD AGENT ASSIGNED' : hasUploadedPhotos ? 'PAYMENT PENDING (₹250)' : deal.status.replace(/_/g, ' ')}
           </span>
         </div>
 
@@ -166,6 +180,9 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                       <p className={`text-sm font-bold ${done ? 'text-red-800' : active ? 'text-red-700' : 'text-gray-400'}`}>
                         {step.label}
                       </p>
+                      {active && !isFeePaid && hasUploadedPhotos && (
+                        <p className="text-xs text-emerald-600 font-semibold mt-0.5">Pay ₹250 to proceed</p>
+                      )}
                       {active && deal.status === 'AI_FLAGGED' && (
                         <p className="text-xs text-red-600 mt-0.5">Re-upload required</p>
                       )}
@@ -197,8 +214,8 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
           <div>
             <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">Action Required</h4>
 
-            {/* Step 1: Upload Photos */}
-            {(deal.status === 'ACCEPTED' || deal.status === 'AI_FLAGGED') && (
+            {/* Step 1: Upload Photos (only if not yet uploaded) */}
+            {!hasUploadedPhotos && (deal.status === 'ACCEPTED' || deal.status === 'PHOTO_PENDING' || deal.status === 'AI_FLAGGED') && (
               <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">
                 <h5 className="font-bold text-gray-900 mb-2">
                   {deal.status === 'AI_FLAGGED' ? '⚠️ AI Flagged: Re-Upload Photos' : '📷 Quality Screening'}
@@ -208,71 +225,62 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                     <strong>Findings:</strong> {latestSubmission?.aiFindings}
                   </div>
                 )}
-                {userRole === 'FARMER' ? (
-                  <>
-                    <p className="text-sm text-gray-500 mb-3">Upload at least 5 clear photos of the crop for AI screening.</p>
-                    <input type="file" multiple accept="image/*" ref={fileInputRef} className="hidden" onChange={handlePhotoUpload} />
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={loading}
-                      className="w-full py-3 bg-red-700 text-white font-bold rounded-xl hover:bg-red-800 transition disabled:opacity-50 text-sm"
-                    >
-                      {loading ? 'Uploading & Analyzing…' : 'Upload 5+ Photos'}
-                    </button>
-                  </>
-                ) : (
-                  <p className="text-sm text-gray-500 italic">Waiting for farmer to upload crop photos…</p>
-                )}
+                <p className="text-sm text-gray-500 mb-3">Upload at least 5 clear photos of the crop for AI screening.</p>
+                <input type="file" multiple accept="image/*" ref={fileInputRef} className="hidden" onChange={handlePhotoUpload} />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={loading}
+                  className="w-full py-3 bg-red-700 text-white font-bold rounded-xl hover:bg-red-800 transition disabled:opacity-50 text-sm"
+                >
+                  {loading ? 'Uploading & Analyzing…' : 'Upload 5+ Photos'}
+                </button>
               </div>
             )}
 
-            {/* Step 2: Static Moisture Accepted + Pay ₹250 for Agent */}
-            {(deal.status === 'AGENT_PAYMENT_PENDING' || deal.status === 'AI_PASSED') && (
+            {/* Step 2: Payment Bar (Shown whenever moisture passed but ₹250 is NOT yet paid) */}
+            {hasUploadedPhotos && !isFeePaid && deal.status !== 'VERIFIED' && deal.status !== 'COMPLETED' && deal.status !== 'UNVERIFIED' && (
               <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-5 space-y-4">
                 <div>
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                    💧 Moisture Data: {deal.moisturePercent || 11.8}% • VERIFIED
+                    💧 Moisture Data: {deal.moisturePercent || 11.8}% • ACCEPTABLE & VERIFIED
                   </span>
                   <h5 className="font-bold text-emerald-950 mt-2 text-base">
-                    Moisture percentage acceptable! Produce passed AI screening.
+                    Moisture percentage acceptable! Produce passed screening.
                   </h5>
                   <p className="text-xs text-emerald-700 mt-1">
-                    Static screening confirmed optimal moisture level of {deal.moisturePercent || 11.8}% (Standard safe range: 10% - 14%).
+                    Optimal moisture recorded at {deal.moisturePercent || 11.8}% (Standard safe storage range: 10% - 14%).
                   </p>
                 </div>
 
-                {userRole === 'FARMER' ? (
-                  <div className="bg-white p-4 rounded-xl border border-emerald-200 shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Next Step</p>
-                        <h6 className="text-sm font-extrabold text-gray-900">Connect with On-Ground Field Agent</h6>
-                      </div>
-                      <span className="text-lg font-black text-red-700 bg-red-50 px-2.5 py-1 rounded-lg border border-red-200">₹250</span>
+                {/* The Payment Bar */}
+                <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                    <div>
+                      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Next Step</p>
+                      <h6 className="text-sm font-extrabold text-gray-900">Connect with On-Ground Field Agent</h6>
                     </div>
-                    <p className="text-xs text-gray-600 mb-4 leading-relaxed">
-                      Pay ₹250 for getting in connect with our agent. <strong>He will come in contact with you</strong> for on-ground physical inspection and verification.
-                    </p>
-                    <button
-                      onClick={() => setShowPaymentModal(true)}
-                      className="w-full py-3 bg-red-700 hover:bg-red-800 text-white font-bold rounded-xl shadow transition text-sm flex items-center justify-center gap-2"
-                    >
-                      <span>💳</span>
-                      <span>Pay ₹250 & Connect with Agent →</span>
-                    </button>
+                    <span className="text-xl font-black text-red-700 bg-red-50 px-3 py-1 rounded-xl border border-red-200">
+                      ₹250
+                    </span>
                   </div>
-                ) : (
-                  <div className="bg-white p-4 rounded-xl border border-emerald-200 text-center">
-                    <p className="text-xs text-gray-500 italic">
-                      Farmer crop passed moisture check (11.8%). Waiting for farmer to complete field agent verification fee.
-                    </p>
-                  </div>
-                )}
+
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Pay ₹250 for getting in connect with our agent. <strong>He will come in contact with you</strong> for on-ground physical inspection and verification.
+                  </p>
+
+                  <button
+                    onClick={() => setShowPaymentModal(true)}
+                    className="w-full py-3.5 bg-red-700 hover:bg-red-800 text-white font-black rounded-xl shadow-lg shadow-red-700/20 transition text-sm flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <span>💳</span>
+                    <span>Pay ₹250 & Connect with Agent →</span>
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* Step 3: ₹250 Paid -> In Contact with Agent & Sent to Admin */}
-            {deal.status === 'HUMAN_REVIEW' && (
+            {/* Step 3: ONLY shown after ₹250 is Paid (isFeePaid === true) */}
+            {isFeePaid && deal.status !== 'VERIFIED' && deal.status !== 'COMPLETED' && deal.status !== 'UNVERIFIED' && (
               <div className="bg-amber-50 rounded-2xl border border-amber-200 p-5 space-y-3">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
@@ -283,7 +291,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
 
                 <div className="bg-white p-4 rounded-xl border border-amber-200 shadow-xs space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-gray-500">Agent Fee</span>
+                    <span className="font-semibold text-gray-500">Agent Connection Fee</span>
                     <span className="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                       ₹250 PAID ✓
                     </span>

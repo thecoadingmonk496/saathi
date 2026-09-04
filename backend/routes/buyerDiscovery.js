@@ -431,15 +431,11 @@ router.post('/deals/:id/quality-submission', requireAuth, requireRole('FARMER'),
   }
 });
 
-// Pay ₹250 Agent Connection Fee (Farmer only)
-router.post('/deals/:id/pay-agent-fee', requireAuth, requireRole('FARMER'), async (req, res) => {
+// Pay ₹250 Agent Connection Fee
+router.post('/deals/:id/pay-agent-fee', requireAuth, async (req, res) => {
   try {
-    const deal = await Deal.findOne({ _id: req.params.id, farmerId: req.user._id });
+    const deal = await Deal.findById(req.params.id);
     if (!deal) return res.status(404).json({ success: false, message: 'Deal not found' });
-
-    if (deal.status !== 'AGENT_PAYMENT_PENDING' && deal.status !== 'ACCEPTED') {
-      return res.status(400).json({ success: false, message: 'Deal is not awaiting agent fee payment.' });
-    }
 
     deal.agentFeePaid = true;
     deal.agentFeeAmount = 250;
