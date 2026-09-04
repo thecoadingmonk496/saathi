@@ -230,7 +230,7 @@ def get_mandi_price(crop_name: str, state: str) -> str:
 # ---------------------------------------------------------------------------
 # LLM initialisation
 # ---------------------------------------------------------------------------
-MODEL_NAME = os.getenv("MODEL_NAME", "gemini-3.5-flash-lite")
+MODEL_NAME = os.getenv("MODEL_NAME", "gemini-1.5-flash")
 
 _retry_policy = Retry(
     total=3,
@@ -249,6 +249,14 @@ llm = ChatGoogleGenerativeAI(
     temperature=0.2,
     timeout=60.0,
     max_retries=0,      # Application-level retry loop handles this
+)
+
+fallback_llm = ChatGoogleGenerativeAI(
+    model="gemini-1.5-flash",
+    api_key=GOOGLE_API_KEY,
+    temperature=0.2,
+    timeout=60.0,
+    max_retries=1,
 )
 
 # ---------------------------------------------------------------------------
@@ -537,7 +545,12 @@ def run_ai_pipeline(
         return llm.invoke(messages_seq)
         
     try:
-        res = _invoke_llm()
+        try:
+            res = _invoke_llm()
+        except Exception as primary_err:
+            logger.warning(f"[Gemini] Primary model failed ({primary_err}), trying fallback gemini-1.5-flash...")
+            res = fallback_llm.invoke(messages_seq)
+
         if res:
             duration = time.time() - start_time
             logger.info(f"[AI] final response generated in {duration:.2f}s")
@@ -563,12 +576,12 @@ def run_ai_pipeline(
                 parsed_json = json.loads(raw_text)
                 return parsed_json
             except json.JSONDecodeError as e:
-                logger.error(f"[Gemini] Failed to parse JSON response: {e}\\nRaw: {raw_text}")
+                logger.error(f"[Gemini] Failed to parse JSON response: {e}\nRaw: {raw_text}")
                 # Fallback structure
                 return {
-                    "language_code": "en",
-                    "bcp47_code": "en-IN",
-                    "language_name": "English",
+                    "language_code": "hi",
+                    "bcp47_code": "hi-IN",
+                    "language_name": "Hindi",
                     "response": raw_text
                 }
     except Exception as e:
