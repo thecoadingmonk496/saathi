@@ -102,28 +102,11 @@ def get_canonical_crop_name(crop_input: str) -> str:
     return crop_input.strip().capitalize()
 
 
-KNOWN_LOCATIONS = [
-    'gorakhpur', 'lucknow', 'prayagraj', 'varanasi', 'kanpur', 'agra', 'meerut',
-    'punjab', 'amritsar', 'ludhiana', 'patiala', 'jalandhar',
-    'tamil nadu', 'chennai', 'coimbatore', 'madurai',
-    'karnataka', 'bangalore', 'mysore', 'hubli',
-    'maharashtra', 'mumbai', 'pune', 'nagpur', 'nashik',
-    'gujarat', 'ahmedabad', 'surat', 'vadodara', 'rajkot',
-    'haryana', 'gurugram', 'faridabad', 'panipat',
-    'madhya pradesh', 'bhopal', 'indore', 'gwalior', 'jabalpur',
-    'rajasthan', 'jaipur', 'jodhpur', 'udaipur', 'kota',
-    'bihar', 'patna', 'gaya', 'muzaffarpur',
-    'west bengal', 'kolkata', 'howrah', 'darjeeling',
-    'uttar pradesh', 'andhra pradesh', 'telangana', 'hyderabad'
-]
+from indian_locations import extract_indian_location, INDIAN_STATES, INDIAN_DISTRICTS
 
-def extract_location_from_message(message: str) -> Optional[str]:
-    """Extract location mentioned in user message."""
-    msg_lower = (message or "").lower()
-    for loc in KNOWN_LOCATIONS:
-        if loc in msg_lower:
-            return loc
-    return None
+def extract_location_from_message(message: str) -> Tuple[Optional[str], Optional[str]]:
+    """Extract (state, district) mentioned in user message across all Indian states and 600+ districts."""
+    return extract_indian_location(message)
 
 KNOWN_CROP_ALIASES: list[str] = [
     "wheat", "gehu", "gehun", "गेहूं", "गेहूँ", "गहू", "கோதுமை", "godhuma",
@@ -154,17 +137,8 @@ def get_mandi_prices_context(
     limit: int = 20,
 ) -> str:
     """
-    Retrieves current mandi price rows from MongoDB for use as grounded
-    context. This is structured retrieval rather than semantic document RAG:
-    mandi prices are live database facts and must not be embedded or invented.
-
-    Args:
-        crop_name: Optional crop name or alias.
-        state: Optional Indian state name.
-        district: Optional district name.
-        limit: Maximum number of rows injected into the LLM context.
-    Returns:
-        str: Grounded, formatted price context for the LLM.
+    Retrieves current mandi price rows from MongoDB for use as grounded context.
+    Prioritizes exact district records. If none found, gracefully falls back to state records.
     """
     collection = get_mongo_collection()
     if collection is None:
@@ -172,39 +146,52 @@ def get_mandi_prices_context(
         return "MANDI_DATA: Live price is currently unavailable."
 
     try:
-        filters: dict[str, Any] = {}
+        base_commodity_filter: dict[str, Any] = {}
         if crop_name:
             canonical_crop = get_canonical_crop_name(crop_name)
-            filters["commodity"] = re.compile(re.escape(canonical_crop), re.IGNORECASE)
-        if state:
-            filters["state"] = re.compile(re.escape(state.strip()), re.IGNORECASE)
-        if district:
-            filters["district"] = re.compile(re.escape(district.strip()), re.IGNORECASE)
+            base_commodity_filter["commodity"] = re.compile(re.escape(canonical_crop), re.IGNORECASE)
 
         safe_limit = max(1, min(int(limit), 50))
-        records = collection.find(
-            filters,
-            {
-                "_id": 0,
-                "state": 1,
-                "district": 1,
-                "market": 1,
-                "commodity": 1,
-                "variety": 1,
-                "grade": 1,
-                "arrival_date": 1,
-                "min_price": 1,
-                "max_price": 1,
-                "modal_price": 1,
-            },
-        ).sort(
-            [("arrival_date", -1), ("fetched_at", -1)]
-        ).limit(safe_limit)
-        records = list(records)
+        projection = {
+            "_id": 0,
+            "state": 1,
+            "district": 1,
+            "market": 1,
+            "commodity": 1,
+            "variety": 1,
+            "grade": 1,
+            "arrival_date": 1,
+            "min_price": 1,
+            "max_price": 1,
+            "modal_price": 1,
+        }
+
+        records = []
+
+        # 1. District-first search: If a specific district is requested, match district!
+        if district:
+            dist_filter = base_commodity_filter.copy()
+            dist_filter["district"] = re.compile(re.escape(district.strip()), re.IGNORECASE)
+            records = list(collection.find(dist_filter, projection).sort([("arrival_date", -1), ("fetched_at", -1)]).limit(safe_limit))
+            if records:
+                logger.info("[MANDI] Found %d records for district=%s", len(records), district)
+
+        # 2. Fallback to state search if no district or if district search yielded 0 records
+        if not records and state:
+            state_filter = base_commodity_filter.copy()
+            state_filter["state"] = re.compile(re.escape(state.strip()), re.IGNORECASE)
+            records = list(collection.find(state_filter, projection).sort([("arrival_date", -1), ("fetched_at", -1)]).limit(safe_limit))
+            if records:
+                logger.info("[MANDI] Found %d records for state=%s", len(records), state)
+
+        # 3. If still no records and only commodity is given, find national recent records
+        if not records and base_commodity_filter:
+            records = list(collection.find(base_commodity_filter, projection).sort([("arrival_date", -1), ("fetched_at", -1)]).limit(5))
 
         if not records:
-            logger.info("[MANDI] No records matched filters=%s", filters)
-            return "MANDI_DATA: Live price is currently unavailable for the requested area or crop."
+            logger.info("[MANDI] No records matched crop=%s state=%s district=%s", crop_name, state, district)
+            target = district or state or "the requested area"
+            return f"MANDI_DATA: Live price is currently unavailable for {target}."
 
         lines = ["MANDI_DATA: The following prices come directly from the live mandi database:"]
         for record in records:
@@ -465,12 +452,14 @@ def run_ai_pipeline(
     if not query or not query.strip():
         raise ValueError("Empty query — please provide a valid input.")
 
-    user_location = extract_location_from_message(query)
+    user_state, user_district = extract_location_from_message(query)
     user_crop = extract_crop_from_message(query)
 
     effective_profile = (profile or {}).copy()
-    if user_location:
-        effective_profile['state'] = user_location
+    if user_state:
+        effective_profile['state'] = user_state
+    if user_district:
+        effective_profile['district'] = user_district
     if user_crop:
         effective_profile['crop'] = user_crop
 
