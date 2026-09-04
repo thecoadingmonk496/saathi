@@ -13,6 +13,7 @@ export default function Layout({ children }) {
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(location.pathname === '/ai');
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   const [voiceAssistantResponse, setVoiceAssistantResponse] = useState('');
+  const [voiceInitialQuery, setVoiceInitialQuery] = useState('');
   
   const isDashboardPage = location.pathname === '/' || location.pathname === '/dashboard';
   const isTransparentPage = isDashboardPage
@@ -36,7 +37,7 @@ export default function Layout({ children }) {
     }
   }, [location.pathname]);
 
-  const openVoiceModal = () => {
+  const openVoiceModal = (initialQuery = '') => {
     if (typeof window !== 'undefined') {
       if (window.speechSynthesis) {
         const warmup = new SpeechSynthesisUtterance('');
@@ -55,11 +56,13 @@ export default function Layout({ children }) {
         window.sharedAudioContext.resume();
       }
     }
+    setVoiceInitialQuery(typeof initialQuery === 'string' ? initialQuery : '');
     setIsVoiceModalOpen(true);
   };
 
   const closeVoiceModal = () => {
     setIsVoiceModalOpen(false);
+    setVoiceInitialQuery('');
   };
 
   const enhancedChildren = isValidElement(children)
@@ -122,6 +125,7 @@ export default function Layout({ children }) {
           onClose={closeVoiceModal}
           onResponse={setVoiceAssistantResponse}
           preferredLanguage={preferredLanguage}
+          initialQuery={voiceInitialQuery}
           onNavigate={(path) => {
             navigate(path);
             closeVoiceModal();

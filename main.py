@@ -148,6 +148,7 @@ class ChatRequest(BaseModel):
     message: str = Field(..., example="उत्तर प्रदेश में गेहूं का भाव क्या है?")
     history: list[dict] = Field(default_factory=list, description="List of previous conversation turns [{'role': 'user'|'assistant', 'content': '...'}]")
     profile: dict = Field(default_factory=dict, description="Farmer profile metadata {'state': '...', 'district': '...', 'soilType': '...', 'crop': '...'}")
+    preferred_language: Optional[str] = Field(default=None, description="Optional UI/speech-recognition language hint, e.g. 'English'")
 
 class ChatResponse(BaseModel):
     status: str = "success"
@@ -259,6 +260,7 @@ async def text_chat(request: ChatRequest) -> Optional[ChatResponse]:
                 request.message,
                 history=request.history,
                 profile=request.profile,
+                preferred_language=request.preferred_language,
             )
         except Exception as e:
             logger.error(f"Gemini AI pipeline failed: {e}")
@@ -413,8 +415,9 @@ async def websocket_voice_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger.info("Client connected to Saathi WebSocket /ws/voice")
 
-    # WebSocket AI timeout: 25s (generous; WS has no HTTP keepalive pressure)
+    # WebSocket timeouts keep the frontend from getting stuck in "thinking".
     WS_AI_TIMEOUT = 25.0
+    WS_TTS_TIMEOUT = 20.0
 
     try:
         while True:
@@ -433,23 +436,40 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                     transcribed = await run_in_threadpool(speech_to_text, audio_bytes)
                     history = data.get("history", [])
                     try:
-                        ai_result = await run_in_threadpool(
-                            run_ai_pipeline, 
-                            transcribed,
-                            history=history
+                        ai_result = await asyncio.wait_for(
+                            run_in_threadpool(
+                                run_ai_pipeline,
+                                transcribed,
+                                history=history,
+                                preferred_language=data.get("preferred_language") or data.get("language_code"),
+                            ),
+                            timeout=WS_AI_TIMEOUT,
                         )
                         ai_reply = ai_result.get("response", "")
                     except Exception as e:
                         logger.error(f"WebSocket AI pipeline failed: {e}")
                         await websocket.send_json({"status": "error", "message": "AI processing failed. Please try again."})
                         continue
-                    tts_audio, _m, _v = await run_in_threadpool(synthesise_speech, ai_reply, ai_result.get("bcp47_code", "hi-IN"))
+                    try:
+                        tts_audio, mime_type, voice = await asyncio.wait_for(
+                            run_in_threadpool(
+                                synthesise_speech,
+                                ai_reply,
+                                ai_result.get("bcp47_code", "hi-IN"),
+                            ),
+                            timeout=WS_TTS_TIMEOUT,
+                        )
+                    except Exception as tts_error:
+                        logger.warning(f"WebSocket TTS failed; returning text response only: {tts_error}")
+                        tts_audio, mime_type, voice = "", "", ""
 
                     await websocket.send_json({
                         "status": "success",
                         "transcribed_text": transcribed,
                         "ai_response": ai_reply,
-                        "audio_base64": tts_audio
+                        "audio_base64": tts_audio,
+                        "mime_type": mime_type,
+                        "voice": voice,
                     })
                 except Exception as ex:
                     logger.error(f"WebSocket voice action error: {ex}")
@@ -459,10 +479,14 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                 query = data.get("query", "")
                 history = data.get("history", [])
                 try:
-                    ai_result = await run_in_threadpool(
-                        run_ai_pipeline, 
-                        query,
-                        history=history
+                    ai_result = await asyncio.wait_for(
+                        run_in_threadpool(
+                            run_ai_pipeline,
+                            query,
+                            history=history,
+                            preferred_language=data.get("preferred_language") or data.get("language_code"),
+                        ),
+                        timeout=WS_AI_TIMEOUT,
                     )
                     ai_reply = ai_result.get("response", "")
                 except Exception as e:
@@ -470,13 +494,29 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                     await websocket.send_json({"status": "error", "message": "AI processing failed. Please try again."})
                     continue
                 generate_tts = data.get("generate_audio", True)
-                tts_audio, _m, _v = (await run_in_threadpool(synthesise_speech, ai_reply, ai_result.get("bcp47_code", "hi-IN"))) if generate_tts else ("", "", "")
+                if generate_tts:
+                    try:
+                        tts_audio, mime_type, voice = await asyncio.wait_for(
+                            run_in_threadpool(
+                                synthesise_speech,
+                                ai_reply,
+                                ai_result.get("bcp47_code", "hi-IN"),
+                            ),
+                            timeout=WS_TTS_TIMEOUT,
+                        )
+                    except Exception as tts_error:
+                        logger.warning(f"WebSocket TTS failed; returning text response only: {tts_error}")
+                        tts_audio, mime_type, voice = "", "", ""
+                else:
+                    tts_audio, mime_type, voice = "", "", ""
 
                 await websocket.send_json({
                     "status": "success",
                     "user_query": query,
                     "ai_response": ai_reply,
-                    "audio_base64": tts_audio
+                    "audio_base64": tts_audio,
+                    "mime_type": mime_type,
+                    "voice": voice,
                 })
 
     except WebSocketDisconnect:

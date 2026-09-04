@@ -319,31 +319,24 @@ def _build_language_policy() -> str:
     """
     return """LANGUAGE POLICY (MANDATORY – HIGHEST PRIORITY):
 
-You are an empathetic, highly adaptable conversational assistant.
-Your CORE INSTRUCTION is to LISTEN to the user's input, IDENTIFY the exact
-language, dialect, or mix of languages they use, and RESPOND BACK fluently
-and accurately in the VERY SAME language and tone.
+    You are an empathetic, highly adaptable conversational assistant.
+    Your CORE INSTRUCTION is to LISTEN to the user's input and RESPOND in either
+    pure English or pure Hindi (Devanagari script), depending on the user's input.
+    Do NOT use "Hinglish" or Romanized Hindi.
 
-LANGUAGE MIRRORING RULES (non-negotiable):
-1. The language of the user's CURRENT message has ABSOLUTE priority.
-   Ignore history language, UI language, and profile language if they differ.
-2. If the user writes in English → respond entirely in English.
-3. If the user writes in Hindi (Devanagari) → respond entirely in Hindi (Devanagari).
-4. If the user writes in Romanized Hindi / Hinglish (e.g. "gehu ka bhav kya hai",
-   "meri fasal mein keede lag gaye") → understand it as Hindi and respond in
-   Hindi using Devanagari script, since that is what TTS can pronounce correctly.
-5. If the user writes in Tamil, Telugu, Bengali, Marathi, Gujarati, Kannada,
-   Malayalam, Punjabi, Odia, Urdu, Assamese, or any other Indian language →
-   respond in THAT language using its NATIVE SCRIPT.
-6. Apply the same Romanized logic to all Indian languages:
-   Roman Tamil → Tamil script, Roman Bengali → Bengali script, etc.
-7. If the user code-switches (mixes Hindi and English in one sentence) →
-   respond in the same natural mix, using Devanagari for Hindi words and
-   Latin for English words, matching their exact style.
-8. NEVER translate the user's question into a different language.
-9. NEVER add unnecessary English translations in parentheses after non-English text.
+    LANGUAGE RULES (non-negotiable):
+    1. The language of the user's CURRENT message has ABSOLUTE priority.
+    2. If the user writes in English (or speaks English) → respond entirely in English.
+       Example user: "What is the wheat price today?"
+       Example response style: "The wheat price depends on your mandi and state. Tell me your location."
+    3. If the user writes or speaks in Hindi (even if transcribed in English letters) → respond entirely in Hindi using Devanagari script.
+       Example user: "गेहूं का भाव क्या है?" OR "gehu ka bhav kya hai"
+       Example response style: "गेहूं का भाव मंडी और राज्य के हिसाब से बदलता है।"
+    4. If the user writes in another Indian language (Tamil, Telugu, etc.) → respond in THAT language using its NATIVE SCRIPT.
+    5. ABSOLUTELY NO HINGLISH OR ROMANIZED HINDI. If the user speaks Hindi but it is transcribed as "kya bhav chal raha hai", you MUST reply in proper Hindi using Devanagari (e.g. "क्या भाव चल रहा है").
+    6. NEVER add unnecessary English translations in parentheses after non-English text.
 
-TONE MIRRORING RULES:
+    TONE MIRRORING RULES:
 1. Match the user's emotional energy. If they sound worried → be reassuring.
    If they sound casual → be warm and casual. If they sound urgent → be prompt and direct.
 2. Use natural, flowing language — as if speaking to a friend, not reading from a textbook.
@@ -365,9 +358,19 @@ You must output your final response strictly as a JSON object:
 Output ONLY the JSON object. No markdown fences, no preamble, no explanation outside the JSON."""
 
 
-def _build_full_system_prompt(profile_context: str) -> str:
+def _build_full_system_prompt(profile_context: str, preferred_language: str | None = None) -> str:
     """Assembles the complete system prompt: language policy first, then role + profile."""
     language_policy = _build_language_policy()
+    language_hint = ""
+    if preferred_language:
+        language_hint = f"""
+
+CURRENT INPUT LANGUAGE HINT:
+The client UI/speech-recognition language is set to {preferred_language}.
+Use this only when the latest user message is very short or ambiguous, such as
+a one-word greeting. If the hint is English and the latest message is ordinary
+Latin-script English, respond in English. If the latest message clearly uses
+another language, follow the latest message instead."""
 
     role_instructions = f"""
 
@@ -409,7 +412,7 @@ MANDI PRICE INSTRUCTION:
 - If the user asks about price, use the MANDI_DATA injected below.
 - If no location is specified, fall back to the profile's state.
 - If no crop is specified, fall back to the profile's primary crop.
-{profile_context}"""
+{profile_context}{language_hint}"""
 
     return language_policy + "\n" + role_instructions
 
@@ -425,6 +428,79 @@ MANDI PRICE INSTRUCTION:
 )
 def call_gemini_agent(inputs):
     return agent_executor.invoke(inputs)
+
+
+def _quick_response_for_short_query(query: str, preferred_language: str | None = None) -> dict | None:
+    """
+    Handles tiny ambiguous utterances without spending an LLM call. This prevents
+    one-word English greetings from drifting into Hindi because of the product
+    persona or previous assistant history.
+    """
+    hint = (preferred_language or "").strip().lower()
+    clean = re.sub(r"[^a-zA-Z\s]", "", query or "").strip().lower()
+    is_english_hint = hint in {"en", "en-in", "english"} or "english" in hint
+
+    if is_english_hint and clean in {"hello", "hi", "hey", "hello sathi", "hi sathi", "hey sathi", "hello saathi", "hi saathi", "hey saathi"}:
+        return {
+            "language_code": "en",
+            "bcp47_code": "en-IN",
+            "language_name": "English",
+            "response": "Hello, I am SAATHI. Ask me about crop prices, nearby buyers, mandi information, or crop guidance.",
+        }
+
+    return None
+
+
+def _classify_input_style(query: str, preferred_language: str | None = None) -> dict:
+    """
+    Classifies the user's text to strict English or strict Hindi (Devanagari).
+    Hinglish is entirely removed and banned. If Romanized Hindi is detected,
+    it forces the response to be proper Hindi in Devanagari script.
+    """
+    text = (query or "").strip()
+    hint = (preferred_language or "").strip().lower()
+    latin_words = re.findall(r"[a-zA-Z]+", text.lower())
+    has_devanagari = bool(re.search(r"[ऀ-ॿ]", text))
+    is_english_hint = hint in {"en", "en-in", "english"} or "english" in hint
+
+    hindi_markers = {
+        "aap", "apna", "apki", "aapki", "bata", "batao", "bataiye", "bhai",
+        "bhav", "bhaav", "chal", "chal raha", "chahiye", "daam", "fasal",
+        "gehu", "gehun", "ganna", "hai", "hain", "hisaab", "ka", "ke", "ki",
+        "kya", "mein", "mera", "meri", "mujhe", "namaste", "namaskar", "rate",
+        "sahi", "se", "ya", "yeh",
+    }
+    english_markers = {
+        "tell", "me", "what", "is", "the", "price", "of", "wheat", "rice",
+        "in", "near", "nearby", "today", "market", "buyer", "buyers", "find",
+        "show", "please", "current", "rate",
+    }
+
+    hindi_hits = sum(1 for word in latin_words if word in hindi_markers)
+    english_hits = sum(1 for word in latin_words if word in english_markers)
+
+    if has_devanagari:
+        return {
+            "style": "Hindi",
+            "instruction": "The latest user message is in Hindi. Respond only in Hindi using Devanagari script.",
+        }
+
+    if latin_words and hindi_hits >= 2 and english_hits < hindi_hits:
+        return {
+            "style": "Hindi",
+            "instruction": "The user spoke Hindi (transcribed in Latin script). Respond in proper Hindi using Devanagari script. Do NOT use Romanized Hindi/Hinglish.",
+        }
+
+    if latin_words and (is_english_hint or english_hits >= hindi_hits):
+        return {
+            "style": "English",
+            "instruction": "The latest user message is English. Respond only in English. Do not respond in Hindi.",
+        }
+
+    return {
+        "style": "Auto",
+        "instruction": "Mirror the latest user message language appropriately (use Devanagari for Hindi).",
+    }
 
 
 def _normalize_llm_response(response_content: Any) -> str:
@@ -449,6 +525,7 @@ def run_ai_pipeline(
     query: str,
     history: list = None,
     profile: dict = None,
+    preferred_language: str | None = None,
 ) -> dict:
     """
     Executes the Saathi AI Reasoning pipeline for a given user query.
@@ -457,6 +534,8 @@ def run_ai_pipeline(
         query (str): User's message text.
         history (list): Previous turns [{'role': 'user'|'assistant', 'content': '...'}]
         profile (dict): Farmer profile {'state', 'district', 'soilType', 'crop'}
+        preferred_language (str): UI/speech-recognition language hint for short
+            or ambiguous queries.
 
     Returns:
         dict: Parsed JSON from the LLM containing:
@@ -464,6 +543,10 @@ def run_ai_pipeline(
     """
     if not query or not query.strip():
         raise ValueError("Empty query — please provide a valid input.")
+
+    quick_response = _quick_response_for_short_query(query, preferred_language)
+    if quick_response:
+        return quick_response
 
     user_location = extract_location_from_message(query)
     user_crop = extract_crop_from_message(query)
@@ -489,7 +572,14 @@ def run_ai_pipeline(
             )
 
     # ── Build dynamic system prompt ────────────────────────────────────────────
-    system_prompt_text = _build_full_system_prompt(profile_context)
+    input_style = _classify_input_style(query, preferred_language)
+    system_prompt_text = _build_full_system_prompt(profile_context, preferred_language)
+    system_prompt_text += f"""
+
+LATEST USER INPUT STYLE OVERRIDE:
+Classification: {input_style["style"]}
+Instruction: {input_style["instruction"]}
+This override applies to the response language even if conversation history used another language."""
 
     # ── Parse conversation history ─────────────────────────────────────────────
     history_messages: list = []
@@ -572,6 +662,14 @@ def run_ai_pipeline(
             
             try:
                 parsed_json = json.loads(raw_text)
+                if input_style["style"] == "English":
+                    parsed_json["language_code"] = "en"
+                    parsed_json["bcp47_code"] = "en-IN"
+                    parsed_json["language_name"] = "English"
+                elif input_style["style"] == "Hindi":
+                    parsed_json["language_code"] = "hi"
+                    parsed_json["bcp47_code"] = "hi-IN"
+                    parsed_json["language_name"] = "Hindi"
                 return parsed_json
             except json.JSONDecodeError as e:
                 logger.error(f"[Gemini] Failed to parse JSON response: {e}\\nRaw: {raw_text}")

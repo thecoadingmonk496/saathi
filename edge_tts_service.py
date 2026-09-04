@@ -27,6 +27,8 @@ EDGE_VOICE_MAP: dict[str, str] = {
     # Hindi
     "hi":    "hi-IN-MadhurNeural",
     "hi-IN": "hi-IN-MadhurNeural",
+    "hi-Latn": "en-IN-PrabhatNeural",
+    "hi-Latn-IN": "en-IN-PrabhatNeural",
     # English (Indian accent for natural fit)
     "en":    "en-IN-PrabhatNeural",
     "en-IN": "en-IN-PrabhatNeural",
