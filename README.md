@@ -69,19 +69,16 @@ The interface uses a shared agricultural field background, clear card-based info
 ```
 backend/
 +-- config/
-¦   +-- db.js                  # MongoDB Atlas connection with serverless caching
+ï¿½   +-- db.js                  # MongoDB Atlas connection with serverless caching
 +-- controllers/
-¦   +-- authController.js      # Register, Login, Send OTP, Verify OTP
-¦   +-- adminController.js     # Admin login, list users, delete user
+ï¿½   +-- authController.js      # Register, Login, Send OTP, Verify OTP
+ï¿½   +-- adminController.js     # Admin login, list users, delete user
 +-- middleware/
-¦   +-- blockchainAuth.js      # JWT verification middleware
 +-- models/
-¦   +-- User.js                # Mongoose user schema
-¦   +-- VerificationRecord.js  # Blockchain verification records
+ï¿½   +-- User.js                # Mongoose user schema
 +-- routes/
-¦   +-- auth.js                # /api/auth/* routes
-¦   +-- admin.js               # /api/admin/* routes (protected)
-¦   +-- blockchain.js          # /api/blockchain/* routes
+ï¿½   +-- auth.js                # /api/auth/* routes
+ï¿½   +-- admin.js               # /api/admin/* routes (protected)
 +-- services/                  # Business logic services
 +-- .env                       # Local secrets (not committed)
 +-- .env.example               # Environment variable template
@@ -388,116 +385,3 @@ To allow Vercel serverless functions to connect, add `0.0.0.0/0` (Allow from any
 SAATHI aims to make agricultural market information easier to access, understand, and act on. By combining price transparency, buyer access, location-aware information, government resources, voice interaction, a real authentication system, and an admin panel, the platform supports farmers throughout the selling and market discovery process.
 
 ---
-
-## Blockchain Integration
-
-### The Core Problem
-
-In India's agricultural supply chain, a farmer sells wheat for Rs. 20/kg but the consumer buys it for Rs. 60/kg. Nobody knows where the money went, who handled the crop, or whether the buyer is genuine. There is zero transparency and zero trust.
-
-**Blockchain is SAATHI's answer to that trust problem.**
-
----
-
-### Why We Use Blockchain
-
-| Problem in Agriculture | How Blockchain Solves It |
-|---|---|
-| Farmers do not know if a buyer is genuine | Buyer identity is verified on-chain — permanent, unfakeable proof |
-| Supply chain data can be faked or tampered | Every stage (farm to mandi to distributor to retailer) is recorded on blockchain — immutable |
-| Price manipulation is invisible | Any price record written on-chain cannot be changed retroactively |
-| No accountability if something goes wrong | Every record has a transaction hash — traceable on public blockchain forever |
-
----
-
-### What We Record on Blockchain
-
-#### 1. Supply Chain Tracking
-
-When a crop moves from one stage to another (Farmer to Mandi to Wholesaler to Distributor to Retailer), we record:
-
-- Product name (e.g., Wheat)
-- Stage (e.g., Mandi, Retailer)
-- Data hash — a SHA-256 fingerprint of the full data
-- Timestamp — when the event occurred
-- Verifier address — who recorded it
-
-If anyone tampers with the data later, the hash will not match the on-chain record — fraud is instantly detectable.
-
-#### 2. Buyer Verification
-
-Before a farmer connects with a buyer on SAATHI, that buyer's identity is written to blockchain:
-
-- Buyer ID and type (trader, exporter, retailer)
-- Verification status (verified / pending / failed)
-- On-chain timestamp
-
-Farmers can trust the buyer is real — it is not just a self-reported profile.
-
----
-
-### Technical Choices
-
-| Question | Answer |
-|---|---|
-| Which blockchain? | Polygon Amoy (Ethereum-compatible testnet) |
-| Why Polygon? | Low gas fees, fast transactions, eco-friendly, EVM-compatible |
-| Why not Ethereum mainnet? | Too expensive for high-frequency supply chain writes |
-| Smart contract language | Solidity — deployed as the SaathiVerification contract |
-| Backend connection | ethers.js — signs transactions with a wallet private key |
-| Where is data stored? | Full data in MongoDB (fast and cheap), only the hash goes on blockchain (proof of integrity) |
-| Is it public? | Yes — any transaction hash can be verified on Polygonscan Amoy |
-
----
-
-### Architecture
-
-```
-Farmer sells crop
-       |
-SAATHI Backend records supply chain event
-       |
-       |---> Full data saved in MongoDB (fast access)
-       |---> SHA-256 Hash of data written to Polygon Blockchain
-                    |
-              Transaction Hash returned
-                    |
-       Anyone can verify: was this data tampered?
-       Compare live hash vs on-chain hash
-```
-
----
-
-### Blockchain API Endpoints
-
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| POST | /api/blockchain/supply-chain | Record a supply chain event on-chain | Service Key |
-| POST | /api/blockchain/verify-buyer | Verify a buyer on-chain | Service Key |
-| GET | /api/blockchain/supply-chain/:recordId | Read a supply chain record from chain | No |
-| GET | /api/blockchain/supply-chain/:recordId/verify | Compare on-chain vs off-chain data | No |
-| GET | /api/blockchain/buyer/:buyerId | Read buyer verification from chain | No |
-| GET | /api/blockchain/stats | Get overall blockchain stats | No |
-
-Write endpoints require the `x-blockchain-service-key` header with your `BLOCKCHAIN_SERVICE_KEY` value.
-
----
-
-### Additional Environment Variables for Blockchain
-
-Add these to `backend/.env` and to Vercel Environment Variables to activate blockchain features:
-
-```env
-POLYGON_AMOY_RPC_URL=https://rpc-amoy.polygon.technology/
-BLOCKCHAIN_PRIVATE_KEY=your_wallet_private_key
-SAATHI_CONTRACT_ADDRESS=0xYourDeployedContractAddress
-BLOCKCHAIN_SERVICE_KEY=your_internal_api_secret_key
-```
-
-> If these variables are not set, the blockchain service operates in **pending mode** — all API calls return gracefully without crashing, and the rest of the application works normally. Full activation requires deploying the Solidity contract to Polygon Amoy and setting the environment variables above.
-
----
-
-### One-Line Summary
-
-SAATHI uses Polygon blockchain to create an immutable, transparent record of every supply chain transaction and buyer verification — so that for the first time, a farmer can cryptographically prove where their crop went and trust who they are selling to.

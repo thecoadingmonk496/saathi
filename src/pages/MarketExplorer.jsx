@@ -570,9 +570,9 @@ export default function MarketExplorer() {
                <p className="text-base font-bold text-[var(--saathi-text)]">
                  <span className="capitalize">{productName || 'Select a Crop'}</span> <span className="text-gray-300 mx-1">•</span> <span className="font-mono font-medium text-sm text-gray-500">Batch: {batchId || 'N/A'}</span>
                </p>
-               <p className="text-sm font-medium text-[var(--saathi-text-muted)] mt-1">
-                 {batchId?.startsWith('SAATHI-TXN-') ? 'Blockchain Verification: Verified ✓' : 'Simulated Demo Data'}
-               </p>
+                <p className="text-sm font-medium text-[var(--saathi-text-muted)] mt-1">
+                  {batchId?.startsWith('SAATHI-TXN-') ? 'Digital Verification: Verified ✓' : 'Simulated Demo Data'}
+                </p>
              </div>
           </div>
           
@@ -607,7 +607,7 @@ export default function MarketExplorer() {
                <MapPin className="w-8 h-8 text-[var(--saathi-primary)]" />
              </div>
              <h2 className="text-xl font-bold text-[var(--saathi-text)] mb-2">Track Your Crop</h2>
-             <p className="text-[var(--saathi-text-muted)] mb-8">Select a demo crop below to simulate a blockchain verification process, or enter a valid Batch ID.</p>
+             <p className="text-[var(--saathi-text-muted)] mb-8">Select a demo crop below to simulate a crop journey verification process, or enter a valid Batch ID.</p>
              
              {/* Demo Crops Section */}
              <div className="mb-10">

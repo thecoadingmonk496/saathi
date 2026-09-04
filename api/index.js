@@ -17,7 +17,6 @@ const inventoryRoutes = require('../backend/routes/inventory');
 const distributorRoutes = require('../backend/routes/distributor');
 const retailerRoutes = require('../backend/routes/retailer');
 const consumerRoutes = require('../backend/routes/consumer');
-const blockchainRoutes = require('../backend/routes/blockchain');
 const buyerDiscoveryRoutes = require('../backend/routes/buyerDiscovery');
 
 // Direct controller imports for alias routes
@@ -58,7 +57,6 @@ app.use('/api/distributors', distributorRoutes);
 app.use('/api/retailers', retailerRoutes);
 app.use('/api/consumers', consumerRoutes);
 app.use('/api/inventory', inventoryRoutes);
-app.use('/api/blockchain', blockchainRoutes);
 app.use('/api/buyer-discovery', buyerDiscoveryRoutes);
 
 // Direct alias routes for backward compatibility
