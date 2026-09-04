@@ -98,10 +98,15 @@ export default function BuyerDashboard() {
       setLoading(true);
       const token = localStorage.getItem('token');
 
+      // Optional check for buyer application profile without blocking the dashboard
       const phone = user?.mobile || user?.phone || '';
-      const appRes = await fetch(`${API_BASE}/buyers/my-application?phone=${phone}`);
-      if (appRes.status === 404) { setAppStatus('NOT_FOUND'); setLoading(false); return; }
-      setAppStatus('FOUND');
+      if (phone) {
+        try {
+          const appRes = await fetch(`${API_BASE}/buyers/my-application?phone=${phone}`);
+          if (appRes.ok) setAppStatus('FOUND');
+          else setAppStatus('NOT_FOUND');
+        } catch (_) {}
+      }
 
       // 1. Fetch buyer's own requests
       const reqRes = await fetch(`${API_BASE}/buyer-discovery/requests/mine`, { headers: { Authorization: `Bearer ${token}` } });
@@ -204,18 +209,8 @@ export default function BuyerDashboard() {
   };
 
   /* ── render guards ── */
-  if (appStatus === 'LOADING') return <div className="text-center py-16 text-gray-400 font-semibold">Loading…</div>;
-
-  if (appStatus === 'NOT_FOUND') {
-    return (
-      <div className="bg-white p-6 rounded-2xl shadow-xl border border-amber-200 bg-amber-50">
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-amber-800">Business Profile Required</h2>
-          <p className="text-amber-700 mt-2">You must complete your business verification profile before accessing the SAATHI Marketplace.</p>
-        </div>
-        <div className="bg-white rounded-xl shadow p-2"><BuyerRegister embedded={true} /></div>
-      </div>
-    );
+  if (loading && requests.length === 0 && allPublishedRequests.length === 0) {
+    return <div className="text-center py-16 text-gray-400 font-semibold">Loading Buyer Dashboard…</div>;
   }
 
   /* ── main dashboard ── */
