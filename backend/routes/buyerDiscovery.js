@@ -485,7 +485,7 @@ router.post('/deals/:id/human-review', requireAuth, async (req, res) => {
   }
 });
 
-// Upload Transaction Receipt
+// Upload Transaction Receipt & UTR Number
 router.post('/deals/:id/receipt', requireAuth, async (req, res) => {
   try {
     const deal = await Deal.findById(req.params.id);
@@ -493,18 +493,27 @@ router.post('/deals/:id/receipt', requireAuth, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
 
-    if (deal.status !== 'VERIFIED') {
-      return res.status(400).json({ success: false, message: 'Deal must be VERIFIED before uploading receipt.' });
+    if (!['VERIFIED', 'RECEIPT_SUBMITTED'].includes(deal.status)) {
+      return res.status(400).json({ success: false, message: 'Deal must be VERIFIED before uploading payment proof.' });
     }
 
-    const { receiptUrl } = req.body;
-    deal.transactionReceiptUrl = receiptUrl;
+    const { receiptUrl, utrNumber } = req.body;
+    if (!receiptUrl && !utrNumber) {
+      return res.status(400).json({ success: false, message: 'Receipt photo or UTR number is required.' });
+    }
+
+    if (receiptUrl) deal.transactionReceiptUrl = receiptUrl;
+    if (utrNumber) deal.utrNumber = utrNumber.trim();
     deal.receiptUploadedBy = req.user._id;
-    deal.status = 'COMPLETED';
-    deal.completedAt = new Date();
+    deal.receiptUploadedAt = new Date();
+    deal.status = 'RECEIPT_SUBMITTED';
     await deal.save();
 
-    res.json({ success: true, data: deal });
+    res.json({
+      success: true,
+      data: deal,
+      message: 'Transaction receipt & UTR submitted! Sent to admin for final deal completion verification.'
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

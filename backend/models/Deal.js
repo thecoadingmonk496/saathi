@@ -82,6 +82,7 @@ const dealSchema = new mongoose.Schema(
         'AGENT_PAYMENT_PENDING',
         'HUMAN_REVIEW',
         'VERIFIED',
+        'RECEIPT_SUBMITTED',
         'UNVERIFIED',
         'COMPLETED',
         'DISPUTED',
@@ -109,9 +110,16 @@ const dealSchema = new mongoose.Schema(
     transactionReceiptUrl: {
       type: String, // Base64 data URL
     },
+    utrNumber: {
+      type: String,
+      default: '',
+    },
     receiptUploadedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
+    },
+    receiptUploadedAt: {
+      type: Date,
     },
     verifiedAt: {
       type: Date,

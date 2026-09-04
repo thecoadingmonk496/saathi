@@ -86,22 +86,46 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
     }
   };
 
-  const handleReceiptUpload = async (e) => {
+  const [utrNumber, setUtrNumber] = useState(deal.utrNumber || '');
+  const [receiptPreview, setReceiptPreview] = useState(deal.transactionReceiptUrl || '');
+  const [submittingReceipt, setSubmittingReceipt] = useState(false);
+
+  const handleReceiptFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setLoading(true);
     const reader = new FileReader();
+    reader.onload = () => {
+      setReceiptPreview(reader.result);
+    };
     reader.readAsDataURL(file);
-    reader.onload = async () => {
+  };
+
+  const handleSubmitReceiptAndUtr = async () => {
+    if (!receiptPreview && !utrNumber.trim()) {
+      alert('Please upload receipt photo and enter UTR number.');
+      return;
+    }
+    setSubmittingReceipt(true);
+    try {
       const token = localStorage.getItem('token');
-      await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/receipt`, {
+      const res = await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/receipt`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ receiptUrl: reader.result }),
+        body: JSON.stringify({ receiptUrl: receiptPreview, utrNumber: utrNumber.trim() }),
       });
-      setLoading(false);
-      onRefresh();
-    };
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || 'Transaction receipt & UTR submitted! Sent to admin for final completion.');
+        onRefresh();
+      } else {
+        alert(data.message || 'Error submitting receipt');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error while submitting receipt.');
+    } finally {
+      setSubmittingReceipt(false);
+    }
   };
 
   const hasUploadedPhotos = (deal.qualitySubmissions && deal.qualitySubmissions.length > 0) || deal.moisturePercent || deal.status === 'HUMAN_REVIEW' || deal.status === 'AGENT_PAYMENT_PENDING' || deal.status === 'AI_PASSED';
@@ -326,47 +350,182 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
               </div>
             )}
 
-            {/* Step 5: Verified */}
-            {deal.status === 'VERIFIED' && (
-              <div className="bg-green-50 rounded-xl border border-green-200 p-5">
-                <h5 className="font-bold text-green-900 mb-2">✅ Verified — Ready for Transaction</h5>
-                <p className="text-sm text-green-700 mb-4">Crop quality physically verified by on-ground agent. Contact details are now unlocked.</p>
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="bg-white p-3 border border-green-200 rounded-xl">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Buyer</p>
-                    <p className="text-sm font-bold text-gray-900 mt-1">{deal.buyerId?.firstName} {deal.buyerId?.lastName}</p>
-                    <p className="text-xs text-gray-500">{deal.buyerId?.phone || 'Hidden'}</p>
-                    <p className="text-xs text-gray-500">{deal.buyerId?.village}, {deal.buyerId?.district}</p>
-                  </div>
-                  <div className="bg-white p-3 border border-green-200 rounded-xl">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Farmer</p>
-                    <p className="text-sm font-bold text-gray-900 mt-1">{deal.farmerId?.firstName} {deal.farmerId?.lastName}</p>
-                    <p className="text-xs text-gray-500">{deal.farmerId?.phone || 'Hidden'}</p>
-                    <p className="text-xs text-gray-500">{deal.farmerId?.village}, {deal.farmerId?.district}</p>
+            {/* Step 5: Verified from Agent & UTR Submission */}
+            {(deal.status === 'VERIFIED' || deal.status === 'RECEIPT_SUBMITTED') && (
+              <div className="space-y-4">
+                {/* 1. Verified from Agent Message */}
+                <div className="p-4 bg-emerald-100/90 text-emerald-950 rounded-2xl border border-emerald-300 flex items-start gap-3 shadow-xs">
+                  <span className="text-xl shrink-0">✅</span>
+                  <div>
+                    <h5 className="font-extrabold text-emerald-950 text-sm">Verified from Agent</h5>
+                    <p className="text-xs text-emerald-800 mt-0.5 leading-relaxed">
+                      Crop quality physically inspected and verified on-ground by SAATHI field agent. All buyer details have been unlocked below.
+                    </p>
                   </div>
                 </div>
-                <div className="border-t border-green-200 pt-4">
-                  <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Upload Transaction Receipt</p>
-                  <input type="file" accept="image/*,.pdf" onChange={handleReceiptUpload} className="text-sm text-gray-600" />
+
+                {/* 2. Small Bar: Buyer Details Showed to Farmer */}
+                <div className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-sm space-y-2">
+                  <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                    <span className="text-[11px] font-black uppercase text-emerald-700 tracking-wider flex items-center gap-1.5">
+                      <span>🏢</span> Buyer Details & Contact Information
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Verified Buyer ✓
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase">Buyer Name</p>
+                      <p className="font-bold text-gray-900 text-sm mt-0.5">
+                        {deal.buyerId?.firstName} {deal.buyerId?.lastName}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase">Buyer Phone / Number</p>
+                      <p className="font-mono font-bold text-emerald-700 mt-0.5 select-all text-sm">
+                        📞 {deal.buyerId?.phone || 'Not provided'}
+                      </p>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase">Buyer Address / Delivery Destination</p>
+                      <p className="text-gray-800 font-semibold mt-0.5">
+                        📍 {deal.buyerId?.village ? `Village: ${deal.buyerId.village}, ` : ''}
+                        {deal.buyerId?.district ? `District: ${deal.buyerId.district}, ` : ''}
+                        {deal.buyerId?.state || ''}
+                        {deal.buyerRequestId?.location ? ` (Mandi: ${deal.buyerRequestId.location})` : ''}
+                      </p>
+                    </div>
+                  </div>
                 </div>
+
+                {/* 3. Transaction Done by Buyer & UTR Upload Section */}
+                {deal.status === 'RECEIPT_SUBMITTED' ? (
+                  <div className="bg-amber-50 rounded-2xl border border-amber-200 p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black uppercase text-amber-900 tracking-wide flex items-center gap-1.5">
+                        <span>📄</span> Transaction Proof & UTR Submitted
+                      </span>
+                      <span className="text-[10px] font-bold bg-amber-200 text-amber-900 px-2.5 py-0.5 rounded-full">
+                        Pending Admin Sign-Off
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-amber-900 leading-relaxed">
+                      Your crop sale transaction proof and UTR have been sent to Saathi Admin for final verification. Once approved from the admin panel, the deal will be marked Completed!
+                    </p>
+
+                    <div className="bg-white p-3.5 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <div>
+                        <span className="text-gray-400">Entered UTR:</span>{' '}
+                        <span className="font-mono font-black text-gray-900 text-sm">{deal.utrNumber || 'N/A'}</span>
+                      </div>
+                      {deal.transactionReceiptUrl && (
+                        <a
+                          href={deal.transactionReceiptUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-bold text-red-700 hover:underline flex items-center gap-1"
+                        >
+                          <span>🧾</span>
+                          <span>View Uploaded Proof →</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
+                    <div>
+                      <h5 className="font-bold text-gray-900 text-sm flex items-center gap-1.5">
+                        <span>🧾</span> Upload Payment Receipt & Enter UTR Number
+                      </h5>
+                      <p className="text-xs text-gray-500 mt-1">
+                        After selling your crop to the buyer and receiving payment, upload the transaction receipt photo and enter the UTR number.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[11px] font-bold text-gray-600 block mb-1">
+                          1. Upload Transaction Receipt Photo
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={handleReceiptFileChange}
+                          className="text-xs text-gray-700 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 cursor-pointer"
+                        />
+                        {receiptPreview && (
+                          <div className="mt-2">
+                            <img src={receiptPreview} alt="Receipt preview" className="w-24 h-24 object-cover rounded-xl border border-gray-300 shadow-xs" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-bold text-gray-600 block mb-1">
+                          2. Type UTR / Transaction Reference Number
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 12-digit UTR Number (123456789012)"
+                          value={utrNumber}
+                          onChange={(e) => setUtrNumber(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-xs font-mono font-bold text-gray-900 focus:outline-none focus:border-red-600"
+                        />
+                      </div>
+
+                      <button
+                        onClick={handleSubmitReceiptAndUtr}
+                        disabled={submittingReceipt || (!receiptPreview && !utrNumber.trim())}
+                        className="w-full py-3 bg-red-700 hover:bg-red-800 text-white font-bold rounded-xl shadow transition disabled:opacity-50 text-xs flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <span>📤</span>
+                        <span>{submittingReceipt ? 'Submitting Receipt…' : 'Submit Transaction Proof & UTR'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Step 6: Completed */}
             {deal.status === 'COMPLETED' && (
-              <div className="bg-green-50 rounded-xl border border-green-200 p-5 text-center">
-                <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center text-2xl mx-auto mb-3">🎉</div>
-                <h5 className="font-bold text-green-900 text-lg">Deal Completed</h5>
-                <p className="text-sm text-green-700 mt-1">Transaction receipt has been recorded.</p>
+              <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-6 text-center space-y-3">
+                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-3xl mx-auto text-emerald-600">
+                  🎉
+                </div>
+                <h5 className="font-extrabold text-emerald-950 text-lg">Deal Completed</h5>
+                <p className="text-xs text-emerald-700">
+                  The crop sale transaction has been fully verified and signed off by Saathi Admin!
+                </p>
+
+                {deal.utrNumber && (
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white rounded-xl border border-emerald-200 text-xs text-gray-700 font-mono">
+                    <span className="font-bold text-gray-400">UTR:</span>
+                    <span className="font-black text-gray-900">{deal.utrNumber}</span>
+                  </div>
+                )}
+
                 {deal.transactionReceiptUrl && (
-                  <a href={deal.transactionReceiptUrl} target="_blank" rel="noreferrer" className="mt-3 inline-block text-sm font-bold text-red-700 hover:underline">
-                    View Receipt →
-                  </a>
+                  <div className="pt-2">
+                    <a
+                      href={deal.transactionReceiptUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-block px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition"
+                    >
+                      View Transaction Receipt →
+                    </a>
+                  </div>
                 )}
               </div>
             )}
 
-            {!['ACCEPTED', 'AI_FLAGGED', 'AGENT_PAYMENT_PENDING', 'AI_PASSED', 'HUMAN_REVIEW', 'UNVERIFIED', 'VERIFIED', 'COMPLETED'].includes(deal.status) && (
+            {!['ACCEPTED', 'AI_FLAGGED', 'AGENT_PAYMENT_PENDING', 'AI_PASSED', 'HUMAN_REVIEW', 'UNVERIFIED', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED'].includes(deal.status) && (
               <div className="bg-gray-50 rounded-xl border border-gray-200 p-5 text-center">
                 <p className="text-sm text-gray-500">Processing… Current status: <span className="font-bold">{deal.status}</span></p>
               </div>

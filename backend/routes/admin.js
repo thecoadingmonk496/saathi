@@ -171,4 +171,25 @@ router.patch('/deals/:id/unverify', verifyAdminToken, async (req, res) => {
   }
 });
 
+// Admin taps "Mark Deal Completed" (after reviewing uploaded receipt & UTR)
+router.patch('/deals/:id/complete', verifyAdminToken, async (req, res) => {
+  try {
+    const deal = await Deal.findById(req.params.id);
+    if (!deal) return res.status(404).json({ success: false, message: 'Deal not found' });
+
+    deal.status = 'COMPLETED';
+    deal.completedAt = new Date();
+    await deal.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Deal marked as COMPLETED! Recorded successfully on farmer dashboard.',
+      data: deal
+    });
+  } catch (error) {
+    console.error('Error completing deal:', error.message);
+    res.status(500).json({ success: false, message: 'Server error while completing deal' });
+  }
+});
+
 module.exports = router;

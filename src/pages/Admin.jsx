@@ -387,6 +387,38 @@ export default function Admin() {
     }
   };
 
+  const handleCompleteDeal = async (dealId, cropName) => {
+    const token = localStorage.getItem('adminToken');
+    if (!token) { handleLogout(); return; }
+
+    setActionLoadingId(dealId);
+    setError('');
+    setSuccessMsg('');
+
+    try {
+      const res = await fetch(apiUrl(`/api/admin/deals/${dealId}/complete`), {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccessMsg(`🎉 Deal for "${cropName}" marked as COMPLETED! Recorded on farmer dashboard.`);
+        setDealInspections((prev) =>
+          prev.map((d) => (d._id === dealId ? { ...d, status: 'COMPLETED' } : d))
+        );
+        setTimeout(() => setSuccessMsg(''), 6000);
+      } else {
+        setError(data.message || 'Failed to complete deal.');
+      }
+    } catch (err) {
+      setError('Network error while completing deal.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
   // Counts
   const pendingRequestsCount = buyerRequests.filter((r) => r.status === 'PENDING_REVIEW').length;
   const pendingAppsCount = buyerApplications.filter((a) => a.verificationStatus === 'PENDING' || a.verificationStatus === 'UNDER_REVIEW').length;
@@ -935,8 +967,9 @@ export default function Admin() {
                 {[
                   { key: 'ALL', label: 'All Deals' },
                   { key: 'HUMAN_REVIEW', label: 'Awaiting Admin Verify (₹250 Paid)' },
-                  { key: 'AGENT_PAYMENT_PENDING', label: 'Fee Pending' },
-                  { key: 'VERIFIED', label: 'Verified' },
+                  { key: 'VERIFIED', label: 'Verified from Agent' },
+                  { key: 'RECEIPT_SUBMITTED', label: 'Receipt & UTR Submitted' },
+                  { key: 'COMPLETED', label: 'Completed Deals' },
                   { key: 'UNVERIFIED', label: 'Unverified' },
                 ].map((item) => (
                   <button
@@ -1168,12 +1201,70 @@ export default function Admin() {
                         </div>
                       )}
 
-                      {/* Action Bar (Verified / Unverified) */}
+                      {/* Uploaded Transaction Receipt & UTR (Submitted by Farmer) */}
+                      {(deal.transactionReceiptUrl || deal.utrNumber || deal.status === 'RECEIPT_SUBMITTED' || deal.status === 'COMPLETED') && (
+                        <div className="py-4 border-b border-slate-800/80 bg-slate-950/60 p-4 rounded-2xl my-3 border border-slate-800">
+                          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                            <span className="text-xs font-black uppercase text-emerald-400 tracking-wider flex items-center gap-1.5">
+                              <span>🧾</span> Sale Payment Proof & UTR Reference
+                            </span>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              deal.status === 'COMPLETED'
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            }`}>
+                              {deal.status === 'COMPLETED' ? '✓ Deal Completed' : 'Pending Admin Completion'}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                            {deal.transactionReceiptUrl && (
+                              <div
+                                onClick={() => setPreviewImage(deal.transactionReceiptUrl)}
+                                className="w-24 h-24 rounded-xl overflow-hidden border border-slate-700 hover:border-emerald-400 transition cursor-zoom-in group relative bg-slate-900 shrink-0"
+                              >
+                                <img
+                                  src={deal.transactionReceiptUrl}
+                                  alt="Transaction Receipt"
+                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
+                                />
+                                <span className="absolute bottom-1 right-1 text-[9px] bg-black/80 text-white px-1.5 py-0.5 rounded">
+                                  🔍 Zoom
+                                </span>
+                              </div>
+                            )}
+
+                            <div className="space-y-1.5 text-xs text-slate-300">
+                              <p className="flex items-center gap-2">
+                                <span className="text-slate-500">UTR / Reference:</span>
+                                <span className="font-mono font-black text-white bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 select-all text-sm">
+                                  {deal.utrNumber || 'No UTR typed'}
+                                </span>
+                              </p>
+                              <p className="text-[11px] text-slate-400">
+                                Uploaded by farmer after receiving payment from buyer.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action Bar (Verified / Complete / Unverified) */}
                       <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                         <div className="text-xs text-slate-400">
-                          {isVerified && (
+                          {deal.status === 'COMPLETED' && (
                             <span className="text-emerald-400 font-bold flex items-center gap-1.5">
-                              <span>✓</span> Crop physically verified. Both parties have access to direct contact info.
+                              <span>🎉</span> Deal marked as COMPLETED! Transaction recorded.
+                            </span>
+                          )}
+                          {deal.status === 'RECEIPT_SUBMITTED' && (
+                            <span className="text-amber-300 font-bold flex items-center gap-1.5">
+                              <span>📄</span> Transaction receipt & UTR uploaded. Click "Mark Deal Completed" to finalize.
+                            </span>
+                          )}
+                          {deal.status === 'VERIFIED' && (
+                            <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                              <span>✓</span> Crop physically verified from agent. Awaiting farmer receipt & UTR upload.
                             </span>
                           )}
                           {isUnverified && (
@@ -1188,24 +1279,39 @@ export default function Admin() {
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2 justify-end">
-                          <button
-                            onClick={() => handleUnverifyDeal(deal._id, deal.crop)}
-                            disabled={actionLoadingId === deal._id}
-                            className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-300 hover:text-red-200 border border-red-500/30 rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center gap-1.5"
-                          >
-                            <span>✕</span>
-                            <span>{actionLoadingId === deal._id ? 'Updating…' : 'Unverified'}</span>
-                          </button>
+                        <div className="flex items-center gap-2 justify-end flex-wrap">
+                          {deal.status !== 'COMPLETED' && (
+                            <button
+                              onClick={() => handleUnverifyDeal(deal._id, deal.crop)}
+                              disabled={actionLoadingId === deal._id}
+                              className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-300 hover:text-red-200 border border-red-500/30 rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center gap-1.5"
+                            >
+                              <span>✕</span>
+                              <span>{actionLoadingId === deal._id ? 'Updating…' : 'Unverified'}</span>
+                            </button>
+                          )}
 
-                          <button
-                            onClick={() => handleVerifyDeal(deal._id, deal.crop)}
-                            disabled={actionLoadingId === deal._id}
-                            className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black rounded-xl text-xs transition disabled:opacity-50 shadow-lg shadow-emerald-500/20 flex items-center gap-1.5"
-                          >
-                            <span>✓</span>
-                            <span>{actionLoadingId === deal._id ? 'Verifying…' : 'Verified'}</span>
-                          </button>
+                          {deal.status !== 'VERIFIED' && deal.status !== 'RECEIPT_SUBMITTED' && deal.status !== 'COMPLETED' && (
+                            <button
+                              onClick={() => handleVerifyDeal(deal._id, deal.crop)}
+                              disabled={actionLoadingId === deal._id}
+                              className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black rounded-xl text-xs transition disabled:opacity-50 shadow-lg shadow-emerald-500/20 flex items-center gap-1.5"
+                            >
+                              <span>✓</span>
+                              <span>{actionLoadingId === deal._id ? 'Verifying…' : 'Verified'}</span>
+                            </button>
+                          )}
+
+                          {(deal.status === 'RECEIPT_SUBMITTED' || (deal.status === 'VERIFIED' && (deal.transactionReceiptUrl || deal.utrNumber))) && (
+                            <button
+                              onClick={() => handleCompleteDeal(deal._id, deal.crop)}
+                              disabled={actionLoadingId === deal._id}
+                              className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black rounded-xl text-xs transition disabled:opacity-50 shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <span>🎉</span>
+                              <span>{actionLoadingId === deal._id ? 'Completing…' : 'Mark Deal Completed'}</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
