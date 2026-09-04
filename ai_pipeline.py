@@ -230,7 +230,7 @@ def get_mandi_price(crop_name: str, state: str) -> str:
 # ---------------------------------------------------------------------------
 # LLM initialisation
 # ---------------------------------------------------------------------------
-MODEL_NAME = os.getenv("MODEL_NAME", "gemini-1.5-flash")
+MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.5-flash")
 
 _retry_policy = Retry(
     total=3,
@@ -252,7 +252,7 @@ llm = ChatGoogleGenerativeAI(
 )
 
 fallback_llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
+    model="gemini-2.5-flash",
     api_key=GOOGLE_API_KEY,
     temperature=0.2,
     timeout=60.0,
@@ -548,7 +548,7 @@ def run_ai_pipeline(
         try:
             res = _invoke_llm()
         except Exception as primary_err:
-            logger.warning(f"[Gemini] Primary model failed ({primary_err}), trying fallback gemini-1.5-flash...")
+            logger.warning(f"[Gemini] Primary model failed ({primary_err}), trying fallback gemini-2.5-flash...")
             res = fallback_llm.invoke(messages_seq)
 
         if res:
