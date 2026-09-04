@@ -497,6 +497,7 @@ export default function BuyerRegister({ embedded = false }) {
                       onChange={handleChange}
                       placeholder="Enter your email"
                       error={errors.email}
+                      required
                     />
                     
                   </div>
@@ -569,7 +570,7 @@ export default function BuyerRegister({ embedded = false }) {
                 />
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">Business Type *</label>
+                    <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">Business Type <span className="text-red-600 font-bold ml-0.5">*</span></label>
                     <select
                       name="businessType"
                       value={form.businessType}
@@ -622,7 +623,7 @@ export default function BuyerRegister({ embedded = false }) {
                 </div>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">State *</label>
+                    <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">State <span className="text-red-600 font-bold ml-0.5">*</span></label>
                     <input
                       list="state-options"
                       name="state"
@@ -641,7 +642,7 @@ export default function BuyerRegister({ embedded = false }) {
                     {errors.state && <ErrorText message={errors.state} />}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">District *</label>
+                    <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">District <span className="text-red-600 font-bold ml-0.5">*</span></label>
                     <input
                       list="district-options"
                       name="district"
@@ -730,7 +731,7 @@ export default function BuyerRegister({ embedded = false }) {
                 </div>
                 {selectedCommodities.includes('Other') && (
                   <div>
-                    <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">Please specify commodity *</label>
+                    <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">Please specify commodity <span className="text-red-600 font-bold ml-0.5">*</span></label>
                     <input
                       type="text"
                       value={otherCommodity}
@@ -754,7 +755,7 @@ export default function BuyerRegister({ embedded = false }) {
               <div className="space-y-5">
                 <SectionTitle title="Purchase Requirements" subtitle="How much and how often do you purchase?" />
                 <div>
-                  <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-3">Preferred Purchase Radius *</label>
+                  <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-3">Preferred Purchase Radius <span className="text-red-600 font-bold ml-0.5">*</span></label>
                   <div className="bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] rounded-xl p-5">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-bold text-[var(--saathi-text-muted)]">5 km</span>
@@ -1022,10 +1023,19 @@ function SectionTitle({ title, subtitle }) {
   );
 }
 
-function FormField({ label, name, type = 'text', value, onChange, placeholder, error, maxLength }) {
+function FormField({ label, name, type = 'text', value, onChange, placeholder, error, maxLength, required }) {
+  let displayLabel = label;
+  if (typeof label === 'string' && label.trim().endsWith('*')) {
+    displayLabel = (
+      <>
+        {label.replace(/\s*\*\s*$/, '')} <span className="text-red-600 font-bold ml-0.5">*</span>
+      </>
+    );
+  }
+
   return (
     <div>
-      <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">{label}</label>
+      <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">{displayLabel}</label>
       <input
         name={name}
         type={type}
@@ -1033,6 +1043,7 @@ function FormField({ label, name, type = 'text', value, onChange, placeholder, e
         onChange={onChange}
         placeholder={placeholder}
         maxLength={maxLength}
+        required={required}
         className={`w-full h-11 rounded-lg border px-3 text-sm text-[var(--saathi-text)] outline-none transition focus:ring-2 ${
           error
             ? 'border-red-300 focus:border-red-400 focus:ring-red-100'

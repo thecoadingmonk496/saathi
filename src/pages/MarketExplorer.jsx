@@ -537,61 +537,45 @@ export default function MarketExplorer() {
   const isCompleted = currentStageName === 'Consumer';
 
   return (
-    <div className="min-h-screen bg-[var(--saathi-background)] font-sans pb-24 pt-16 text-[var(--saathi-text)]">
+    <section className="mx-auto w-full max-w-6xl pb-10 px-4 sm:px-6 lg:px-8 text-[var(--saathi-text)]">
       
       {/* 1. HEADER SECTION */}
-      <div className="bg-[var(--saathi-primary)] text-white pt-10 pb-20 px-6 relative overflow-hidden">
-        {/* Pattern overlay */}
-        <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
-        
-        <div className="max-w-5xl mx-auto relative z-10">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div>
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                <span className="bg-[var(--saathi-primary)]/20 text-emerald-300 border border-[var(--saathi-primary)]/30 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5" /> Immutable Record
-                </span>
-                {(batchId?.includes('DEMO') || batchId?.startsWith('SAATHI-TXN-')) && (
-                  <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-                    SIMULATED DEMO
-                  </span>
-                )}
-              </div>
-              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-2">
-                Crop Journey
-              </h1>
-              <div className="text-emerald-100/80 font-medium text-lg flex items-center gap-2">
-                <span className="capitalize">{productName}</span> 
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                <span className="font-mono text-sm opacity-80">Batch: {batchId || 'N/A'}</span>
-              </div>
-            </div>
-            
-            {batchJourneyData && (
-              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-center min-w-[200px]">
-                <p className="text-emerald-200 text-xs font-bold uppercase tracking-wider mb-1">Current Location</p>
-                <div className="text-2xl font-bold flex items-center justify-center gap-2">
-                   {currentStageName}
-                   {isCompleted && <CheckCircle2 className="w-6 h-6 text-emerald-400" />}
-                </div>
-                {currentStageTime && (
-                  <p className="text-[10px] text-emerald-100/60 mt-1 font-medium">Last moved: {new Date(currentStageTime).toLocaleDateString()}</p>
-                )}
-                
-                {batchId?.startsWith('SAATHI-TXN-') && (
-                  <div className="mt-3 pt-3 border-t border-white/10 text-left">
-                    <p className="text-emerald-300 text-[10px] font-bold uppercase mb-1 flex items-center gap-1"><Shield className="w-3 h-3"/> Blockchain Verification</p>
-                    <p className="text-xs text-white flex justify-between">Status: <span className="font-bold text-emerald-400">Verified ✓</span></p>
-                    <p className="text-xs text-white/80 flex justify-between">Network: <span className="font-mono">Permissioned</span></p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <header className="mb-6">
+        <p className="text-xs font-extrabold uppercase tracking-widest text-[var(--saathi-primary)] mb-1">IMMUTABLE RECORD</p>
+        <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">Market Explorer</h1>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 -mt-10 relative z-20">
+        {batchJourneyData && (
+        <div className="mt-5 flex flex-col gap-4 rounded-2xl bg-white p-4 sm:p-5 border border-[var(--saathi-border-light)] shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4">
+             <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center shrink-0">
+               <Shield className="w-6 h-6 text-emerald-600" />
+             </div>
+             <div className="flex flex-col justify-center">
+               <p className="text-base font-bold text-[var(--saathi-text)]">
+                 <span className="capitalize">{productName || 'Select a Crop'}</span> <span className="text-gray-300 mx-1">•</span> <span className="font-mono font-medium text-sm text-gray-500">Batch: {batchId || 'N/A'}</span>
+               </p>
+               <p className="text-sm font-medium text-[var(--saathi-text-muted)] mt-1">
+                 {batchId?.startsWith('SAATHI-TXN-') ? 'Blockchain Verification: Verified ✓' : 'Simulated Demo Data'}
+               </p>
+             </div>
+          </div>
+          
+          {batchJourneyData && (
+            <div className="text-left sm:text-right mt-2 sm:mt-0 flex flex-col sm:items-end border-t border-gray-100 sm:border-0 pt-3 sm:pt-0">
+              <p className="text-[10px] font-bold text-[var(--saathi-text-muted)] uppercase tracking-wider mb-1">Current Location</p>
+              <div className="text-lg font-bold text-[var(--saathi-text)] flex items-center gap-1.5">
+                {currentStageName}
+                {isCompleted && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+              </div>
+              {currentStageTime && (
+                <p className="text-xs font-medium text-[var(--saathi-text-muted)] mt-1">Last moved: {new Date(currentStageTime).toLocaleDateString()}</p>
+              )}
+            </div>
+          )}
+        </div>
+        )}
+      </header>
+<div className="mt-2 relative z-20">
         
         {apiError && !batchJourneyData ? (
           <div className="bg-white rounded-2xl shadow-xl p-10 text-center border border-gray-100">
@@ -885,6 +869,6 @@ export default function MarketExplorer() {
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 }

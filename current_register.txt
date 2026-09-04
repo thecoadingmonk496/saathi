@@ -4,6 +4,7 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useUser } from '../context/UserContext';
 import heroBg from '../assets/hero-bg.jpg';
 import saathiLogo from '../assets/logo.png';
+import BuyerRegister from './BuyerRegister';
 
 const initialForm = {
   firstName: '',
@@ -42,8 +43,8 @@ export default function Register() {
 
   const handleRegister = async (event) => {
     event.preventDefault();
-    if (!form.firstName || !form.lastName || !form.email || !form.phone || !form.password) {
-      setError('All fields (First name, Last name, Email, Phone, and Password) are required.');
+    if (!form.firstName || !form.lastName || !form.phone || !form.password) {
+      setError('Please fill in all required fields.');
       return;
     }
     if (form.phone.length !== 10) {
@@ -55,15 +56,10 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      const payload = {
-        ...form,
-        role: registerMode,
-      };
-      
       const response = await fetch(apiUrl('/api/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(form),
       });
 
       const data = await response.json();
@@ -144,7 +140,11 @@ export default function Register() {
           <button type="button" onClick={() => setRegisterMode('BUYER')} className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${registerMode === 'BUYER' ? 'bg-white text-[var(--saathi-primary)] shadow-md' : 'text-white hover:bg-white/10'}`}>Register as Buyer</button>
         </div>
 
-        <div className={`w-full bg-white rounded-lg shadow-2xl border border-[var(--saathi-border-light)] p-6 sm:p-8 transition-all duration-500 ease-in-out max-w-[460px]`}>
+        <div className={`w-full transition-all duration-500 ease-in-out ${registerMode === 'FARMER' ? 'max-w-[460px]' : 'max-w-4xl'}`}>
+          {registerMode === 'BUYER' ? (
+            <BuyerRegister embedded={true} />
+          ) : (
+            <div className="w-full bg-white rounded-lg shadow-2xl border border-[var(--saathi-border-light)] p-6 sm:p-8 transition-all">
 
               {/* Already logged in notice if applicable */}
           {isLoggedIn && (
@@ -182,9 +182,9 @@ export default function Register() {
             </p>
 
             <div className="mt-4">
-              <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--saathi-text)]">Create {registerMode === 'FARMER' ? 'Farmer' : 'Buyer'} Account</h2>
+              <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--saathi-text)]">Create Farmer Account</h2>
               <p className="text-sm font-medium text-[var(--saathi-text-secondary)] mt-1">
-                Register to access market intelligence and {registerMode === 'FARMER' ? 'buyers' : 'farmers'}
+                Register to access market intelligence and buyers
               </p>
             </div>
           </div>
@@ -197,7 +197,7 @@ export default function Register() {
           )}
 
           {/* Registration Form */}
-          <form onSubmit={handleRegister} className="space-y-4 mt-2">
+          <form onSubmit={handleRegister} className="space-y-4">
             {/* Name Fields in 2 Columns */}
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -258,18 +258,19 @@ export default function Register() {
             {/* Email Field */}
             <div>
               <label className="block text-sm font-bold text-[var(--saathi-text)] mb-1.5">
-                Email Address <span className="text-red-600 font-bold ml-0.5">*</span>
+                Email Address (Optional)
               </label>
               <input
                 name="email"
                 type="email"
-                placeholder={registerMode === 'FARMER' ? 'farmer@example.com' : 'buyer@example.com'}
+                placeholder="farmer@example.com"
                 value={form.email}
                 onChange={handleChange}
-                required
                 className="w-full h-12 bg-white border border-[var(--saathi-border)] focus:border-[var(--saathi-accent)] focus:ring-2 focus:ring-red-100 text-[var(--saathi-text)] font-semibold px-4 rounded-lg outline-none transition text-base placeholder:text-slate-400 placeholder:font-normal"
               />
             </div>
+
+
 
             {/* Password Field */}
             <div className="space-y-1.5 mt-4">
@@ -298,8 +299,8 @@ export default function Register() {
                 <span className="inline-block animate-spin border-2 border-white border-t-transparent rounded-full w-5 h-5" />
               ) : (
                 <>
-                  <span>Create {registerMode === 'FARMER' ? 'Farmer' : 'Buyer'} Account</span>
-                  <span className="text-xl">➔</span>
+                  <span>Create Farmer Account</span>
+                  <span className="text-xl">→</span>
                 </>
               )}
             </button>
@@ -315,6 +316,8 @@ export default function Register() {
               Already have an account? <span className="font-extrabold text-red-600 hover:underline ml-0.5">Login with OTP</span>
             </button>
           </div>
+            </div>
+          )}
         </div>
       </main>
 
@@ -322,3 +325,4 @@ export default function Register() {
     </div>
   );
 }
+

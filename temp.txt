@@ -1,0 +1,2 @@
+'hero.searchPlaceholder': 'Search crops, mandis, buyers or services...',
+'hero.searchPlaceholder': 'फसल, योजना, बाजार, खरीदार या सेवा खोजें...',

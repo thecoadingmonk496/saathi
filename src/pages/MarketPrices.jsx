@@ -215,7 +215,7 @@ export default function MarketPrices() {
     if (!cropName) return '';
     const translationKey = `crop.${cropName.toLowerCase()}`;
     const translated = t(translationKey);
-    return translated !== translationKey ? translated : cropName;
+    return (translated && translated !== translationKey) ? translated : cropName;
   };
 
   // Compute highest price record from current records list

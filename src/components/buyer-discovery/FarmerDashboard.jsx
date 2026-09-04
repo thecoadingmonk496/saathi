@@ -43,6 +43,10 @@ export default function FarmerDashboard() {
       const dealRes = await fetch(`${API_BASE}/buyer-discovery/deals`, { headers: { Authorization: `Bearer ${token}` } });
       const dealData = await dealRes.json();
       if (dealData.success) setDeals(dealData.data);
+
+      const offerRes = await fetch(`${API_BASE}/buyer-discovery/offers/mine`, { headers: { Authorization: `Bearer ${token}` } });
+      const offerData = await offerRes.json();
+      if (offerData.success) setMyOffers(offerData.data);
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
@@ -221,25 +225,29 @@ export default function FarmerDashboard() {
                       <button className="text-xs font-bold text-red-700 hover:underline">View All</button>
                     </div>
 
-                    {deals.length === 0 ? (
+                    {myOffers.length === 0 ? (
                       <p className="text-sm text-gray-400 italic py-4">No offers submitted yet.</p>
                     ) : (
                       <div className="space-y-3">
-                        {deals.slice(0, 5).map(deal => {
+                        {myOffers.slice(0, 5).map(offer => {
                           const statusVariant =
-                            deal.status === 'ACCEPTED' || deal.status === 'VERIFIED' || deal.status === 'COMPLETED' ? 'accepted' :
-                            deal.status === 'COUNTERED' ? 'countered' : 'pending';
+                            offer.status === 'ACCEPTED' ? 'accepted' :
+                            offer.status === 'REJECTED' ? 'countered' : // Use red variant
+                            'pending';
+                          
+                          const cropName = offer.buyerRequestId?.crop || 'Unknown Crop';
+                          
                           return (
-                            <div key={deal._id} className="border border-gray-200 rounded-xl p-3.5 hover:shadow-sm transition">
+                            <div key={offer._id} className="border border-gray-200 rounded-xl p-3.5 hover:shadow-sm transition">
                               <div className="flex items-start justify-between">
                                 <div>
-                                  <p className="text-sm font-bold text-gray-900">{deal.crop}</p>
-                                  <p className="text-xs text-gray-500 mt-0.5">₹{Number(deal.agreedPrice).toLocaleString('en-IN')}/Q</p>
-                                  <p className="text-[10px] text-gray-400 mt-1">{new Date(deal.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                  <p className="text-sm font-bold text-gray-900">{cropName}</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">₹{Number(offer.counterOfferPrice).toLocaleString('en-IN')}/Q</p>
+                                  <p className="text-[10px] text-gray-400 mt-1">{new Date(offer.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                                 </div>
                                 <div className="text-right">
-                                  <Badge variant={statusVariant}>{deal.status === 'ACCEPTED' ? 'Accepted' : deal.status === 'COUNTERED' ? 'Countered' : deal.status}</Badge>
-                                  <p className="text-sm font-bold text-gray-700 mt-1.5">{deal.quantity} Q</p>
+                                  <Badge variant={statusVariant}>{offer.status}</Badge>
+                                  <p className="text-sm font-bold text-gray-700 mt-1.5">{offer.quantity} Q</p>
                                 </div>
                               </div>
                             </div>

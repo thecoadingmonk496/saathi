@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { useLocationContext } from '../context/LocationContext';
-import { CameraIcon } from '@heroicons/react/24/solid';
+import { CameraIcon, UserIcon } from '@heroicons/react/24/solid';
 
 export default function Profile() {
   const navigate = useNavigate();
   const { user, preferredLanguage, supportedLanguages, setLanguage, updateUser, logout, t } = useUser();
-  const { address, permissionStatus, source, requestLocation } = useLocationContext();
+  const { address, permissionStatus, source, requestLocation, loading: locationLoading, error: locationError } = useLocationContext();
 
   const [profile, setProfile] = useState({
     name: user.name || (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : (user.firstName || user.lastName || '')),
@@ -204,12 +204,14 @@ export default function Profile() {
 
         {/* Profile Image & Upload Button */}
         <div className="relative shrink-0 z-10 group">
-          <label className="relative flex h-24 w-24 sm:h-28 sm:w-28 cursor-pointer items-center justify-center overflow-hidden rounded-full border-[3px] border-white/20 bg-accent shadow-inner transition hover:border-white/40" title="Upload profile photo">
+          <label className="relative flex h-24 w-24 sm:h-28 sm:w-28 cursor-pointer items-center justify-center overflow-hidden rounded-full border-4 border-white bg-gray-100 shadow-md transition hover:shadow-lg" title="Upload profile photo">
             {profileImage ? (
-              <img src={profileImage} alt="Profile" className="h-full w-full object-cover transition duration-300 group-hover:brightness-90" />
-            ) : (
-              <span className="text-5xl transition duration-300 group-hover:scale-110">👨🏽‍🌾</span>
-            )}
+                <img src={profileImage} alt="Profile" className="h-full w-full object-cover transition duration-300 group-hover:brightness-90" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-gray-200 text-gray-400 transition duration-300 group-hover:brightness-90">
+                  <UserIcon className="h-14 w-14 sm:h-16 sm:w-16" />
+                </div>
+              )}
             <input type="file" accept="image/*" className="sr-only" onChange={handleProfileImageChange} />
           </label>
           {/* Persistent Camera Overlay Icon */}
@@ -249,7 +251,19 @@ export default function Profile() {
           ) : (
             <TextField label="Farmer ID" name="farmerId" value={profile.farmerId} disabled />
           )}
-          <TextField label="Village / Town" name="village" value={profile.village} onChange={updateProfileField} />
+          <div className="sm:col-span-2 mt-2 mb-2">
+              <button 
+                type="button" 
+                onClick={requestLocation}
+                disabled={locationLoading}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-[var(--saathi-primary)] bg-red-50/50 px-4 py-3.5 text-base font-extrabold text-[var(--saathi-primary)] transition hover:bg-red-100 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                {locationLoading ? 'Detecting Location...' : 'Auto-Detect Location using GPS'}
+              </button>
+              {locationError && <p className="mt-2 text-sm font-semibold text-red-600">{locationError}</p>}
+            </div>
+            <TextField label="Village / Town" name="village" value={profile.village} onChange={updateProfileField} />
           <TextField label="Block" name="block" value={profile.block} onChange={updateProfileField} />
           <TextField label="District" name="district" value={profile.district} onChange={updateProfileField} />
           <TextField label="State" name="state" value={profile.state} onChange={updateProfileField} disabled />
