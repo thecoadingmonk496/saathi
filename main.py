@@ -431,10 +431,12 @@ async def websocket_voice_endpoint(websocket: WebSocket):
                     audio_bytes = base64.b64decode(raw_b64)
                     # STT and AI pipeline: run blocking calls in threadpool
                     transcribed = await run_in_threadpool(speech_to_text, audio_bytes)
+                    history = data.get("history", [])
                     try:
                         ai_result = await run_in_threadpool(
                             run_ai_pipeline, 
-                            transcribed
+                            transcribed,
+                            history=history
                         )
                         ai_reply = ai_result.get("response", "")
                     except Exception as e:
@@ -455,10 +457,12 @@ async def websocket_voice_endpoint(websocket: WebSocket):
 
             else:  # Text action
                 query = data.get("query", "")
+                history = data.get("history", [])
                 try:
                     ai_result = await run_in_threadpool(
                         run_ai_pipeline, 
-                        query
+                        query,
+                        history=history
                     )
                     ai_reply = ai_result.get("response", "")
                 except Exception as e:

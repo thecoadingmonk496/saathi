@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { MicrophoneIcon, PaperAirplaneIcon, SpeakerWaveIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { processVoiceQuery } from '../utils/voiceEngine';
 import { useUser } from '../context/UserContext';
+
+const API_BASE = import.meta.env.VITE_FASTAPI_URL || 'http://localhost:8000';
+const WS_BASE = import.meta.env.VITE_FASTAPI_WS_URL || API_BASE.replace(/^http/, 'ws') + '/ws/voice';
 
 const languageTagMap = {
   English: 'en-IN',
@@ -18,407 +20,257 @@ const languageTagMap = {
   Assamese: 'as-IN',
 };
 
-const naturalFemaleVoiceKeywords = [
-  'female', 'woman', 'natural', 'neural', 'swara', 'heera', 'neerja', 'kalpana', 'veena',
-  'kavya', 'shruti', 'ananya', 'geeta', 'meera', 'zira', 'samantha', 'jenny',
-  'victoria', 'google हिन्दी', 'google us english', 'google uk english female'
-];
-
-function prepareNaturalSpeechText(text, langTag) {
-  if (!text) return '';
-  const isHindi = langTag.startsWith('hi');
-  let speechText = text
-    .replace(/₹\s*([\d,]+)/g, isHindi ? '$1 रुपये' : '$1 rupees')
-    .replace(/quintal/g, isHindi ? 'क्विंटल' : 'quintal')
-    .replace(/(\d+)\s*km/g, isHindi ? '$1 किलोमीटर' : '$1 kilometers');
-  return speechText;
-}
-
-export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 'Hindi', onNavigate }) {
+export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 'Hindi' }) {
   const { t } = useUser();
-  const [status, setStatus] = useState('listening'); 
+  const [status, setStatus] = useState('idle');
+  const [wsTrigger, setWsTrigger] = useState(0);
+  const [chatHistory, setChatHistory] = useState([]);
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
   const [responseText, setResponseText] = useState('');
   const [textInput, setTextInput] = useState('');
   const [isSupported, setIsSupported] = useState(true);
-  const [voices, setVoices] = useState([]);
-
-  // Chat history: array of { role: 'user' | 'assistant', content: string }
-  const [chatHistory, setChatHistory] = useState([]);
-
-  const recognitionRef = useRef(null);
-  const audioRef = useRef(null);
+  const audioPlayerRef = useRef(typeof Audio !== 'undefined' ? new Audio() : null);
+  const audioUrlRef = useRef(null);
   const chatEndRef = useRef(null);
-  const langTag = languageTagMap[preferredLanguage] || 'hi-IN';
-
-  // Auto-scroll to latest message
+  const silenceTimerRef = useRef(null);
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [chatHistory, responseText]);
+  }, [chatHistory, responseText, transcript, interimTranscript]);
+  const recognitionRef = useRef(null);
+  const wsRef = useRef(null);
+  const statusRef = useRef(status);
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  useEffect(() => { statusRef.current = status; }, [status]);
 
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      if (availableVoices && availableVoices.length > 0) {
-        setVoices(availableVoices);
+  const langTag = languageTagMap[preferredLanguage] || 'hi-IN';
+
+  const playBackendTTSData = async (audioBase64, mimeType) => {
+    try {
+      if (audioPlayerRef.current && !audioPlayerRef.current.paused) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current.currentTime = 0;
       }
-    };
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
 
-    loadVoices();
+      setStatus('ai_speaking');
+      const binaryString = atob(audioBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const audioBlob = new Blob([bytes], { type: mimeType || 'audio/wav' });
+      if (audioBlob.size <= 100) throw new Error('Audio blob too small');
+      audioUrlRef.current = URL.createObjectURL(audioBlob);
+      audioPlayerRef.current.src = audioUrlRef.current;
+      audioPlayerRef.current.volume = 1.0;
 
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
+      audioPlayerRef.current.onended = () => {
+        if (audioUrlRef.current) {
+          URL.revokeObjectURL(audioUrlRef.current);
+          audioUrlRef.current = null;
+        }
+        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+          setStatus('listening');
+          startRecognition();
+        }
+      };
+      await audioPlayerRef.current.play();
+    } catch (err) {
+      console.error('Sarvam backend TTS playback failed:', err);
+      setStatus('error');
     }
-  }, []);
+  };
 
-  useEffect(() => {
+  const startRecognition = () => {
+    const currentStatus = statusRef.current;
+    if (currentStatus === 'ai_speaking' || currentStatus === 'processing' || currentStatus === 'ended' || currentStatus === 'ending' || currentStatus === 'error') {
+      return;
+    }
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
     if (!SpeechRecognition) {
       setIsSupported(false);
       setStatus('error');
       return;
     }
-
     try {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch (e) {}
+      }
       const recognition = new SpeechRecognition();
-      recognition.continuous = false;
+      recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = langTag;
 
       recognition.onstart = () => {
-        setStatus('listening');
+        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+           setStatus('listening');
+        }
       };
 
       recognition.onresult = (event) => {
-        let currentInterim = '';
-        let currentFinal = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i += 1) {
-          const result = event.results[i];
-          if (result.isFinal) {
-            currentFinal += result[0].transcript;
-          } else {
-            currentInterim += result[0].transcript;
+          if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+             setStatus('user_speaking');
           }
-        }
+          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
 
-        if (currentFinal) {
-          setTranscript((prev) => (prev ? `${prev} ${currentFinal}` : currentFinal));
-          setInterimTranscript('');
-          handleFinalSpeech(currentFinal);
-        } else {
-          setInterimTranscript(currentInterim);
-        }
-      };
+          let currentInterim = '';
+          let currentFinal = '';
+          for (let i = event.resultIndex; i < event.results.length; i += 1) {
+            const result = event.results[i];
+            if (result.isFinal) {
+              currentFinal += result[0].transcript;
+            } else {
+              currentInterim += result[0].transcript;
+            }
+          }
+
+          if (currentFinal) {
+            setTranscript((prev) => (prev ? `${prev} ${currentFinal}` : currentFinal));
+            setInterimTranscript('');
+          } else {
+            setInterimTranscript(currentInterim);
+          }
+
+          silenceTimerRef.current = setTimeout(() => {
+             if (recognitionRef.current) {
+                try { recognitionRef.current.stop(); } catch(e) {}
+             }
+          }, 1500);
+        };
 
       recognition.onerror = (event) => {
         console.warn('Speech recognition error:', event.error);
-        if (event.error !== 'no-speech') {
-          setStatus('error');
+        if (event.error !== 'no-speech' && event.error !== 'aborted') {
+           if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+              setStatus('error');
+           }
         }
       };
 
       recognition.onend = () => {
-        setInterimTranscript((prevInterim) => {
-          if (prevInterim && !transcript) {
-            setTranscript(prevInterim);
-            handleFinalSpeech(prevInterim);
-          }
-          return '';
-        });
-      };
+          setInterimTranscript((prevInterim) => {
+             setTranscript((currentTranscript) => {
+                const combined = currentTranscript + (prevInterim ? ' ' + prevInterim : '');
+                const cleanCombined = combined.trim();
+                
+                if (cleanCombined) {
+                   handleFinalSpeech(cleanCombined);
+                } else {
+                   setTimeout(() => {
+                     const st = statusRef.current;
+                     if (st === 'listening' || st === 'user_speaking') {
+                       startRecognition();
+                     }
+                   }, 100);
+                }
+                return currentTranscript;
+             });
+             return '';
+          });
+        };
 
       recognitionRef.current = recognition;
       recognition.start();
     } catch (err) {
-      console.error('Failed to initialize speech recognition:', err);
-      setIsSupported(false);
+      console.error('Failed to start speech recognition:', err);
+    }
+  };
+
+  useEffect(() => {
+    let ws = null;
+    try {
+      ws = new WebSocket(WS_BASE);
+      ws.onopen = () => {
+        console.log("SAATHI WebSocket connected");
+      };
+      // Start recognition immediately on mount so Chrome doesn't block it for lack of user gesture
+      if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+        setStatus('listening');
+        startRecognition();
+      }
+      ws.onmessage = async (event) => {
+        if (statusRef.current === 'ended' || statusRef.current === 'ending') return;
+        try {
+          const data = JSON.parse(event.data);
+          if (data.status === 'success') {
+            const aiResponse = data.ai_response || "Sorry, I couldn't understand that.";
+            setResponseText(aiResponse);
+            setChatHistory(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+            onResponse?.(aiResponse);
+
+            if (data.audio_base64) {
+              await playBackendTTSData(data.audio_base64, data.mime_type || data.format);
+            } else {
+              console.error('Sarvam returned no audio');
+              setStatus('error');
+            }
+          } else {
+            console.error("WS API Error:", data.message);
+            const errorMsg = t('ai.notSupported') || "I'm having trouble connecting right now.";
+            setResponseText(errorMsg);
+            setStatus('error');
+          }
+        } catch (error) {
+          console.error("WS Parse Error:", error);
+        }
+      };
+      ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+           setStatus('error');
+        }
+      };
+      ws.onclose = () => {
+        console.log("SAATHI WebSocket closed");
+        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+           setStatus('error');
+        }
+      };
+      wsRef.current = ws;
+    } catch (err) {
+      console.error("Failed to connect to WS:", err);
       setStatus('error');
     }
 
     return () => {
+      if (wsRef.current) wsRef.current.close();
       if (recognitionRef.current) {
-        try {
-          recognitionRef.current.abort();
-        } catch { }
+        try { recognitionRef.current.abort(); } catch (e) {}
       }
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
+      if (audioPlayerRef.current && !audioPlayerRef.current.paused) audioPlayerRef.current.pause();
+      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+    };
+  }, [langTag, wsTrigger]);
+
+  const handleFinalSpeech = (queryText) => {
+    if (!queryText.trim()) return;
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch (e) {}
+    }
+    setStatus('processing');
+    setChatHistory(prev => [...prev, { role: 'user', content: queryText }]);
+    const trySend = (retries = 10) => {
+      if (!wsRef.current) return setStatus('error');
+      if (wsRef.current.readyState === WebSocket.OPEN) {
+         wsRef.current.send(JSON.stringify({
+            action: "text",
+            query: queryText,
+            generate_audio: true
+         }));
+      } else if (wsRef.current.readyState === WebSocket.CONNECTING && retries > 0) {
+         setTimeout(() => trySend(retries - 1), 100);
+      } else {
+         console.error("WebSocket is not open");
+         setStatus('error');
       }
     };
-  }, [langTag]);
-
-  const selectVoiceForLanguage = (targetLangTag) => {
-    if (!voices || voices.length === 0) return null;
-    const baseLang = targetLangTag.split('-')[0];
-
-    const isFemaleVoice = (v) => naturalFemaleVoiceKeywords.some((kw) => v.name.toLowerCase().includes(kw));
-
-    let matched = voices.find((v) => (v.lang === targetLangTag || v.lang.replace('_', '-') === targetLangTag) && isFemaleVoice(v));
-
-    if (!matched) {
-      matched = voices.find((v) => v.lang.startsWith(baseLang) && isFemaleVoice(v));
-    }
-
-    if (!matched) {
-      matched = voices.find((v) => v.lang === targetLangTag || v.lang.replace('_', '-') === targetLangTag || v.lang.startsWith(baseLang));
-    }
-
-    if (!matched || !isFemaleVoice(matched)) {
-      const indianFemaleFallback = voices.find((v) => (v.lang.startsWith('hi') || v.lang.includes('IN')) && isFemaleVoice(v));
-      if (indianFemaleFallback) {
-        matched = indianFemaleFallback;
-      }
-    }
-
-    if (!matched || !isFemaleVoice(matched)) {
-      const globalFemale = voices.find(isFemaleVoice);
-      if (globalFemale) {
-        matched = globalFemale;
-      }
-    }
-
-    return matched || voices[0] || null;
-  };
-
-  const speakText = (text) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) {
-      setStatus('done');
-      return;
-    }
-
-    try {
-      window.speechSynthesis.cancel(); 
-
-      const naturalText = prepareNaturalSpeechText(text, langTag);
-      const utterance = new SpeechSynthesisUtterance(naturalText);
-
-      utterance.lang = langTag;
-      utterance.rate = 0.88; 
-      utterance.pitch = 1.0; 
-      utterance.volume = 1.0;
-
-      const pleasantVoice = selectVoiceForLanguage(langTag);
-      if (pleasantVoice) {
-        utterance.voice = pleasantVoice;
-      }
-
-      utterance.onstart = () => {
-        setStatus('speaking');
-      };
-
-      utterance.onend = () => {
-        setStatus('done');
-      };
-
-      utterance.onerror = (err) => {
-        console.warn('Speech synthesis error:', err);
-        setStatus('done');
-      };
-
-      if (window.speechSynthesis.paused) {
-        window.speechSynthesis.resume();
-      }
-
-      window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      console.error('TTS execution error:', e);
-      setStatus('done');
-    }
-  };
-
-  const isProcessingRef = useRef(false);
-
-  const handleFinalSpeech = async (queryText) => {
-    if (!queryText.trim() || isProcessingRef.current) return;
-    isProcessingRef.current = true;
-
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch { }
-    }
-
-    // Add user message to chat history
-    const userMessage = { role: 'user', content: queryText.trim() };
-    setChatHistory((prev) => [...prev, userMessage]);
-
-    setStatus('thinking');
-
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-      // Build history array for backend context (previous messages in this session)
-      const historyForBackend = chatHistory.map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-      }));
-
-      const res = await fetch('https://saathi-backend-7t91.onrender.com/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({ 
-          message: queryText,
-          language: preferredLanguage,
-          history: historyForBackend,
-          profile: {} 
-        })
-      });
-      
-      clearTimeout(timeoutId);
-
-      if (!res.ok) throw new Error('Live AI backend request failed');
-      
-      const data = await res.json();
-      let aiResponse = data.ai_response;
-
-      if (aiResponse && aiResponse.toLowerCase().includes('server is busy')) {
-        throw new Error('Backend returned busy message');
-      }
-
-      // Add assistant message to chat history
-      setChatHistory((prev) => [...prev, { role: 'assistant', content: aiResponse }]);
-      setResponseText(aiResponse);
-      onResponse?.(aiResponse);
-
-      // Try fetching premium TTS from backend
-      try {
-        const ttsRes = await fetch('https://saathi-backend-7t91.onrender.com/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            text: aiResponse,
-            language_code: data.detected_language_bcp47 || langTag
-          })
-        });
-        
-        if (ttsRes.ok) {
-          const ttsData = await ttsRes.json();
-          if (ttsData.audio_base64) {
-            setStatus('speaking');
-            
-            if (audioRef.current) {
-              try { audioRef.current.stop(); } catch (e) {}
-              try { audioRef.current.disconnect(); } catch (e) {}
-            }
-            if (window.sharedAudioContext) {
-              try {
-                const binaryString = window.atob(ttsData.audio_base64);
-                const len = binaryString.length;
-                const bytes = new Uint8Array(len);
-                for (let i = 0; i < len; i++) {
-                  bytes[i] = binaryString.charCodeAt(i);
-                }
-                try {
-                  const buffer = await new Promise((resolve, reject) => {
-                    try {
-                      const decodePromise = window.sharedAudioContext.decodeAudioData(bytes.buffer, resolve, reject);
-                      if (decodePromise && typeof decodePromise.then === 'function') {
-                        decodePromise.then(resolve).catch(reject);
-                      }
-                    } catch (err) {
-                      reject(err);
-                    }
-                  });
-                  
-                  // Ensure browser TTS is absolutely stopped before playing backend audio
-                  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-                    window.speechSynthesis.cancel();
-                  }
-                  
-                  const source = window.sharedAudioContext.createBufferSource();
-                  source.buffer = buffer;
-                  source.connect(window.sharedAudioContext.destination);
-                  
-                  source.onended = () => {
-                    setStatus('done');
-                    isProcessingRef.current = false;
-                    if (audioRef.current === source) audioRef.current = null;
-                  };
-                  
-                  audioRef.current = source;
-                  source.start(0);
-                  
-                  // Successfully played backend voice, explicitly return to prevent fallback
-                  return; 
-                } catch (decodeErr) {
-                  console.warn('Decode error', decodeErr);
-                  // Allow fall through to speakText
-                }
-              } catch (e) {
-                console.warn('Web Audio playback failed:', e);
-                // Allow fall through to speakText
-              }
-            }
-          }
-        }
-      } catch (ttsErr) {
-        console.warn('Premium TTS fetch failed:', ttsErr);
-      }
-      
-      // Fallback to browser TTS if backend TTS failed, Web Audio failed, or decode failed
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel(); // Prevent collision with any stuck browser TTS
-      }
-      speakText(aiResponse);
-      isProcessingRef.current = false;
-
-    } catch (e) {
-      console.warn('Live AI failed, falling back to local engine:', e);
-      // Fallback to local rule-based engine
-      const { response, action } = processVoiceQuery(queryText, preferredLanguage);
-
-      // Add assistant message to chat history
-      setChatHistory((prev) => [...prev, { role: 'assistant', content: response }]);
-      setResponseText(response);
-      onResponse?.(response);
-      speakText(response);
-      isProcessingRef.current = false;
-
-      if (action && action.type === 'NAVIGATE' && action.path) {
-        window.setTimeout(() => {
-          onNavigate?.(action.path);
-        }, 1800);
-      }
-    }
-  };
-
-  const handleRestartListening = () => {
-    isProcessingRef.current = false;
-    if (audioRef.current) {
-      try { audioRef.current.stop(); } catch (e) {}
-      try { audioRef.current.disconnect(); } catch (e) {}
-      audioRef.current = null;
-    }
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    
-    // Unlock Audio Context again on manual restart
-    if (window.sharedAudioContext && window.sharedAudioContext.state === 'suspended') {
-      window.sharedAudioContext.resume();
-    }
-
-    setTranscript('');
-    setInterimTranscript('');
-    setResponseText('');
-
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.start();
-        setStatus('listening');
-      } catch {
-        setStatus('listening');
-      }
-    }
+    trySend();
   };
 
   const handleManualSubmit = (e) => {
@@ -429,15 +281,27 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
     setTextInput('');
   };
 
+  const handleEndCall = () => {
+    setStatus('ending');
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch (e) {}
+    }
+    if (audioPlayerRef.current && !audioPlayerRef.current.paused) audioPlayerRef.current.pause();
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setStatus('ended');
+    onClose();
+  };
+
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
+      if (event.key === 'Escape') handleEndCall();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, []);
 
   const displayTranscript = transcript || interimTranscript;
 
@@ -462,7 +326,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
               className={`flex h-12 w-12 items-center justify-center rounded-full overflow-hidden shadow-lg ${
                 status === 'listening'
                   ? 'animate-pulse bg-[var(--saathi-primary)] shadow-red-900/30 ring-4 ring-red-200'
-                  : status === 'speaking'
+                  : status === 'ai_speaking'
                   ? 'bg-slate-600 shadow-slate-900/30 ring-4 ring-slate-200'
                   : 'bg-slate-700 shadow-slate-900/20'
               }`}
@@ -472,8 +336,8 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             <div>
               <h2 id="ai-voice-modal-title" className="text-2xl font-extrabold text-[var(--saathi-text)]">
                 {status === 'listening' && (t('ai.listening') || t('ai.listening'))}
-                {status === 'thinking' && (t('ai.thinking') || t('ai.thinking'))}
-                {status === 'speaking' && (t('ai.speaking') || t('ai.speaking'))}
+                {status === 'processing' && (t('ai.thinking') || t('ai.thinking'))}
+                {status === 'ai_speaking' && (t('ai.speaking') || t('ai.speaking'))}
                 {status === 'done' && (t('ai.responseReady') || t('ai.responseReady'))}
                 {status === 'error' && (t('ai.title') || 'SAATHI AI Assistant')}
               </h2>
@@ -517,7 +381,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
                         <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600">SAATHI</span>
                         <button
                           type="button"
-                          onClick={() => speakText(msg.content)}
+                          onClick={() => console.log('Replay not supported in WS mode')}
                           className="ml-auto inline-flex items-center gap-0.5 rounded bg-emerald-100/70 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 hover:bg-emerald-200 transition"
                           aria-label="Play this response"
                         >
@@ -544,9 +408,9 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
                   className={`block w-2.5 rounded-full transition-all duration-300 ${
                     status === 'listening'
                       ? 'voice-wave-bar bg-[var(--saathi-primary)] shadow-md shadow-red-900/20'
-                      : status === 'speaking'
+                      : status === 'ai_speaking'
                       ? 'animate-pulse bg-slate-600 shadow-md h-14'
-                      : status === 'thinking'
+                      : status === 'processing'
                       ? 'animate-pulse bg-amber-400 shadow-md h-8'
                       : 'h-4 bg-slate-300'
                   }`}
@@ -556,7 +420,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             </div>
 
             {/* Show current transcript (not yet in history) */}
-            {(displayTranscript && status === 'listening') && (
+            {(displayTranscript && (status === 'listening' || status === 'user_speaking')) && (
               <div className="mt-3 rounded-md bg-white p-3 shadow-sm border border-slate-100">
                 <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
                   {t('ai.queryLabel')}
@@ -574,7 +438,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
               </p>
             )}
 
-            {status === 'thinking' && (
+            {status === 'processing' && (
               <p className="mt-3 text-center text-sm font-semibold text-amber-600 animate-pulse">
                 {t('ai.thinking') || 'SAATHI is thinking...'}
               </p>
@@ -631,7 +495,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
               <button
                 className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white transition hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-200"
                 type="button"
-                onClick={handleRestartListening}
+                onClick={() => { setStatus('idle'); setResponseText(''); setTranscript(''); setInterimTranscript(''); setWsTrigger(prev => prev + 1); }}
               >
                 <MicrophoneIcon className="h-5 w-5" />
                 {t('ai.speakAgain') || t('ai.speakAgain')}
