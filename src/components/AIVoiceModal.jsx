@@ -238,8 +238,43 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
           generate_audio: true
        }));
     } else {
-       console.error("WebSocket is not open");
-       setStatus('error');
+       console.warn("WebSocket is not open, falling back to HTTP /chat and /tts...");
+       (async () => {
+         try {
+           const chatRes = await fetch(`${API_BASE}/chat`, {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ message: queryText, history: [], profile: {} })
+           });
+           if (!chatRes.ok) throw new Error(`HTTP /chat error: ${chatRes.status}`);
+           const chatData = await chatRes.json();
+           const aiResponse = chatData.ai_response || "Sorry, I couldn't generate a response.";
+           setResponseText(aiResponse);
+           onResponse?.(aiResponse);
+
+           // Fetch Sarvam audio
+           const ttsRes = await fetch(`${API_BASE}/tts`, {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({
+               text: aiResponse,
+               language_code: chatData.detected_language_bcp47 || langTag,
+               speaker: 'shubh'
+             })
+           });
+           if (ttsRes.ok) {
+             const ttsData = await ttsRes.json();
+             if (ttsData.audio_base64) {
+               await playBackendTTSData(ttsData.audio_base64, ttsData.mime_type || 'audio/wav');
+               return;
+             }
+           }
+           setStatus('idle');
+         } catch (httpErr) {
+           console.error("HTTP fallback failed:", httpErr);
+           setStatus('error');
+         }
+       })();
     }
   };
 
