@@ -33,6 +33,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
   const recognitionRef = useRef(null);
   const wsRef = useRef(null);
   const statusRef = useRef(status);
+  const isProcessingRef = useRef(false);
 
   useEffect(() => { statusRef.current = status; }, [status]);
 
@@ -62,6 +63,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       audioPlayerRef.current.volume = 1.0;
 
       audioPlayerRef.current.onended = () => {
+        isProcessingRef.current = false;
         if (audioUrlRef.current) {
           URL.revokeObjectURL(audioUrlRef.current);
           audioUrlRef.current = null;
@@ -74,11 +76,14 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       await audioPlayerRef.current.play();
     } catch (err) {
       console.error('Sarvam backend TTS playback failed:', err);
-      setStatus('error');
+      isProcessingRef.current = false;
+      setStatus('listening');
+      startRecognition();
     }
   };
 
   const startRecognition = () => {
+    if (isProcessingRef.current) return;
     const currentStatus = statusRef.current;
     if (currentStatus === 'ai_speaking' || currentStatus === 'processing' || currentStatus === 'ended' || currentStatus === 'ending' || currentStatus === 'error') {
       return;
@@ -105,6 +110,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       };
 
       recognition.onresult = (event) => {
+        if (isProcessingRef.current) return;
         if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
            setStatus('user_speaking');
         }
@@ -128,15 +134,16 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       };
 
       recognition.onerror = (event) => {
-        console.warn('Speech recognition error:', event.error);
+        console.warn('Speech recognition notice:', event.error);
         if (event.error !== 'no-speech' && event.error !== 'aborted') {
-           if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
-              setStatus('error');
+           if (statusRef.current !== 'ended' && statusRef.current !== 'ending' && !isProcessingRef.current) {
+              setStatus('listening');
            }
         }
       };
 
       recognition.onend = () => {
+        if (isProcessingRef.current) return;
         setInterimTranscript((prevInterim) => {
           if (prevInterim && !transcript) {
             setTranscript(prevInterim);
@@ -145,7 +152,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
           }
           setTimeout(() => {
             const st = statusRef.current;
-            if (st === 'listening' || st === 'user_speaking') {
+            if ((st === 'listening' || st === 'user_speaking') && !isProcessingRef.current) {
               startRecognition();
             }
           }, 100);
@@ -166,7 +173,7 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
       ws = new WebSocket(WS_BASE);
       ws.onopen = () => {
         console.log("SAATHI WebSocket connected");
-        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+        if (statusRef.current !== 'ended' && statusRef.current !== 'ending' && !isProcessingRef.current) {
           setStatus('listening');
           startRecognition();
         }
@@ -183,40 +190,47 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
             if (data.audio_base64) {
               await playBackendTTSData(data.audio_base64, data.mime_type || data.format);
             } else {
-              console.error('Sarvam returned no audio');
-              setStatus('error');
+              isProcessingRef.current = false;
+              setStatus('listening');
+              startRecognition();
             }
           } else {
-            console.error("WS API Error:", data.message);
-            const errorMsg = t('ai.notSupported') || "I'm having trouble connecting right now.";
-            setResponseText(errorMsg);
-            setStatus('error');
+            console.warn("WS message without success:", data.message);
+            isProcessingRef.current = false;
+            setStatus('listening');
+            startRecognition();
           }
         } catch (error) {
           console.error("WS Parse Error:", error);
+          isProcessingRef.current = false;
+          setStatus('listening');
+          startRecognition();
         }
       };
       ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
-           setStatus('error');
-        }
+        console.warn("WebSocket status note:", error);
+        // Resilient: WebSocket error does not break the assistant, HTTP fallback seamlessly handles queries
       };
       ws.onclose = () => {
-        console.log("SAATHI WebSocket closed");
-        if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
-           setStatus('error');
-        }
+        console.log("SAATHI WebSocket closed, HTTP fallback ready");
       };
       wsRef.current = ws;
     } catch (err) {
-      console.error("Failed to connect to WS:", err);
-      setStatus('error');
+      console.warn("WebSocket init note:", err);
+    }
+
+    // Start recognition immediately
+    if (statusRef.current !== 'ended' && statusRef.current !== 'ending') {
+      setStatus('listening');
+      startRecognition();
     }
 
     return () => {
       setStatus('ended');
-      if (wsRef.current) wsRef.current.close();
+      isProcessingRef.current = false;
+      if (wsRef.current) {
+        try { wsRef.current.close(); } catch (e) {}
+      }
       if (recognitionRef.current) {
         try { recognitionRef.current.abort(); } catch (e) {}
       }
@@ -227,6 +241,9 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
   const handleFinalSpeech = (queryText) => {
     if (!queryText.trim()) return;
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
     if (recognitionRef.current) {
       try { recognitionRef.current.abort(); } catch (e) {}
     }
@@ -269,10 +286,14 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
                return;
              }
            }
-           setStatus('idle');
+           isProcessingRef.current = false;
+           setStatus('listening');
+           startRecognition();
          } catch (httpErr) {
            console.error("HTTP fallback failed:", httpErr);
-           setStatus('error');
+           isProcessingRef.current = false;
+           setStatus('listening');
+           startRecognition();
          }
        })();
     }
@@ -280,20 +301,21 @@ export default function AIVoiceModal({ onClose, onResponse, preferredLanguage = 
 
   const handleManualSubmit = (e) => {
     e.preventDefault();
-    if (!textInput.trim()) return;
+    if (!textInput.trim() || isProcessingRef.current) return;
     setTranscript(textInput);
     handleFinalSpeech(textInput);
     setTextInput('');
   };
 
   const handleEndCall = () => {
+    isProcessingRef.current = false;
     setStatus('ending');
     if (recognitionRef.current) {
       try { recognitionRef.current.abort(); } catch (e) {}
     }
     if (audioPlayerRef.current && !audioPlayerRef.current.paused) audioPlayerRef.current.pause();
     if (wsRef.current) {
-      wsRef.current.close();
+      try { wsRef.current.close(); } catch (e) {}
       wsRef.current = null;
     }
     setStatus('ended');
