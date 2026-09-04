@@ -15,6 +15,7 @@ const {
 } = require('../controllers/buyerApplicationController');
 
 const BuyerRequest = require('../models/BuyerRequest');
+const BuyerApplication = require('../models/BuyerApplication');
 
 const router = express.Router();
 
@@ -39,7 +40,26 @@ router.get('/buyer-requests', verifyAdminToken, async (req, res) => {
     const requests = await BuyerRequest.find()
       .populate('buyerId', 'firstName lastName phone email village district state')
       .sort({ createdAt: -1 });
-    res.status(200).json({ success: true, count: requests.length, data: requests });
+
+    const populated = await Promise.all(
+      requests.map(async (r) => {
+        const phone = r.buyerId?.phone;
+        const email = r.buyerId?.email;
+        let app = null;
+        if (phone) {
+          app = await BuyerApplication.findOne({ phone }).sort({ createdAt: -1 });
+        }
+        if (!app && email) {
+          app = await BuyerApplication.findOne({ email }).sort({ createdAt: -1 });
+        }
+        return {
+          ...r.toObject(),
+          buyerApplication: app || null,
+        };
+      })
+    );
+
+    res.status(200).json({ success: true, count: populated.length, data: populated });
   } catch (error) {
     console.error('Error fetching buyer requests:', error.message);
     res.status(500).json({ success: false, message: 'Server error while fetching buyer requests' });

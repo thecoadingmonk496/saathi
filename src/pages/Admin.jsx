@@ -19,8 +19,13 @@ export default function Admin() {
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  
+  // 9-Stage KYC Inspection Modal State
+  const [selectedKycApp, setSelectedKycApp] = useState(null);
+  const [relatedRequest, setRelatedRequest] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
+  
   const navigate = useNavigate();
-
   const adminEmail = localStorage.getItem('adminEmail') || 'ts7529614@gmail.com';
 
   useEffect(() => {
@@ -61,7 +66,7 @@ export default function Admin() {
         return;
       }
 
-      // 2. Fetch Buyer Requests (Procurement Publications)
+      // 2. Fetch Buyer Requests (Procurement Publications) with populated buyerApplication
       const reqRes = await fetch(apiUrl('/api/admin/buyer-requests'), {
         headers: { Authorization: `Bearer ${activeToken}` },
       });
@@ -85,6 +90,41 @@ export default function Admin() {
     }
   };
 
+  /* ── Open 9-Stage KYC Modal for a Request ── */
+  const openKycForRequest = (req) => {
+    setRelatedRequest(req);
+    // Find matching buyer application from populated field or from list
+    const app = req.buyerApplication || 
+      buyerApplications.find((a) => a.phone === req.buyerId?.phone || a.email === req.buyerId?.email);
+    
+    if (app) {
+      setSelectedKycApp(app);
+    } else {
+      // Create a fallback KYC object if buyer registered directly without filling full 9-stage KYC
+      setSelectedKycApp({
+        applicantName: `${req.buyerId?.firstName || ''} ${req.buyerId?.lastName || ''}`.trim() || 'Registered Buyer',
+        phone: req.buyerId?.phone || 'Not provided',
+        email: req.buyerId?.email || 'Not provided',
+        buyerType: 'Trader / Buyer',
+        business: {
+          name: `${req.buyerId?.firstName}'s Procurement Agency`,
+          businessType: 'Individual / Proprietorship',
+          address: req.location || 'Local Mandi',
+        },
+        address: {
+          villageCity: req.buyerId?.village || req.location || 'N/A',
+          district: req.buyerId?.district || 'N/A',
+          state: req.buyerId?.state || 'N/A',
+          pincode: 'N/A',
+        },
+        commodities: [{ name: req.crop, offerPrice: req.offeredPrice, offerQuantity: req.quantity }],
+        documents: {},
+        verificationStatus: req.status,
+        fallbackNote: 'Notice: This buyer has not completed the extended 9-stage KYC document upload yet. Basic profile details shown.',
+      });
+    }
+  };
+
   /* ── Buyer Requests Actions ── */
   const handleApproveRequest = async (requestId, cropName) => {
     const token = localStorage.getItem('adminToken');
@@ -105,6 +145,9 @@ export default function Admin() {
         setBuyerRequests((prev) =>
           prev.map((r) => (r._id === requestId ? { ...r, status: 'PUBLISHED', publishedAt: new Date() } : r))
         );
+        if (relatedRequest?._id === requestId) {
+          setRelatedRequest((prev) => (prev ? { ...prev, status: 'PUBLISHED' } : null));
+        }
         setTimeout(() => setSuccessMsg(''), 5000);
       } else {
         setError(data.message || 'Failed to approve publication request.');
@@ -121,7 +164,7 @@ export default function Admin() {
     if (!token) { handleLogout(); return; }
 
     const reason = window.prompt(`Enter rejection reason for "${cropName}":`, 'Quality specifications incomplete or offered price outside fair market range.');
-    if (reason === null) return; // cancelled
+    if (reason === null) return;
 
     setActionLoadingId(requestId);
     setError('');
@@ -142,6 +185,9 @@ export default function Admin() {
         setBuyerRequests((prev) =>
           prev.map((r) => (r._id === requestId ? { ...r, status: 'REJECTED', adminRemarks: reason } : r))
         );
+        if (relatedRequest?._id === requestId) {
+          setRelatedRequest((prev) => (prev ? { ...prev, status: 'REJECTED', adminRemarks: reason } : null));
+        }
         setTimeout(() => setSuccessMsg(''), 5000);
       } else {
         setError(data.message || 'Failed to reject publication request.');
@@ -169,10 +215,13 @@ export default function Admin() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setSuccessMsg(`✓ Approved buyer profile for "${applicantName}".`);
+        setSuccessMsg(`✓ Approved buyer KYC for "${applicantName}".`);
         setBuyerApplications((prev) =>
           prev.map((a) => (a._id === appId ? { ...a, verificationStatus: 'APPROVED', verified: true } : a))
         );
+        if (selectedKycApp?._id === appId) {
+          setSelectedKycApp((prev) => (prev ? { ...prev, verificationStatus: 'APPROVED', verified: true } : null));
+        }
         setTimeout(() => setSuccessMsg(''), 5000);
       } else {
         setError(data.message || 'Failed to approve application.');
@@ -207,6 +256,9 @@ export default function Admin() {
         setBuyerApplications((prev) =>
           prev.map((a) => (a._id === appId ? { ...a, verificationStatus: 'REJECTED', adminRemarks: reason } : a))
         );
+        if (selectedKycApp?._id === appId) {
+          setSelectedKycApp((prev) => (prev ? { ...prev, verificationStatus: 'REJECTED', adminRemarks: reason } : null));
+        }
         setTimeout(() => setSuccessMsg(''), 5000);
       } else {
         setError(data.message || 'Failed to reject application.');
@@ -499,9 +551,15 @@ export default function Admin() {
                             </div>
                             <div>
                               <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Buyer Name: </span>
-                              <span className="font-semibold text-white">
-                                {req.buyerId?.firstName} {req.buyerId?.lastName} ({req.buyerId?.phone || 'No phone'})
-                              </span>
+                              <button
+                                onClick={() => openKycForRequest(req)}
+                                className="font-semibold text-blue-400 hover:text-blue-300 hover:underline inline-flex items-center gap-1"
+                                title="Click to inspect full 9-stage KYC & uploaded documents"
+                              >
+                                <span>{req.buyerId?.firstName} {req.buyerId?.lastName}</span>
+                                <span>({req.buyerId?.phone || 'No phone'})</span>
+                                <span className="text-[10px] bg-blue-500/20 px-1.5 py-0.2 rounded border border-blue-500/30">KYC 🔍</span>
+                              </button>
                             </div>
                             <div>
                               <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Estimated Value: </span>
@@ -523,20 +581,29 @@ export default function Admin() {
                             </p>
                           )}
 
-                          <div className="text-[11px] text-slate-500">
-                            Submitted: {new Date(req.createdAt).toLocaleString('en-IN')}
-                            {req.reviewedAt && ` • Reviewed: ${new Date(req.reviewedAt).toLocaleString('en-IN')}`}
+                          <div className="flex items-center gap-4 text-[11px] text-slate-500">
+                            <span>Submitted: {new Date(req.createdAt).toLocaleString('en-IN')}</span>
+                            {req.reviewedAt && <span>Reviewed: {new Date(req.reviewedAt).toLocaleString('en-IN')}</span>}
                           </div>
                         </div>
 
                         {/* Admin Actions */}
-                        <div className="flex items-center gap-2 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-800/80 pt-3 lg:pt-0 lg:pl-4">
+                        <div className="flex flex-col sm:flex-row lg:flex-col gap-2 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-800/80 pt-3 lg:pt-0 lg:pl-4">
+                          {/* 9-Stage KYC Inspection Button */}
+                          <button
+                            onClick={() => openKycForRequest(req)}
+                            className="px-3.5 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 font-bold rounded-xl text-xs border border-blue-500/40 transition flex items-center justify-center gap-1.5 shadow-sm"
+                          >
+                            <span>📋</span>
+                            <span>Inspect 9-Stage KYC</span>
+                          </button>
+
                           {isPending ? (
-                            <>
+                            <div className="flex items-center gap-2">
                               <button
                                 onClick={() => handleApproveRequest(req._id, req.crop)}
                                 disabled={actionLoadingId === req._id}
-                                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl text-xs transition shadow flex items-center gap-1.5 disabled:opacity-50"
+                                className="flex-1 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl text-xs transition shadow flex items-center justify-center gap-1.5 disabled:opacity-50"
                               >
                                 <span>✓</span>
                                 <span>Accept & Publish</span>
@@ -545,30 +612,30 @@ export default function Admin() {
                               <button
                                 onClick={() => handleRejectRequest(req._id, req.crop)}
                                 disabled={actionLoadingId === req._id}
-                                className="px-4 py-2 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white font-bold rounded-xl text-xs border border-red-500/40 hover:border-transparent transition flex items-center gap-1.5 disabled:opacity-50"
+                                className="flex-1 px-4 py-2 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white font-bold rounded-xl text-xs border border-red-500/40 hover:border-transparent transition flex items-center justify-center gap-1.5 disabled:opacity-50"
                               >
                                 <span>✕</span>
                                 <span>Reject</span>
                               </button>
-                            </>
+                            </div>
                           ) : isPublished ? (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-between gap-2">
                               <span className="text-xs font-bold text-emerald-400">✓ Live on Farmer UI</span>
                               <button
                                 onClick={() => handleRejectRequest(req._id, req.crop)}
                                 disabled={actionLoadingId === req._id}
-                                className="px-3 py-1.5 bg-slate-800 hover:bg-red-900/40 text-slate-300 hover:text-red-300 rounded-lg text-xs font-medium border border-slate-700 transition"
+                                className="px-2.5 py-1 bg-slate-800 hover:bg-red-900/40 text-slate-400 hover:text-red-300 rounded-lg text-xs font-medium border border-slate-700 transition"
                               >
-                                Revoke / Reject
+                                Revoke
                               </button>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-red-400">✕ Rejected (Buyer can reapply)</span>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold text-red-400">✕ Rejected</span>
                               <button
                                 onClick={() => handleApproveRequest(req._id, req.crop)}
                                 disabled={actionLoadingId === req._id}
-                                className="px-3 py-1.5 bg-slate-800 hover:bg-emerald-900/40 text-slate-300 hover:text-emerald-300 rounded-lg text-xs font-medium border border-slate-700 transition"
+                                className="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/40 text-slate-300 hover:text-emerald-300 rounded-lg text-xs font-medium border border-slate-700 transition"
                               >
                                 Re-approve
                               </button>
@@ -599,7 +666,7 @@ export default function Admin() {
                   <div key={app._id} className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                       <div className="space-y-1.5 flex-1">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           <h3 className="text-base font-bold text-white">{app.applicantName}</h3>
                           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
                             {app.buyerType}
@@ -625,7 +692,18 @@ export default function Admin() {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => {
+                            setSelectedKycApp(app);
+                            setRelatedRequest(null);
+                          }}
+                          className="px-3.5 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 font-bold rounded-xl text-xs border border-blue-500/40 transition flex items-center gap-1.5"
+                        >
+                          <span>🔍</span>
+                          <span>View 9-Stage Form & Docs</span>
+                        </button>
+
                         {app.verificationStatus !== 'APPROVED' && (
                           <button
                             onClick={() => handleApproveApplication(app._id, app.applicantName)}
@@ -723,6 +801,288 @@ export default function Admin() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════ */}
+        {/* ── 9-STAGE KYC & UPLOADED DOCUMENTS INSPECTION MODAL ── */}
+        {/* ════════════════════════════════════════════════════════════ */}
+        {selectedKycApp && (
+          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              
+              {/* Modal Header */}
+              <div className="p-6 border-b border-slate-800 flex items-start justify-between gap-4 bg-slate-950/60 shrink-0">
+                <div className="flex items-center gap-4">
+                  {selectedKycApp.profilePhoto ? (
+                    <img
+                      src={selectedKycApp.profilePhoto}
+                      alt={selectedKycApp.applicantName}
+                      className="w-14 h-14 rounded-2xl object-cover border-2 border-slate-700"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-red-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 font-extrabold text-xl">
+                      {selectedKycApp.applicantName?.charAt(0)?.toUpperCase() || 'B'}
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h2 className="text-xl font-black text-white">{selectedKycApp.applicantName}</h2>
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                        {selectedKycApp.buyerType}
+                      </span>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                        selectedKycApp.verificationStatus === 'APPROVED' || selectedKycApp.verificationStatus === 'PUBLISHED' ? 'bg-emerald-500/20 text-emerald-300' :
+                        selectedKycApp.verificationStatus === 'REJECTED' ? 'bg-red-500/20 text-red-300' :
+                        'bg-amber-500/20 text-amber-300'
+                      }`}>
+                        Status: {selectedKycApp.verificationStatus}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      📞 {selectedKycApp.phone} &nbsp;•&nbsp; ✉️ {selectedKycApp.email} &nbsp;•&nbsp; 🏢 {selectedKycApp.business?.name}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => { setSelectedKycApp(null); setRelatedRequest(null); }}
+                  className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm font-bold transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Modal Body - 9 Stages Grid */}
+              <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
+                {selectedKycApp.fallbackNote && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                    ℹ️ {selectedKycApp.fallbackNote}
+                  </div>
+                )}
+
+                {/* Grid of Stages 1 through 6 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Stage 1: Personal Details */}
+                  <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2">
+                    <h4 className="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>👤 Stage 1: Applicant Information</span>
+                    </h4>
+                    <div className="space-y-1 text-slate-300">
+                      <div><strong className="text-slate-400">Full Name:</strong> {selectedKycApp.applicantName}</div>
+                      <div><strong className="text-slate-400">Mobile Number:</strong> {selectedKycApp.phone}</div>
+                      <div><strong className="text-slate-400">Email Address:</strong> {selectedKycApp.email}</div>
+                    </div>
+                  </div>
+
+                  {/* Stage 2 & 3: Business & Buyer Type */}
+                  <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2">
+                    <h4 className="text-[11px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>🏢 Stage 2 & 3: Business Profile</span>
+                    </h4>
+                    <div className="space-y-1 text-slate-300">
+                      <div><strong className="text-slate-400">Buyer Type:</strong> {selectedKycApp.buyerType} {selectedKycApp.otherBuyerType && `(${selectedKycApp.otherBuyerType})`}</div>
+                      <div><strong className="text-slate-400">Business / Shop Name:</strong> {selectedKycApp.business?.name || 'N/A'}</div>
+                      <div><strong className="text-slate-400">Entity Type:</strong> {selectedKycApp.business?.businessType || 'N/A'}</div>
+                      <div><strong className="text-slate-400">Year Established:</strong> {selectedKycApp.business?.yearEstablished || 'N/A'}</div>
+                      <div><strong className="text-slate-400">Business Address:</strong> {selectedKycApp.business?.address || 'N/A'}</div>
+                    </div>
+                  </div>
+
+                  {/* Stage 4: Location */}
+                  <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2">
+                    <h4 className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>📍 Stage 4: Operating Location</span>
+                    </h4>
+                    <div className="space-y-1 text-slate-300">
+                      <div><strong className="text-slate-400">Village / City:</strong> {selectedKycApp.address?.villageCity || 'N/A'}</div>
+                      <div><strong className="text-slate-400">Tehsil / Block:</strong> {selectedKycApp.address?.tehsilBlock || 'N/A'}</div>
+                      <div><strong className="text-slate-400">District & State:</strong> {selectedKycApp.address?.district}, {selectedKycApp.address?.state}</div>
+                      <div><strong className="text-slate-400">Pincode:</strong> {selectedKycApp.address?.pincode || 'N/A'}</div>
+                    </div>
+                  </div>
+
+                  {/* Stage 5 & 6: Commodities & Radius */}
+                  <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2">
+                    <h4 className="text-[11px] font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>🌾 Stage 5 & 6: Products & Trading Radius</span>
+                    </h4>
+                    <div className="space-y-1 text-slate-300">
+                      <div><strong className="text-slate-400">Purchase Radius:</strong> {selectedKycApp.preferredPurchaseRadius ? `${selectedKycApp.preferredPurchaseRadius} km` : 'Regional'}</div>
+                      <strong className="text-slate-400 block mt-1">Crops & Commodities:</strong>
+                      {selectedKycApp.commodities && selectedKycApp.commodities.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {selectedKycApp.commodities.map((c, i) => (
+                            <span key={i} className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[10px] font-bold">
+                              {c.name} {c.offerPrice ? `(₹${c.offerPrice}/${c.unit || 'Qtl'})` : ''}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-slate-500 italic">No specific commodities declared</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stage 7 & 8: Uploaded Verification Documents (Images / PDFs) */}
+                <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                      <span>📑 Stage 7 & 8: Uploaded Documents & Image Proofs</span>
+                    </h4>
+                    <span className="text-slate-500 text-[10px]">Click image thumbnail to inspect full resolution</span>
+                  </div>
+
+                  {(!selectedKycApp.documents || Object.values(selectedKycApp.documents).filter(Boolean).length === 0) ? (
+                    <div className="p-6 text-center text-slate-500 italic border border-dashed border-slate-800 rounded-xl">
+                      No document files were attached to this profile.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {[
+                        { key: 'identityProof', label: 'Identity Proof (Aadhaar / PAN)' },
+                        { key: 'businessProof', label: 'Business Proof (Shop Act / Reg)' },
+                        { key: 'addressProof', label: 'Address Proof (Utility / Lease)' },
+                        { key: 'gstCertificate', label: 'GST Certificate' },
+                        { key: 'udyamRegistration', label: 'Udyam MSME Registration' },
+                        { key: 'fssaiLicense', label: 'FSSAI License' },
+                        { key: 'otherDocument', label: 'Other Document' },
+                      ].map((doc) => {
+                        const fileData = selectedKycApp.documents?.[doc.key];
+                        if (!fileData) return null;
+                        const isImage = fileData.startsWith('data:image') || /\.(jpg|jpeg|png|webp)/i.test(fileData);
+
+                        return (
+                          <div key={doc.key} className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2 flex flex-col justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase block truncate mb-1">
+                                {doc.label}
+                              </span>
+                              {isImage ? (
+                                <div
+                                  onClick={() => setPreviewImage(fileData)}
+                                  className="w-full h-32 rounded-lg bg-slate-950 border border-slate-800 overflow-hidden cursor-pointer hover:border-amber-500 transition relative group"
+                                >
+                                  <img src={fileData} alt={doc.label} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                                  <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-white font-bold text-xs gap-1">
+                                    <span>🔍</span> Click to zoom
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="w-full h-32 rounded-lg bg-slate-950 border border-slate-800 flex flex-col items-center justify-center text-slate-400 p-2 text-center">
+                                  <span className="text-2xl mb-1">📄</span>
+                                  <span className="text-[10px] truncate max-w-[150px]">Document File</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <a
+                              href={fileData}
+                              target="_blank"
+                              rel="noreferrer"
+                              download={`${selectedKycApp.applicantName}_${doc.key}`}
+                              className="text-center py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg text-[10px] transition block"
+                            >
+                              Download / Open File ↗
+                            </a>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Stage 9: Declaration & Review Audit */}
+                <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 text-slate-400 text-xs space-y-1">
+                  <h4 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2">
+                    ⚖️ Stage 9: Declaration & Audit
+                  </h4>
+                  <div>Submitted On: {selectedKycApp.submittedAt ? new Date(selectedKycApp.submittedAt).toLocaleString('en-IN') : 'N/A'}</div>
+                  {selectedKycApp.reviewedAt && <div>Last Reviewed: {new Date(selectedKycApp.reviewedAt).toLocaleString('en-IN')} by {selectedKycApp.reviewedBy || 'Admin'}</div>}
+                  {selectedKycApp.adminRemarks && (
+                    <div className="text-red-300 pt-1">
+                      <strong>Rejection / Information Remarks:</strong> {selectedKycApp.adminRemarks}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer - Direct Actions */}
+              <div className="p-4 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between gap-3 shrink-0">
+                <button
+                  onClick={() => { setSelectedKycApp(null); setRelatedRequest(null); }}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition"
+                >
+                  Close Inspection
+                </button>
+
+                <div className="flex items-center gap-2">
+                  {/* If opened from a Publication Request */}
+                  {relatedRequest && relatedRequest.status === 'PENDING_REVIEW' && (
+                    <>
+                      <button
+                        onClick={() => {
+                          handleRejectRequest(relatedRequest._id, relatedRequest.crop);
+                        }}
+                        className="px-4 py-2 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white font-bold rounded-xl text-xs border border-red-500/40 transition"
+                      >
+                        ✕ Reject Publication
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleApproveRequest(relatedRequest._id, relatedRequest.crop);
+                        }}
+                        className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl text-xs transition shadow"
+                      >
+                        ✓ Accept & Publish to Farmers
+                      </button>
+                    </>
+                  )}
+
+                  {/* If opened from Buyer Applications list */}
+                  {selectedKycApp._id && !relatedRequest && (
+                    <>
+                      {selectedKycApp.verificationStatus !== 'REJECTED' && (
+                        <button
+                          onClick={() => handleRejectApplication(selectedKycApp._id, selectedKycApp.applicantName)}
+                          className="px-4 py-2 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white font-bold rounded-xl text-xs border border-red-500/30 transition"
+                        >
+                          ✕ Reject Application
+                        </button>
+                      )}
+                      {selectedKycApp.verificationStatus !== 'APPROVED' && (
+                        <button
+                          onClick={() => handleApproveApplication(selectedKycApp._id, selectedKycApp.applicantName)}
+                          className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl text-xs transition"
+                        >
+                          ✓ Approve Buyer KYC
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Full Image Zoom Lightbox */}
+        {previewImage && (
+          <div
+            onClick={() => setPreviewImage(null)}
+            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
+          >
+            <div className="max-w-4xl max-h-[90vh] relative">
+              <img src={previewImage} alt="Document Preview" className="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl" />
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="absolute top-3 right-3 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold"
+              >
+                ✕ Close
+              </button>
             </div>
           </div>
         )}
