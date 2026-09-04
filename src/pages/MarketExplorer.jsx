@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Building,
   Truck,
+  Package,
   Store,
   ShoppingBag,
   ChevronRight,
@@ -310,14 +311,14 @@ const ExpandableTransactionDetails = ({ data, isDemo, status }) => {
 };
 
 const StageCard = ({ title, icon: Icon, color, data, status, isUnavailable, nextStageIcon }) => {
-  if (isUnavailable) {
+  if (isUnavailable || !data) {
     return (
       <div className="relative pl-8 md:pl-0">
         <div className="absolute left-[11px] top-6 bottom-[-24px] w-[2px] bg-gray-200 md:hidden z-0"></div>
         <div className="bg-white rounded-2xl border border-dashed border-[var(--saathi-border)] p-5 opacity-60 shadow-sm relative z-10">
           <div className="flex items-center gap-3 mb-2">
             <div className={`w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0`}>
-              <Icon className="w-4 h-4 text-gray-400" />
+              {Icon && <Icon className="w-4 h-4 text-gray-400" />}
             </div>
             <h3 className="font-bold text-[var(--saathi-text-muted)] text-base">{title}</h3>
           </div>
@@ -336,12 +337,12 @@ const StageCard = ({ title, icon: Icon, color, data, status, isUnavailable, next
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-full ${color} flex items-center justify-center shrink-0 shadow-sm`}>
-              <Icon className="w-5 h-5 text-white" />
+              {Icon && <Icon className="w-5 h-5 text-white" />}
             </div>
             <div>
               <h3 className="font-bold text-[var(--saathi-text)] text-lg">{title}</h3>
               <div className="text-xs font-semibold text-[var(--saathi-text-muted)] flex items-center gap-1 mt-0.5">
-                <User className="w-3 h-3" /> {data.buyer || 'Unknown'}
+                <User className="w-3 h-3" /> {data?.buyer || data?.seller || 'Recorded Partner'}
               </div>
             </div>
           </div>
@@ -434,8 +435,12 @@ export default function MarketExplorer() {
   // Fetch States on mount for Mandi section
   useEffect(() => {
     marketService.getGovernmentMandiStates().then(states => {
-      setStatesOfIndia(states || []);
-      if (states && states.length > 0) setSelectedState(states[0]);
+      const validStates = Array.isArray(states) ? states : [];
+      setStatesOfIndia(validStates);
+      if (validStates.length > 0) setSelectedState(validStates[0]);
+    }).catch(err => {
+      console.error('Failed to load states in MarketExplorer:', err);
+      setStatesOfIndia([]);
     });
   }, []);
 
@@ -443,11 +448,15 @@ export default function MarketExplorer() {
   useEffect(() => {
     if (selectedState) {
       marketService.getGovernmentMandiDistricts(selectedState).then(districts => {
-        setAvailableDistricts(districts || []);
+        const validDistricts = Array.isArray(districts) ? districts : [];
+        setAvailableDistricts(validDistricts);
         setSelectedDistrict('');
         setSelectedMandi('');
         setAvailableMarkets([]);
         setMandiRecord(null);
+      }).catch(err => {
+        console.error('Failed to load districts in MarketExplorer:', err);
+        setAvailableDistricts([]);
       });
     }
   }, [selectedState]);
@@ -461,7 +470,7 @@ export default function MarketExplorer() {
         commodity: selectedCrop,
         limit: 100
       }).then(res => {
-        if (res.success && res.records) {
+        if (res && res.success && Array.isArray(res.records)) {
           const uniqueMarkets = [...new Set(res.records.map(r => r.market))].filter(Boolean);
           setAvailableMarkets(uniqueMarkets);
           if (uniqueMarkets.length > 0 && !uniqueMarkets.includes(selectedMandi)) {
@@ -470,18 +479,25 @@ export default function MarketExplorer() {
         } else {
           setAvailableMarkets([]);
         }
+      }).catch(err => {
+        console.error('Failed to load markets in MarketExplorer:', err);
+        setAvailableMarkets([]);
       });
     }
   }, [selectedState, selectedDistrict, selectedCrop]);
 
   const handleSearchMandi = async () => {
     if (!selectedState || !selectedDistrict || !selectedCrop || !selectedMandi) return;
-    const res = await marketService.getGovernmentMandiPrices({
-      state: selectedState, district: selectedDistrict, commodity: selectedCrop, market: selectedMandi, limit: 1
-    });
-    if (res.success && res.records && res.records.length > 0) {
-      setMandiRecord(res.records[0]);
-    } else {
+    try {
+      const res = await marketService.getGovernmentMandiPrices({
+        state: selectedState, district: selectedDistrict, commodity: selectedCrop, market: selectedMandi, limit: 1
+      });
+      if (res && res.success && Array.isArray(res.records) && res.records.length > 0) {
+        setMandiRecord(res.records[0]);
+      } else {
+        setMandiRecord(false);
+      }
+    } catch {
       setMandiRecord(false);
     }
   };
@@ -797,7 +813,7 @@ export default function MarketExplorer() {
                         value={selectedState} 
                         onChange={(e) => setSelectedState(e.target.value)}
                         className="w-full text-sm font-semibold border-[var(--saathi-border-light)] rounded-lg bg-[var(--saathi-surface-alt)] focus:ring-[var(--saathi-accent)] focus:border-[var(--saathi-accent)] py-2">
-                        {statesOfIndia.map(state => <option key={state} value={state}>{state}</option>)}
+                        {(Array.isArray(statesOfIndia) ? statesOfIndia : []).map(state => <option key={state} value={state}>{state}</option>)}
                       </select>
                     </div>
                     <div>
@@ -807,7 +823,7 @@ export default function MarketExplorer() {
                         onChange={(e) => setSelectedDistrict(e.target.value)}
                         className="w-full text-sm font-semibold border-[var(--saathi-border-light)] rounded-lg bg-[var(--saathi-surface-alt)] focus:ring-[var(--saathi-accent)] focus:border-[var(--saathi-accent)] py-2">
                         <option value="">Select District</option>
-                        {availableDistricts.map(dist => <option key={dist} value={dist}>{dist}</option>)}
+                        {(Array.isArray(availableDistricts) ? availableDistricts : []).map(dist => <option key={dist} value={dist}>{dist}</option>)}
                       </select>
                     </div>
                     <div>
@@ -817,7 +833,7 @@ export default function MarketExplorer() {
                         onChange={(e) => setSelectedCrop(e.target.value)}
                         className="w-full text-sm font-semibold border-[var(--saathi-border-light)] rounded-lg bg-[var(--saathi-surface-alt)] focus:ring-[var(--saathi-accent)] focus:border-[var(--saathi-accent)] py-2">
                         <option value="">Select Crop</option>
-                        {cropsList.map(crop => <option key={crop} value={crop}>{crop}</option>)}
+                        {(Array.isArray(cropsList) ? cropsList : []).map(crop => <option key={crop} value={crop}>{crop}</option>)}
                       </select>
                     </div>
                     <div>
@@ -825,10 +841,10 @@ export default function MarketExplorer() {
                       <select 
                         value={selectedMandi}
                         onChange={(e) => setSelectedMandi(e.target.value)}
-                        disabled={availableMarkets.length === 0}
+                        disabled={!Array.isArray(availableMarkets) || availableMarkets.length === 0}
                         className="w-full text-sm font-semibold border-[var(--saathi-border-light)] rounded-lg bg-[var(--saathi-surface-alt)] focus:ring-[var(--saathi-accent)] focus:border-[var(--saathi-accent)] py-2 disabled:opacity-50">
-                        {availableMarkets.length === 0 && <option value="">No markets found</option>}
-                        {availableMarkets.map(m => <option key={m} value={m}>{m}</option>)}
+                        {(!Array.isArray(availableMarkets) || availableMarkets.length === 0) && <option value="">No markets found</option>}
+                        {(Array.isArray(availableMarkets) ? availableMarkets : []).map(m => <option key={m} value={m}>{m}</option>)}
                       </select>
                     </div>
                     <button 

@@ -65,7 +65,11 @@ export function UserProvider({ children }) {
   const updateUser = useCallback((userData) => {
     setUser(curr => {
       const updated = { ...curr, ...userData };
-      localStorage.setItem('user', JSON.stringify(updated));
+      try {
+        localStorage.setItem('user', JSON.stringify(updated));
+      } catch (err) {
+        console.warn('Could not save user data to localStorage:', err);
+      }
       return updated;
     });
 
