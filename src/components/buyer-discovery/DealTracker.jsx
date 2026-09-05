@@ -342,45 +342,54 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
             )}
 
             {/* Step 2: Payment Bar (Shown whenever moisture passed but ₹250 is NOT yet paid) */}
-            {hasUploadedPhotos && !isFeePaid && deal.status !== 'VERIFIED' && deal.status !== 'COMPLETED' && deal.status !== 'UNVERIFIED' && (
-              <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-5 space-y-4">
-                <div>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                    💧 Moisture Data: {deal.moisturePercent || 11.8}% • ACCEPTABLE & VERIFIED
-                  </span>
-                  <h5 className="font-bold text-emerald-950 mt-2 text-base">
-                    Moisture percentage acceptable! Produce passed screening.
-                  </h5>
-                  <p className="text-xs text-emerald-700 mt-1">
-                    Optimal moisture recorded at {deal.moisturePercent || 11.8}% (Standard safe storage range: 10% - 14%).
-                  </p>
-                </div>
-
-                {/* The Payment Bar */}
-                <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm space-y-3">
-                  <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+            {hasUploadedPhotos && !isFeePaid && deal.status !== 'VERIFIED' && deal.status !== 'ADMIN_PRE_SHIPMENT_VERIFIED' && deal.status !== 'BUYER_DELIVERY_UPLOADED' && deal.status !== 'COMPLETED' && deal.status !== 'UNVERIFIED' && (
+              <>
+                {userRole === 'FARMER' ? (
+                  <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-5 space-y-4">
                     <div>
-                      <p className="text-sm font-bold text-gray-400 uppercase tracking-wider">Next Step</p>
-                      <h6 className="text-sm font-extrabold text-gray-900">Connect with On-Ground Field Agent</h6>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        💧 Moisture Data: {deal.moisturePercent || 11.8}% • ACCEPTABLE & VERIFIED
+                      </span>
+                      <h5 className="font-bold text-emerald-950 mt-2 text-base">
+                        Moisture percentage acceptable! Produce passed screening.
+                      </h5>
+                      <p className="text-xs text-emerald-700 mt-1">
+                        Optimal moisture recorded at {deal.moisturePercent || 11.8}% (Standard safe storage range: 10% - 14%).
+                      </p>
                     </div>
-                    <span className="text-xl font-black text-red-700 bg-red-50 px-3 py-1 rounded-xl border border-red-200">
-                      ₹250
-                    </span>
+
+                    {/* The Payment Bar */}
+                    <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm space-y-3">
+                      <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                        <div>
+                          <p className="text-sm font-bold text-gray-400 uppercase tracking-wider">Next Step</p>
+                          <h6 className="text-sm font-extrabold text-gray-900">Connect with On-Ground Field Agent</h6>
+                        </div>
+                        <span className="text-xl font-black text-red-700 bg-red-50 px-3 py-1 rounded-xl border border-red-200">
+                          ₹250
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-gray-600 leading-relaxed">
+                        Pay ₹250 for getting in connect with our agent. <strong>He will come in contact with you</strong> for on-ground physical inspection and verification.
+                      </p>
+
+                      <button
+                        onClick={() => setShowPaymentModal(true)}
+                        className="w-full py-3.5 bg-red-700 hover:bg-red-800 text-white font-black rounded-xl shadow-lg shadow-red-700/20 transition text-sm flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <span>💳</span>
+                        <span>Pay ₹250 & Connect with Agent →</span>
+                      </button>
+                    </div>
                   </div>
-
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    Pay ₹250 for getting in connect with our agent. <strong>He will come in contact with you</strong> for on-ground physical inspection and verification.
-                  </p>
-
-                  <button
-                    onClick={() => setShowPaymentModal(true)}
-                    className="w-full py-3.5 bg-red-700 hover:bg-red-800 text-white font-black rounded-xl shadow-lg shadow-red-700/20 transition text-sm flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <span>💳</span>
-                    <span>Pay ₹250 & Connect with Agent →</span>
-                  </button>
-                </div>
-              </div>
+                ) : (
+                  <div className="bg-blue-50 rounded-2xl border border-blue-200 p-5 text-center space-y-2">
+                    <p className="text-sm font-bold text-blue-900">Waiting for Farmer Verification</p>
+                    <p className="text-xs text-blue-700">The farmer has uploaded crop photos and is currently completing the field agent verification.</p>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Step 3: ONLY shown after ₹250 is Paid (isFeePaid === true) */}
