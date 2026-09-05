@@ -170,15 +170,19 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
 
   let currentIdx = 0;
   if (deal.status === 'COMPLETED' || deal.status === 'DISPUTED') {
+    currentIdx = 6;
+  } else if (deal.status === 'BUYER_DELIVERY_UPLOADED') {
+    currentIdx = 5;
+  } else if (deal.status === 'ADMIN_PRE_SHIPMENT_VERIFIED' || deal.status === 'VERIFIED') {
     currentIdx = 4;
-  } else if (deal.status === 'VERIFIED') {
-    currentIdx = 3;
-  } else if (isFeePaid) {
-    currentIdx = 2; // Agent Assigned (Fee Paid)
-  } else if (hasUploadedPhotos) {
-    currentIdx = 1; // Moisture 11.8% (Payment Bar Pending)
+  } else if (isFeePaid || deal.status === 'HUMAN_REVIEW') {
+    currentIdx = 3; 
+  } else if (hasUploadedPhotos || deal.status === 'PHOTO_PENDING' || deal.status === 'AGENT_PAYMENT_PENDING' || deal.status === 'AI_PASSED') {
+    currentIdx = 2; 
+  } else if (deal.escrowStatus === 'FUNDED') {
+    currentIdx = 1;
   } else {
-    currentIdx = 0; // Upload Photos
+    currentIdx = 0;
   }
 
   const latestSubmission = deal.qualitySubmissions && deal.qualitySubmissions.length > 0
@@ -614,7 +618,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
               </div>
             )}
 
-            {!['ACCEPTED', 'AI_FLAGGED', 'AGENT_PAYMENT_PENDING', 'AI_PASSED', 'HUMAN_REVIEW', 'UNVERIFIED', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED'].includes(deal.status) && (
+            {!['ACCEPTED', 'ESCROW_PENDING', 'PHOTO_PENDING', 'BUYER_DELIVERY_UPLOADED', 'ADMIN_PRE_SHIPMENT_VERIFIED', 'AI_FLAGGED', 'AGENT_PAYMENT_PENDING', 'AI_PASSED', 'HUMAN_REVIEW', 'UNVERIFIED', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED'].includes(deal.status) && (
               <div className="bg-gray-50 rounded-xl border border-gray-200 p-5 text-center">
                 <p className="text-sm text-gray-500">Processing… Current status: <span className="font-bold">{deal.status}</span></p>
               </div>

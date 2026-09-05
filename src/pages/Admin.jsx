@@ -1011,7 +1011,7 @@ export default function Admin() {
               <div className="grid grid-cols-1 gap-5">
                 {filteredInspections.map((deal) => {
                   const isAwaiting = deal.status === 'HUMAN_REVIEW';
-                  const isVerified = deal.status === 'VERIFIED';
+                  const isVerified = deal.status === 'VERIFIED' || deal.status === 'ADMIN_PRE_SHIPMENT_VERIFIED';
                   const isUnverified = deal.status === 'UNVERIFIED';
 
                   const latestSub = deal.qualitySubmissions && deal.qualitySubmissions.length > 0
@@ -1261,9 +1261,9 @@ export default function Admin() {
                               <span>📄</span> Transaction receipt & UTR uploaded. Click "Mark Deal Completed" to finalize.
                             </span>
                           )}
-                          {deal.status === 'VERIFIED' && (
+                          {(deal.status === 'VERIFIED' || deal.status === 'ADMIN_PRE_SHIPMENT_VERIFIED') && (
                             <span className="text-emerald-400 font-bold flex items-center gap-1.5">
-                              <span>✓</span> Crop physically verified from agent. Awaiting farmer receipt & UTR upload.
+                              <span>✓</span> Crop physically verified from agent. Awaiting buyer to upload delivery photos.
                             </span>
                           )}
                           {isUnverified && (
@@ -1349,27 +1349,9 @@ export default function Admin() {
                             </button>
                           )}
 
-                          {deal.status !== 'VERIFIED' && deal.status !== 'RECEIPT_SUBMITTED' && deal.status !== 'COMPLETED' && (
-                            <button
-                              onClick={() => handleVerifyDeal(deal._id, deal.crop)}
-                              disabled={actionLoadingId === deal._id}
-                              className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black rounded-xl text-xs transition disabled:opacity-50 shadow-lg shadow-emerald-500/20 flex items-center gap-1.5"
-                            >
-                              <span>✓</span>
-                              <span>{actionLoadingId === deal._id ? 'Verifying…' : 'Verified'}</span>
-                            </button>
-                          )}
+                          
 
-                          {(deal.status === 'RECEIPT_SUBMITTED' || (deal.status === 'VERIFIED' && (deal.transactionReceiptUrl || deal.utrNumber))) && (
-                            <button
-                              onClick={() => handleCompleteDeal(deal._id, deal.crop)}
-                              disabled={actionLoadingId === deal._id}
-                              className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black rounded-xl text-xs transition disabled:opacity-50 shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 cursor-pointer"
-                            >
-                              <span>🎉</span>
-                              <span>{actionLoadingId === deal._id ? 'Completing…' : 'Mark Deal Completed'}</span>
-                            </button>
-                          )}
+                          
                         </div>
                       </div>
                     </div>
