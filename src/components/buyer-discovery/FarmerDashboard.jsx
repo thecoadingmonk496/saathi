@@ -475,10 +475,10 @@ export default function FarmerDashboard() {
                 return filteredAndSortedRequests.map(req => (
                   <div
                     key={req._id}
-                    className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md transition flex flex-col xl:flex-row gap-8"
+                    className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 hover:shadow-md transition flex flex-col 2xl:flex-row flex-wrap xl:flex-nowrap gap-5 xl:gap-8"
                   >
                     {/* Left: Image */}
-                    <div className="w-full xl:w-80 h-48 xl:h-auto shrink-0 rounded-xl overflow-hidden relative">
+                    <div className="w-full xl:w-72 h-48 xl:h-auto shrink-0 rounded-xl overflow-hidden relative">
                       <img src={getCropImage(req)} alt={req.crop} className="w-full h-full object-cover" />
                     </div>
                     
@@ -498,15 +498,15 @@ export default function FarmerDashboard() {
                     </div>
 
                     {/* Middle Right: Stats */}
-                    <div className="flex items-center gap-5 shrink-0 py-2">
-                      <div className="bg-gray-50 rounded-xl p-5 flex items-center gap-4 min-w-[180px]">
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 xl:gap-5 shrink-0 py-2">
+                      <div className="bg-gray-50 rounded-xl p-4 xl:p-5 flex-1 sm:flex-none flex items-center gap-3 xl:gap-4 min-w-[160px]">
                         <span className="text-3xl">📦</span>
                         <div>
                           <p className="text-2xl font-extrabold text-gray-900 leading-tight">{req.quantity} <span className="text-base font-semibold text-gray-500">Qtl</span></p>
                           <p className="text-sm text-gray-500 leading-tight mt-0.5">Required Quantity</p>
                         </div>
                       </div>
-                      <div className="bg-green-50 rounded-xl p-5 flex items-center gap-4 min-w-[180px]">
+                      <div className="bg-green-50 rounded-xl p-4 xl:p-5 flex-1 sm:flex-none flex items-center gap-3 xl:gap-4 min-w-[160px]">
                         <span className="text-3xl">₹</span>
                         <div>
                           <p className="text-2xl font-extrabold text-gray-900 leading-tight">₹{Number(req.offeredPrice).toLocaleString('en-IN')} <span className="text-base font-semibold text-gray-500">/ Qtl</span></p>
@@ -516,11 +516,11 @@ export default function FarmerDashboard() {
                     </div>
 
                     {/* Right: Actions */}
-                    <div className="flex flex-col justify-center gap-3 shrink-0 min-w-[200px] py-2">
-                      <button onClick={() => selectRequest(req)} className="w-full px-6 py-3 rounded-xl border border-gray-300 text-base font-bold text-gray-700 hover:bg-gray-50 transition shadow-sm">
+                    <div className="flex flex-row xl:flex-col items-center xl:items-stretch justify-center gap-3 shrink-0 min-w-[180px] w-full xl:w-auto py-2">
+                      <button onClick={() => selectRequest(req)} className="flex-1 xl:w-full px-4 xl:px-6 py-2.5 xl:py-3 rounded-xl border border-gray-300 text-sm xl:text-base font-bold text-gray-700 hover:bg-gray-50 transition shadow-sm whitespace-nowrap">
                         View Request
                       </button>
-                      <button onClick={() => selectRequest(req)} className="w-full px-6 py-3 rounded-xl bg-[#1a3a2a] text-white text-base font-bold hover:bg-[#142e21] transition shadow-sm">
+                      <button onClick={() => selectRequest(req)} className="flex-1 xl:w-full px-4 xl:px-6 py-2.5 xl:py-3 rounded-xl bg-[#1a3a2a] text-white text-sm xl:text-base font-bold hover:bg-[#142e21] transition shadow-sm whitespace-nowrap">
                         Make Offer →
                       </button>
                       <p className="text-center text-sm text-gray-400 mt-2 flex items-center justify-center gap-1.5">
@@ -635,7 +635,7 @@ export default function FarmerDashboard() {
                                     <p className="text-gray-500 text-xs flex items-center gap-1.5 mb-1 whitespace-nowrap shrink-0">
                                       <span className="text-gray-400">📍</span> Agreed Price
                                     </p>
-                                    <p className={`font-bold text-lg whitespace-nowrap truncate ${isVerified ? 'text-gray-900' : 'text-[#c62828]'}`}>
+                                    <p className={`font-bold text-lg whitespace-nowrap ${isVerified ? 'text-gray-900' : 'text-[#c62828]'}`}>
                                       ₹{Number(deal.agreedPrice).toLocaleString('en-IN')} <span className="text-sm font-semibold text-gray-500">/ Qtl</span>
                                     </p>
                                   </div>
@@ -643,7 +643,7 @@ export default function FarmerDashboard() {
                                     <p className="text-gray-500 text-xs flex items-center gap-1.5 mb-1 whitespace-nowrap shrink-0">
                                       <span className="text-gray-400">🥞</span> Total Value
                                     </p>
-                                    <p className="font-bold text-lg text-gray-900 whitespace-nowrap truncate">
+                                    <p className="font-bold text-lg text-gray-900 whitespace-nowrap">
                                       ₹{totalValue.toLocaleString('en-IN')}
                                     </p>
                                   </div>
