@@ -634,26 +634,26 @@ export default function FarmerDashboard() {
                                   <p className="text-gray-900 font-bold text-lg">{deal.quantity} Quintals</p>
                                 </div>
                                 
-                                <div className="flex items-center gap-6 mt-4">
-                                  <div className="min-w-0">
-                                    <p className="text-gray-500 text-xs flex items-center gap-1.5 mb-1 whitespace-nowrap shrink-0">
-                                      <span className="text-gray-400">📍</span> Agreed Price
-                                    </p>
-                                    <p className={`font-bold text-lg whitespace-nowrap ${isVerified ? 'text-gray-900' : 'text-[#c62828]'}`}>
-                                      ₹{Number(deal.agreedPrice).toLocaleString('en-IN')} <span className="text-sm font-semibold text-gray-500">/ Qtl</span>
-                                    </p>
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="text-gray-500 text-xs flex items-center gap-1.5 mb-1 whitespace-nowrap shrink-0">
-                                      <span className="text-gray-400">🥞</span> Total Value
-                                    </p>
-                                    <p className="font-bold text-lg text-gray-900 whitespace-nowrap">
-                                      ₹{totalValue.toLocaleString('en-IN')}
-                                    </p>
+                                  <div className="flex flex-wrap items-center gap-x-6 gap-y-3 mt-4">
+                                    <div>
+                                      <p className="text-gray-500 text-xs flex items-center gap-1.5 mb-1 whitespace-nowrap">
+                                        <span className="text-gray-400">📍</span> Agreed Price
+                                      </p>
+                                      <p className={`font-bold text-lg whitespace-nowrap ${isVerified ? 'text-gray-900' : 'text-[#c62828]'}`}>
+                                        ₹{Number(deal.agreedPrice).toLocaleString('en-IN')} <span className="text-sm font-semibold text-gray-500">/ Qtl</span>
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-gray-500 text-xs flex items-center gap-1.5 mb-1 whitespace-nowrap">
+                                        <span className="text-gray-400">📦</span> Total Value
+                                      </p>
+                                      <p className="font-bold text-lg text-gray-900 whitespace-nowrap">
+                                        ₹{totalValue.toLocaleString('en-IN')}
+                                      </p>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
 
                             {/* Middle Section (Progress) */}
                             <div className="p-6 flex-1 flex flex-col justify-center border-b xl:border-b-0 xl:border-r border-gray-100 relative bg-white">
