@@ -655,6 +655,9 @@ export default function FarmerDashboard() {
                         || ['AGENT_PAYMENT_PENDING', 'HUMAN_REVIEW', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'DISPUTED'].includes(deal.status);
                       const aiPassed = latestSubmission?.aiStatus === 'PASSED'
                         || ['AGENT_PAYMENT_PENDING', 'HUMAN_REVIEW', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'DISPUTED'].includes(deal.status);
+                      const agentAssigned = deal.agentFeePaid
+                        || ['HUMAN_REVIEW', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'DISPUTED'].includes(deal.status);
+                      const dealCompleted = deal.status === 'COMPLETED';
                       const needsPhotos = !photosSubmitted && (deal.status === 'ACCEPTED' || deal.status === 'PHOTO_PENDING' || deal.status === 'AI_FLAGGED');
                       const inInspection = deal.status === 'HUMAN_REVIEW' || deal.status === 'AGENT_PAYMENT_PENDING';
                       const isVerified = deal.status === 'VERIFIED' || deal.status === 'COMPLETED';
@@ -717,40 +720,31 @@ export default function FarmerDashboard() {
                                 }
                               </p>
                               
-                              <div className="px-7 relative mb-2 max-w-sm">
-                                {/* Connecting lines */}
-                                <div className="absolute top-3.5 left-10 right-10 h-0.5 bg-gray-200 z-0"></div>
-                                {photosSubmitted && <div className="absolute top-3.5 left-10 right-[50%] h-0.5 bg-green-600 z-0"></div>}
-                                {isVerified && <div className="absolute top-3.5 left-[50%] right-10 h-0.5 bg-green-600 z-0"></div>}
-                                
-                                <div className="relative z-10 flex justify-between">
-                                  <div className="flex flex-col items-center gap-2 w-20">
-                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${photosSubmitted ? 'bg-green-600 text-white' : 'bg-[#14452F] text-white'}`}>
-                                      {photosSubmitted ? '✓' : '1'}
+                              <div className="px-2 sm:px-7 relative mb-2 w-full">
+                                <div className="absolute top-3.5 left-8 right-8 h-0.5 bg-gray-200 z-0"></div>
+                                {isVerified && <div className="absolute top-3.5 left-8 right-[25%] h-0.5 bg-green-600 z-0"></div>}
+                                {dealCompleted && <div className="absolute top-3.5 left-8 right-8 h-0.5 bg-green-600 z-0"></div>}
+
+                                <div className="relative z-10 flex justify-between gap-1">
+                                  {[
+                                    ['Upload Photos', photosSubmitted],
+                                    ['Moisture 11.8%', aiPassed],
+                                    ['Agent Assigned', agentAssigned],
+                                    ['SAATHI Verification', isVerified],
+                                    ['Completed', dealCompleted],
+                                  ].map(([label, complete], index) => (
+                                    <div key={label} className="flex min-w-0 flex-1 flex-col items-center gap-2">
+                                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                                        complete ? 'bg-green-600 text-white' : index === 0 && needsPhotos ? 'bg-[#14452F] text-white' : 'bg-gray-100 text-gray-400 border border-gray-200'
+                                      }`}>
+                                        {complete ? '✓' : index + 1}
+                                      </div>
+                                      <div className="text-center">
+                                        <p className="text-[10px] sm:text-[11px] font-bold leading-tight text-gray-900">{label}</p>
+                                        <p className="text-[9px] sm:text-[10px] text-gray-500">{complete ? 'Completed' : 'Waiting'}</p>
+                                      </div>
                                     </div>
-                                    <div className="text-center">
-                                      <p className="text-[11px] font-bold text-gray-900">Upload Photos</p>
-                                      <p className="text-[10px] text-gray-500">{photosSubmitted ? 'Completed' : 'Not started'}</p>
-                                    </div>
-                                  </div>
-                                  <div className="flex flex-col items-center gap-2 w-20">
-                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${aiPassed ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-400 border border-gray-200'}`}>
-                                      {aiPassed ? '✓' : '2'}
-                                    </div>
-                                    <div className="text-center">
-                                      <p className="text-[11px] font-bold text-gray-900">AI Screening</p>
-                                      <p className="text-[10px] text-gray-500">{aiPassed ? 'Completed' : 'Waiting'}</p>
-                                    </div>
-                                  </div>
-                                  <div className="flex flex-col items-center gap-2 w-20">
-                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${isVerified ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-400 border border-gray-200'}`}>
-                                      {isVerified ? '✓' : '3'}
-                                    </div>
-                                    <div className="text-center">
-                                      <p className="text-[11px] font-bold text-gray-900">SAATHI Verification</p>
-                                      <p className="text-[10px] text-gray-500">{isVerified ? 'Completed' : 'Waiting'}</p>
-                                    </div>
-                                  </div>
+                                  ))}
                                 </div>
                               </div>
                               

@@ -355,12 +355,11 @@ export default function Profile() {
 
               {/* Mobile Number */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider" htmlFor="mobile">
-                    Mobile Number <span className="text-rose-500">*</span>
-                  </label>
-                  <span className="text-xs text-emerald-700 font-medium">SMS Alerts Active</span>
-                </div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider" htmlFor="mobile">
+                      Mobile Number <span className="text-rose-500">*</span>
+                    </label>
+                  </div>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-sm font-semibold text-slate-500">+91</span>
                   <input 
