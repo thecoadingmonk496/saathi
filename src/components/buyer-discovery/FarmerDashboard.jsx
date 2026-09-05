@@ -475,7 +475,7 @@ export default function FarmerDashboard() {
                 return filteredAndSortedRequests.map(req => (
                   <div
                     key={req._id}
-                    className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 hover:shadow-md transition flex flex-col 2xl:flex-row flex-wrap xl:flex-nowrap gap-5 xl:gap-8"
+                    className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 hover:shadow-md transition flex flex-col xl:flex-row flex-wrap gap-5 xl:gap-8"
                   >
                     {/* Left: Image */}
                     <div className="w-full xl:w-72 h-48 xl:h-auto shrink-0 rounded-xl overflow-hidden relative">
@@ -483,14 +483,18 @@ export default function FarmerDashboard() {
                     </div>
                     
                     {/* Middle: Details */}
-                    <div className="flex-1 flex flex-col justify-center py-2">
+                    <div className="flex-1 min-w-0 flex flex-col justify-center py-2">
 
-                      <h3 className="text-4xl font-extrabold text-gray-900 mb-2">{req.crop}</h3>
-                      <div className="flex items-center gap-3 text-base text-gray-500 mb-3">
-                        <span className="flex items-center gap-1.5">👤 {req.buyerId?.firstName} {req.buyerId?.lastName}</span>
-                        <span>·</span>
-                        <span className="flex items-center gap-1.5">📍 {req.location || req.buyerId?.district || 'India'}</span>
-                      </div>
+                      <h3 className="text-2xl sm:text-3xl xl:text-4xl font-extrabold text-gray-900 mb-2 truncate">{req.crop}</h3>
+                        <div className="flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-500 mb-3 overflow-hidden">
+                          <span className="inline-flex items-center gap-1 sm:gap-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                            👤 <span>{req.buyerId?.firstName} {req.buyerId?.lastName}</span>
+                          </span>
+                          <span className="shrink-0 text-gray-300">•</span>
+                          <span className="inline-flex items-center gap-1 sm:gap-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                            📍 <span>{req.location || req.buyerId?.district || 'India'}</span>
+                          </span>
+                        </div>
                       {req.description && (
                         <p className="text-base text-gray-600 mb-4">{req.description}</p>
                       )}
