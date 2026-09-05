@@ -343,7 +343,7 @@ export default function Login() {
                       id={`otp-input-${index}`}
                       type="text"
                       maxLength="1"
-                      className="w-12 h-12 text-center text-2xl font-extrabold bg-white border border-[var(--saathi-border)] rounded-lg outline-none focus:border-[var(--saathi-accent)] focus:ring-2 focus:ring-red-100 text-[var(--saathi-text)] transition"
+                      className="flex-1 min-w-[36px] max-w-[48px] h-12 sm:h-14 text-center text-xl sm:text-2xl font-extrabold bg-white border border-[var(--saathi-border)] rounded-lg outline-none focus:border-[var(--saathi-accent)] focus:ring-2 focus:ring-red-100 text-[var(--saathi-text)] transition"
                       value={digit}
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(index, e)}

@@ -74,6 +74,7 @@ export default function FarmerDashboard() {
   const [myOffers, setMyOffers] = useState([]);
   const [showAllOffers, setShowAllOffers] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState(null);
+  const [selectedBuyerContact, setSelectedBuyerContact] = useState(null);
   const [sortOrder, setSortOrder] = useState('recent');
   const [browseSortOrder, setBrowseSortOrder] = useState('recent');
   const [searchQuery, setSearchQuery] = useState('');
@@ -152,6 +153,41 @@ export default function FarmerDashboard() {
   /* ── render ── */
   return (
     <div className="space-y-6">
+      {selectedBuyerContact && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Buyer contact details">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-green-700">Contact unlocked</p>
+                <h2 className="mt-1 text-2xl font-extrabold text-gray-900">Buyer Contact</h2>
+              </div>
+              <button type="button" onClick={() => setSelectedBuyerContact(null)} className="text-2xl leading-none text-gray-400 hover:text-gray-700" aria-label="Close buyer contact">×</button>
+            </div>
+            <div className="mt-5 space-y-3 rounded-xl bg-gray-50 p-4">
+              <p className="font-bold text-gray-900">{selectedBuyerContact.buyerId?.firstName} {selectedBuyerContact.buyerId?.lastName}</p>
+              {selectedBuyerContact.buyerId?.phone && (
+                <p className="text-sm text-gray-700">
+                  <span className="font-semibold">Phone:</span>{' '}
+                  <a href={`tel:${selectedBuyerContact.buyerId.phone}`} className="text-green-700 hover:underline">{selectedBuyerContact.buyerId.phone}</a>
+                </p>
+              )}
+              {selectedBuyerContact.buyerId?.email && (
+                <p className="text-sm text-gray-700">
+                  <span className="font-semibold">Email:</span>{' '}
+                  <a href={`mailto:${selectedBuyerContact.buyerId.email}`} className="text-green-700 hover:underline">{selectedBuyerContact.buyerId.email}</a>
+                </p>
+              )}
+              {(selectedBuyerContact.buyerId?.village || selectedBuyerContact.buyerId?.district || selectedBuyerContact.buyerId?.state) && (
+                <p className="text-sm text-gray-700">
+                  <span className="font-semibold">Location:</span>{' '}
+                  {[selectedBuyerContact.buyerId.village, selectedBuyerContact.buyerId.district, selectedBuyerContact.buyerId.state].filter(Boolean).join(', ')}
+                </p>
+              )}
+            </div>
+            <button type="button" onClick={() => setSelectedBuyerContact(null)} className="mt-5 w-full rounded-xl bg-[#14452F] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0f3423]">Close</button>
+          </div>
+        </div>
+      )}
       {/* ─── Tabs ─── */}
       <div className="flex items-center gap-1 border-b border-gray-200">
         {[
@@ -393,8 +429,10 @@ export default function FarmerDashboard() {
                                       </div>
                                     </div>
                                   )}
+
                                 </div>
                               )}
+
                             </div>
                           );
                         })}
@@ -612,7 +650,12 @@ export default function FarmerDashboard() {
                       });
 
                       return sortedDeals.map(deal => {
-                      const needsPhotos = deal.status === 'ACCEPTED' || deal.status === 'AI_FLAGGED';
+                      const latestSubmission = deal.qualitySubmissions?.[deal.qualitySubmissions.length - 1];
+                      const photosSubmitted = Boolean(latestSubmission?.imageUrls?.length)
+                        || ['AGENT_PAYMENT_PENDING', 'HUMAN_REVIEW', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'DISPUTED'].includes(deal.status);
+                      const aiPassed = latestSubmission?.aiStatus === 'PASSED'
+                        || ['AGENT_PAYMENT_PENDING', 'HUMAN_REVIEW', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'DISPUTED'].includes(deal.status);
+                      const needsPhotos = !photosSubmitted && (deal.status === 'ACCEPTED' || deal.status === 'PHOTO_PENDING' || deal.status === 'AI_FLAGGED');
                       const inInspection = deal.status === 'HUMAN_REVIEW' || deal.status === 'AGENT_PAYMENT_PENDING';
                       const isVerified = deal.status === 'VERIFIED' || deal.status === 'COMPLETED';
                       const totalValue = Number(deal.quantity) * Number(deal.agreedPrice);
@@ -631,6 +674,8 @@ export default function FarmerDashboard() {
                                     <h3 className="text-3xl font-extrabold text-gray-900">{deal.crop}</h3>
                                     {isVerified ? (
                                       <span className="px-2.5 py-1 bg-green-50 text-green-700 text-xs font-bold rounded-full flex items-center gap-1.5 shrink-0"><span className="text-green-500">✓</span> Verified</span>
+                                    ) : inInspection ? (
+                                      <span className="px-2.5 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded-full flex items-center gap-1.5 shrink-0"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Awaiting Admin Verification</span>
                                     ) : (
                                       <span className="px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-bold rounded-full flex items-center gap-1.5 shrink-0"><span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span> Verification Required</span>
                                     )}
@@ -675,26 +720,26 @@ export default function FarmerDashboard() {
                               <div className="px-7 relative mb-2 max-w-sm">
                                 {/* Connecting lines */}
                                 <div className="absolute top-3.5 left-10 right-10 h-0.5 bg-gray-200 z-0"></div>
-                                {(isVerified || inInspection || !needsPhotos) && <div className="absolute top-3.5 left-10 right-[50%] h-0.5 bg-green-600 z-0"></div>}
+                                {photosSubmitted && <div className="absolute top-3.5 left-10 right-[50%] h-0.5 bg-green-600 z-0"></div>}
                                 {isVerified && <div className="absolute top-3.5 left-[50%] right-10 h-0.5 bg-green-600 z-0"></div>}
                                 
                                 <div className="relative z-10 flex justify-between">
                                   <div className="flex flex-col items-center gap-2 w-20">
-                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${isVerified || inInspection || !needsPhotos ? 'bg-green-600 text-white' : 'bg-[#14452F] text-white'}`}>
-                                      {isVerified || inInspection || !needsPhotos ? '✓' : '1'}
+                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${photosSubmitted ? 'bg-green-600 text-white' : 'bg-[#14452F] text-white'}`}>
+                                      {photosSubmitted ? '✓' : '1'}
                                     </div>
                                     <div className="text-center">
                                       <p className="text-[11px] font-bold text-gray-900">Upload Photos</p>
-                                      <p className="text-[10px] text-gray-500">{isVerified || inInspection || !needsPhotos ? 'Completed' : 'Not started'}</p>
+                                      <p className="text-[10px] text-gray-500">{photosSubmitted ? 'Completed' : 'Not started'}</p>
                                     </div>
                                   </div>
                                   <div className="flex flex-col items-center gap-2 w-20">
-                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${isVerified || inInspection ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-400 border border-gray-200'}`}>
-                                      {isVerified || inInspection ? '✓' : '2'}
+                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${aiPassed ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-400 border border-gray-200'}`}>
+                                      {aiPassed ? '✓' : '2'}
                                     </div>
                                     <div className="text-center">
                                       <p className="text-[11px] font-bold text-gray-900">AI Screening</p>
-                                      <p className="text-[10px] text-gray-500">{isVerified || inInspection ? 'Completed' : 'Waiting'}</p>
+                                      <p className="text-[10px] text-gray-500">{aiPassed ? 'Completed' : 'Waiting'}</p>
                                     </div>
                                   </div>
                                   <div className="flex flex-col items-center gap-2 w-20">
@@ -709,12 +754,13 @@ export default function FarmerDashboard() {
                                 </div>
                               </div>
                               
-                              {!isVerified && (
+                              {!isVerified && !inInspection && !photosSubmitted && (
                                 <div className="mt-4 ml-7 p-3 bg-[#f0f7ff] rounded-lg flex gap-2 max-w-sm">
                                   <span className="text-blue-500 text-sm mt-0.5">ℹ</span>
                                   <p className="text-[11px] text-gray-600 leading-relaxed">Please upload at least 5 clear photos of your crop from different angles (e.g. close-up, full view, sacks, etc.).</p>
                                 </div>
                               )}
+
                             </div>
 
                             {/* Right Section (Contact & Action) */}
@@ -732,8 +778,12 @@ export default function FarmerDashboard() {
                               </div>
                               
                               {isVerified ? (
-                                <button onClick={() => setSelectedDeal(deal)} className="w-full py-2.5 px-4 bg-white border border-green-600 text-green-700 text-sm font-bold rounded-lg hover:bg-green-50 transition shadow-sm">
+                                <button onClick={() => setSelectedBuyerContact(deal)} className="w-full py-2.5 px-4 bg-white border border-green-600 text-green-700 text-sm font-bold rounded-lg hover:bg-green-50 transition shadow-sm">
                                   View Buyer Contact →
+                                </button>
+                              ) : inInspection ? (
+                                <button onClick={() => setSelectedDeal(deal)} className="w-full py-2.5 px-4 bg-amber-50 border border-amber-300 text-amber-800 text-sm font-bold rounded-lg hover:bg-amber-100 transition shadow-sm">
+                                  Awaiting Admin Verification
                                 </button>
                               ) : (
                                 <button onClick={() => setSelectedDeal(deal)} className="w-full py-2.5 px-4 bg-[#14452F] text-white text-sm font-bold rounded-lg hover:bg-[#0f3423] transition flex items-center justify-center gap-2 shadow-sm">
