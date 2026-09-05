@@ -102,15 +102,32 @@ export default function Admin() {
   };
 
   /* ── Open 9-Stage KYC Modal for a Request ── */
+  const openKycApp = async (appId, fallbackApp = null, relatedReq = null) => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(apiUrl(`/api/admin/buyer-applications/${appId}`), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setSelectedKycApp(data.data);
+      } else if (fallbackApp) {
+        setSelectedKycApp(fallbackApp);
+      }
+    } catch (err) {
+      if (fallbackApp) setSelectedKycApp(fallbackApp);
+    }
+    setRelatedRequest(relatedReq);
+  };
+
   const openKycForRequest = (req) => {
-    setRelatedRequest(req);
-    // Find matching buyer application from populated field or from list
     const app = req.buyerApplication || 
       buyerApplications.find((a) => a.phone === req.buyerId?.phone || a.email === req.buyerId?.email);
     
-    if (app) {
-      setSelectedKycApp(app);
+    if (app && app._id) {
+      openKycApp(app._id, app, req);
     } else {
+      setRelatedRequest(req);
       // Create a fallback KYC object if buyer registered directly without filling full 9-stage KYC
       setSelectedKycApp({
         applicantName: `${req.buyerId?.firstName || ''} ${req.buyerId?.lastName || ''}`.trim() || 'Registered Buyer',
@@ -848,8 +865,7 @@ export default function Admin() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <button
                           onClick={() => {
-                            setSelectedKycApp(app);
-                            setRelatedRequest(null);
+                            openKycApp(app._id, app, null);
                           }}
                           className="px-3.5 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 font-bold rounded-xl text-xs border border-blue-500/40 transition flex items-center gap-1.5"
                         >
