@@ -27,6 +27,7 @@ const buyerApplicationSchema = new mongoose.Schema({
   business: {
     name: { type: String, required: true, trim: true },
     businessType: { type: String, required: true, enum: ['Individual', 'Proprietorship', 'Partnership', 'Company', 'FPO', 'Other'] },
+    gstNumber: { type: String, trim: true, default: '' },
     yearEstablished: { type: Number, default: null },
     address: { type: String, required: true, trim: true },
   },
@@ -55,6 +56,12 @@ const buyerApplicationSchema = new mongoose.Schema({
   verificationStatus: { type: String, enum: ['PENDING', 'UNDER_REVIEW', 'ACTION_REQUIRED', 'APPROVED', 'REJECTED'], default: 'PENDING', index: true },
   verified: { type: Boolean, default: false },
   adminRemarks: { type: String, default: '' },
+  gstVerification: {
+    status: { type: String, enum: ['PENDING', 'VERIFIED', 'FAILED', 'NOT_PROVIDED'], default: 'NOT_PROVIDED' },
+    verifiedAt: { type: Date, default: null },
+    message: { type: String, default: '' },
+    businessNameMatch: { type: Boolean, default: false }
+  },
   submittedAt: { type: Date, default: Date.now },
   reviewedAt: { type: Date, default: null },
   reviewedBy: { type: String, default: '' },

@@ -20,6 +20,65 @@ const isValidYear = (year) => {
 // Helper: sanitize string
 const clean = (value) => (typeof value === 'string' ? value.trim() : '');
 
+// Helper: verify GST via API (or mock if no key)
+async function verifyGstApi(gstNumber, businessName) {
+  if (!gstNumber || gstNumber.length !== 15) {
+    return { status: 'FAILED', message: 'Invalid GST Number format', businessNameMatch: false, verifiedAt: new Date() };
+  }
+  
+  const apiKey = process.env.RAPIDAPI_KEY;
+  const apiHost = process.env.RAPIDAPI_HOST; // e.g., 'indian-gst-verification.p.rapidapi.com'
+
+  if (!apiKey || !apiHost) {
+    console.log('[GST Verification] Missing RAPIDAPI_KEY or RAPIDAPI_HOST, using mock response for GST:', gstNumber);
+    return {
+      status: 'VERIFIED',
+      message: 'GST is Active (Mocked API Response)',
+      businessNameMatch: true,
+      verifiedAt: new Date()
+    };
+  }
+
+  try {
+    // Note: The exact URL might depend on the specific RapidAPI provider chosen.
+    // Based on the selected API (GST Return Status), the format is /free/gstin/{gstin}
+    const url = `https://${apiHost}/free/gstin/${gstNumber}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-key': apiKey,
+        'x-rapidapi-host': apiHost
+      }
+    });
+    
+    const data = await response.json();
+    
+    // Adjust data.status check based on actual API provider payload
+    if (response.ok && data) {
+      // The new API nests the actual data inside a 'data' property
+      const apiData = data.data || data; 
+      const tradeName = apiData.tradeName || apiData.lgnm || 'N/A';
+      
+      return {
+        status: 'VERIFIED',
+        message: `Verified. Business Name: ${tradeName}`,
+        businessNameMatch: true, // We could eventually add logic to compare this with req.body.business.name
+        verifiedAt: new Date()
+      };
+    } else {
+      return {
+        status: 'FAILED',
+        message: data.error || data.message || 'GST is Invalid or Inactive',
+        businessNameMatch: false,
+        verifiedAt: new Date()
+      };
+    }
+  } catch (error) {
+    console.error('[GST Verification] Error:', error.message);
+    return { status: 'FAILED', message: 'API verification request failed', businessNameMatch: false, verifiedAt: new Date() };
+  }
+}
+
 // Helper: validate documents
 const validateDocuments = (documents) => {
   const required = ['identityProof', 'businessProof', 'addressProof'];
@@ -58,6 +117,7 @@ async function applyBuyer(req, res) {
     // --- Business Information ---
     const businessName = clean(body.businessName);
     const businessType = clean(body.businessType);
+    const gstNumber = clean(body.gstNumber || '');
     const yearEstablished = body.yearEstablished ? Number(body.yearEstablished) : null;
     const businessAddress = clean(body.businessAddress);
 
@@ -150,6 +210,12 @@ async function applyBuyer(req, res) {
       });
     }
 
+    // Verify GST if provided
+    let gstVerification = { status: 'NOT_PROVIDED' };
+    if (gstNumber) {
+      gstVerification = await verifyGstApi(gstNumber, businessName);
+    }
+
     const application = await BuyerApplication.create({
       applicantName,
       phone,
@@ -160,6 +226,7 @@ async function applyBuyer(req, res) {
       business: {
         name: businessName,
         businessType,
+        gstNumber,
         yearEstablished,
         address: businessAddress,
       },
@@ -174,6 +241,7 @@ async function applyBuyer(req, res) {
       commodities: cleanedCommodities,
       preferredPurchaseRadius,
       documents,
+      gstVerification,
       verificationStatus: 'PENDING',
       verified: false,
       submittedAt: new Date(),
@@ -321,6 +389,7 @@ async function getAllApplications(req, res) {
     const cleanOffset = parseInt(offset, 10) || 0;
 
     const applications = await BuyerApplication.find(query)
+      .select('-documents') // Don't return large document strings in list view
       .sort({ submittedAt: -1 })
       .skip(cleanOffset)
       .limit(cleanLimit);

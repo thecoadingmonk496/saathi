@@ -1403,6 +1403,23 @@ export default function Admin() {
                       <div><strong className="text-slate-400">Buyer Type:</strong> {selectedKycApp.buyerType} {selectedKycApp.otherBuyerType && `(${selectedKycApp.otherBuyerType})`}</div>
                       <div><strong className="text-slate-400">Business / Shop Name:</strong> {selectedKycApp.business?.name || 'N/A'}</div>
                       <div><strong className="text-slate-400">Entity Type:</strong> {selectedKycApp.business?.businessType || 'N/A'}</div>
+                      <div>
+                        <strong className="text-slate-400">GST Number:</strong> {selectedKycApp.business?.gstNumber || 'Not provided'}
+                        {selectedKycApp.gstVerification && selectedKycApp.gstVerification.status !== 'NOT_PROVIDED' && (
+                          <span className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            selectedKycApp.gstVerification.status === 'VERIFIED' 
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' 
+                              : 'bg-red-500/20 text-red-300 border border-red-500/40'
+                          }`}>
+                            {selectedKycApp.gstVerification.status === 'VERIFIED' ? '✅ VERIFIED' : '❌ FAILED'}
+                          </span>
+                        )}
+                        {selectedKycApp.gstVerification?.message && (
+                          <div className="text-[10px] text-slate-500 mt-0.5 italic">
+                            API: {selectedKycApp.gstVerification.message}
+                          </div>
+                        )}
+                      </div>
                       <div><strong className="text-slate-400">Year Established:</strong> {selectedKycApp.business?.yearEstablished || 'N/A'}</div>
                       <div><strong className="text-slate-400">Business Address:</strong> {selectedKycApp.business?.address || 'N/A'}</div>
                     </div>

@@ -54,7 +54,6 @@ const DOCUMENT_FIELDS = [
   { key: 'identityProof', label: 'Identity Proof', required: true },
   { key: 'businessProof', label: 'Business Proof', required: true },
   { key: 'addressProof', label: 'Address Proof', required: true },
-  { key: 'gstCertificate', label: 'GST Certificate', required: false },
   { key: 'udyamRegistration', label: 'Udyam Registration', required: false },
   { key: 'fssaiLicense', label: 'FSSAI License', required: false },
   { key: 'otherDocument', label: 'Other Document', required: false },
@@ -79,6 +78,7 @@ const initialForm = {
   otherBuyerType: '',
   businessName: '',
   businessType: '',
+  gstNumber: '',
   yearEstablished: '',
   businessAddress: '',
   state: '',
@@ -322,6 +322,7 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
       otherBuyerType: form.buyerType === 'Other' ? form.otherBuyerType : '',
       businessName: form.businessName,
       businessType: form.businessType,
+      gstNumber: form.gstNumber,
       yearEstablished: form.yearEstablished ? Number(form.yearEstablished) : null,
       businessAddress: form.businessAddress,
       state: form.state,
@@ -582,6 +583,15 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
                     error={errors.yearEstablished}
                   />
                 </div>
+                <FormField
+                  label="GST Number (Optional)"
+                  name="gstNumber"
+                  value={form.gstNumber}
+                  onChange={handleChange}
+                  placeholder="Enter 15-digit GST Number"
+                  error={errors.gstNumber}
+                  maxLength={15}
+                />
                 <FormField
                   label="Business Address *"
                   name="businessAddress"
