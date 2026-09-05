@@ -1,0 +1,20 @@
+931:             return {"state": state, "district": district}
+932:             
+933:     # Fallback to states
+934:     for state_key, state in INDIA_STATE_MAP.items():
+935:         if state_key in msg_lower:
+936:             return {"state": state, "district": None}
+937:             
+938:     return None
+939: 
+940: KNOWN_CROP_ALIASES: list[str    "bajra", "बाजरा", "bajri", "sajja", "pearl millet",
+941:     "jowar", "जवारी", "cholam", "juar", "sorghum", "जोवर",
+942:     "barley", "jau", "जौ", "yava",
+943:     "groundnut", "moongphali", "मूंगफली", "peanut",
+944:     "garlic", "lahsun", "लहसुन", "vellulli",
+945:     "ginger", "adrak", "अदरक", "allam",
+946:     "moong", "मूंग", "pesalu", "pachai payaru", "green moong",
+947:     "urad", "उड़द", "minumulu", "ulundu",
+948:     "arhar", "tur", "toor", "अरहर", "तूर", "kandipappu",
+949:     "chilli", "mirch", "मिर्च", "mirapakaya",
+950:     "turmeric", "haldi", "हल्दी", "pasupu",

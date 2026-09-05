@@ -3,12 +3,10 @@ import { useState, useRef } from 'react';
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')).replace(/\/$/, '') + '/api';
 
 const STEPS = [
-  { key: 'ACCEPTED', label: 'Accepted', icon: '✅' },
-  { key: 'ESCROW', label: 'Escrow', icon: '💰' },
+  { key: 'ACCEPTED', label: 'Accepted', icon: '✓' },
   { key: 'QC_PENDING', label: 'Moisture 11.8%', icon: '💧' },
-  { key: 'QC_PASSED', label: 'Agent Assigned', icon: '🕵️' },
-  { key: 'PRE_SHIPMENT', label: 'Pre-Shipment Verified', icon: '📦' },
-  { key: 'DELIVERY', label: 'Delivery Uploaded', icon: '🚚' },
+  { key: 'QC_PASSED', label: 'Agent Assigned', icon: '🛵' },
+  { key: 'VERIFIED', label: 'Verified', icon: '✅' },
   { key: 'COMPLETED', label: 'Completed', icon: '🎉' },
 ];
 
@@ -27,41 +25,6 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const fileInputRef = useRef(null);
-  const [bankAccount, setBankAccount] = useState(deal.farmerBankAccount || '');
-  const [escrowModal, setEscrowModal] = useState(false);
-  const deliveryFileInputRef = useRef(null);
-
-  const handleBankSubmit = async () => {
-    if(!bankAccount) return;
-    setLoading(true);
-    const token = localStorage.getItem('token');
-    await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/farmer-bank`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ farmerBankAccount: bankAccount }) });
-    setLoading(false);
-    onRefresh();
-  };
-
-  const handlePayEscrow = async () => {
-    setPaymentProcessing(true);
-    const token = localStorage.getItem('token');
-    await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/pay-escrow`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } });
-    setPaymentProcessing(false);
-    setEscrowModal(false);
-    onRefresh();
-  };
-
-  const handleDeliveryUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
-    setLoading(true);
-    const base64Images = await Promise.all(files.map(f => new Promise((resolve) => {
-      const reader = new FileReader(); reader.readAsDataURL(f); reader.onload = () => resolve(reader.result);
-    })));
-    const token = localStorage.getItem('token');
-    await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/buyer-delivery-photos`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ imageUrls: base64Images }) });
-    setLoading(false);
-    onRefresh();
-  };
-
 
   const handlePhotoUpload = async (e) => {
     const files = Array.from(e.target.files);
@@ -276,50 +239,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
             <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">Action Required</h4>
 
             {/* Step 1: Upload Photos (only if not yet uploaded) */}
-            
-          {/* New Escrow & Delivery UI */}
-          {userRole === 'FARMER' && deal.status === 'ACCEPTED' && deal.escrowStatus !== 'FUNDED' && (
-            <div className="mb-4 p-4 border rounded-xl bg-orange-50 border-orange-200">
-              <label className="text-sm font-bold text-gray-700">Enter Bank Account for Escrow</label>
-              <div className="flex gap-2 mt-2">
-                <input className="px-3 py-2 border rounded-lg flex-1 text-sm" placeholder="Bank Account Number" value={bankAccount} onChange={e=>setBankAccount(e.target.value)} />
-                <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-sm" onClick={handleBankSubmit} disabled={loading}>Save</button>
-              </div>
-            </div>
-          )}
-
-          {userRole === 'BUYER' && deal.status === 'ESCROW_PENDING' && (
-            <div className="mb-4 p-4 border rounded-xl bg-orange-50 border-orange-200">
-              <p className="text-sm font-bold text-gray-800 mb-2">Fund the Escrow Account to proceed (₹{deal.agreedPrice})</p>
-              <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-sm" onClick={() => setEscrowModal(true)}>Pay Escrow</button>
-            </div>
-          )}
-
-          {userRole === 'BUYER' && deal.status === 'ADMIN_PRE_SHIPMENT_VERIFIED' && (
-             <div className="mb-4 p-4 border rounded-xl bg-blue-50 border-blue-200">
-              <p className="text-sm font-bold text-gray-800 mb-2">Shipment Verified by Admin! Please upload photos when you receive delivery.</p>
-              <input type="file" multiple accept="image/*" className="hidden" ref={deliveryFileInputRef} onChange={handleDeliveryUpload} />
-              <button onClick={() => deliveryFileInputRef.current.click()} disabled={loading} className="px-4 py-2 bg-slate-800 text-white font-bold rounded-lg text-sm hover:bg-slate-900">
-                {loading ? 'Uploading...' : 'Upload Delivery Photos'}
-              </button>
-            </div>
-          )}
-          
-          {deal.status === 'BUYER_DELIVERY_UPLOADED' && (
-            <div className="mb-4 p-4 border rounded-xl bg-purple-50 border-purple-200">
-              <p className="text-sm font-bold text-purple-800">Waiting for Admin to verify delivery and release Escrow funds.</p>
-            </div>
-          )}
-          
-          {deal.status === 'COMPLETED' && deal.transactionReceiptUrl && (
-            <div className="mb-4 p-4 border rounded-xl bg-green-50 border-green-200">
-              <p className="text-sm font-bold text-green-800">Deal Completed. Funds Released to Farmer!</p>
-              {userRole === 'FARMER' && <a href="#" onClick={(e)=>{e.preventDefault();alert('Receipt: '+deal.transactionReceiptUrl)}} className="text-sm text-blue-600 underline">View Payment Receipt</a>}
-            </div>
-          )}
-
-          {/* Original Upload Photos UI restricted */}
-          {!hasUploadedPhotos && userRole === 'FARMER' && deal.escrowStatus === 'FUNDED' && (deal.status === 'ACCEPTED' || deal.status === 'PHOTO_PENDING' || deal.status === 'AI_FLAGGED') && (
+            {!hasUploadedPhotos && (deal.status === 'ACCEPTED' || deal.status === 'PHOTO_PENDING' || deal.status === 'AI_FLAGGED') && (
               <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">
                 <h5 className="font-bold text-gray-900 mb-2">
                   {deal.status === 'AI_FLAGGED' ? '⚠️ AI Flagged: Re-Upload Photos' : '📷 Quality Screening'}
@@ -806,20 +726,6 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
           </div>
         </div>
       )}
-    
-      {escrowModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-sm">
-            <h3 className="font-extrabold text-gray-900 text-lg mb-4">Pay Escrow</h3>
-            <p className="text-sm mb-4">Amount: ₹{deal.agreedPrice}</p>
-            <button onClick={handlePayEscrow} disabled={paymentProcessing} className="w-full py-3 bg-emerald-600 text-white font-black rounded-xl">
-              {paymentProcessing ? 'Processing...' : `Pay ₹${deal.agreedPrice}`}
-            </button>
-            <button onClick={()=>setEscrowModal(false)} className="w-full py-3 mt-2 text-gray-500 font-bold">Cancel</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
-

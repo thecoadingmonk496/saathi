@@ -331,7 +331,7 @@ export default function Admin() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ notes: 'Physically inspected and verified by Saathi Admin.' }),
+        body: JSON.stringify({ status: 'APPROVED', notes: 'Physically inspected and verified by Saathi Admin.' }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -396,7 +396,7 @@ export default function Admin() {
     setSuccessMsg('');
 
     try {
-      const res = await fetch(apiUrl(`/api/admin/deals/${dealId}/complete`), {
+      const res = await fetch(apiUrl(`/api/admin/deals/${dealId}/final-verification`), {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -423,7 +423,7 @@ export default function Admin() {
   const pendingRequestsCount = buyerRequests.filter((r) => r.status === 'PENDING_REVIEW').length;
   const pendingAppsCount = buyerApplications.filter((a) => a.verificationStatus === 'PENDING' || a.verificationStatus === 'UNDER_REVIEW').length;
   const pendingInspectionsCount = dealInspections.filter(
-    (d) => d.status === 'HUMAN_REVIEW' || d.status === 'AGENT_PAYMENT_PENDING'
+    (d) => d.status === 'HUMAN_REVIEW' || d.status === 'AGENT_PAYMENT_PENDING' || d.status === 'BUYER_DELIVERY_UPLOADED'
   ).length;
 
   // Filtered Deal Inspections
@@ -964,13 +964,12 @@ export default function Admin() {
             {/* Filter controls */}
             <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
               <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-                {[
+                                {[
                   { key: 'ALL', label: 'All Deals' },
-                  { key: 'HUMAN_REVIEW', label: 'Awaiting Admin Verify (₹250 Paid)' },
-                  { key: 'VERIFIED', label: 'Verified from Agent' },
-                  { key: 'RECEIPT_SUBMITTED', label: 'Receipt & UTR Submitted' },
+                  { key: 'HUMAN_REVIEW', label: 'Pre-Shipment Verifications' },
+                  { key: 'BUYER_DELIVERY_UPLOADED', label: 'Delivery Verifications' },
+                  { key: 'ADMIN_PRE_SHIPMENT_VERIFIED', label: 'Verified Pre-Shipment' },
                   { key: 'COMPLETED', label: 'Completed Deals' },
-                  { key: 'UNVERIFIED', label: 'Unverified' },
                 ].map((item) => (
                   <button
                     key={item.key}
@@ -1277,10 +1276,69 @@ export default function Admin() {
                               <span>🛵</span> Agent has farmer's address and phone number for physical check. Tap below to verify or reject.
                             </span>
                           )}
-                        </div>
+                        
+                          </div>
 
-                        <div className="flex items-center gap-2 justify-end flex-wrap">
-                          {deal.status !== 'COMPLETED' && (
+                          {/* Image Gallery */}
+                          {images.length > 0 && (
+                            <div className="flex gap-2 overflow-x-auto mt-4 pb-2">
+                              {images.map((img, i) => (
+                                <img key={i} src={img} alt="crop" className="h-20 w-20 object-cover rounded-lg border border-slate-700" />
+                              ))}
+                            </div>
+                          )}
+                          {deal.deliverySubmissions?.length > 0 && (
+                            <div className="mt-4">
+                              <p className="text-xs font-bold text-slate-400 mb-2">Delivery Photos:</p>
+                              <div className="flex gap-2 overflow-x-auto pb-2">
+                                {deal.deliverySubmissions.map((img, i) => (
+                                  <img key={i} src={img} alt="delivery" className="h-20 w-20 object-cover rounded-lg border border-slate-700" />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 justify-end flex-wrap mt-5">
+                            {deal.status === 'HUMAN_REVIEW' && (
+                              <>
+                                <button
+                                  onClick={() => handleVerifyPreShipment(deal._id, 'APPROVED')}
+                                  disabled={actionLoadingId === deal._id}
+                                  className="px-4 py-2 bg-emerald-500 text-slate-950 font-black rounded-lg text-xs hover:bg-emerald-600"
+                                >
+                                  Approve Photos
+                                </button>
+                                <button
+                                  onClick={() => handleVerifyPreShipment(deal._id, 'REJECTED')}
+                                  disabled={actionLoadingId === deal._id}
+                                  className="px-4 py-2 bg-red-500 text-white font-black rounded-lg text-xs hover:bg-red-600"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+
+                            {deal.status === 'BUYER_DELIVERY_UPLOADED' && (
+                              <>
+                                <button
+                                  onClick={() => handleVerifyFinalDelivery(deal._id, 'APPROVED')}
+                                  disabled={actionLoadingId === deal._id}
+                                  className="px-4 py-2 bg-emerald-500 text-slate-950 font-black rounded-lg text-xs hover:bg-emerald-600"
+                                >
+                                  Approve Delivery (Release Escrow)
+                                </button>
+                                <button
+                                  onClick={() => handleVerifyFinalDelivery(deal._id, 'REJECTED')}
+                                  disabled={actionLoadingId === deal._id}
+                                  className="px-4 py-2 bg-red-500 text-white font-black rounded-lg text-xs hover:bg-red-600"
+                                >
+                                  Reject (Refund Buyer)
+                                </button>
+                              </>
+                            )}
+
+                            {deal.status !== 'COMPLETED' && (
+
                             <button
                               onClick={() => handleUnverifyDeal(deal._id, deal.crop)}
                               disabled={actionLoadingId === deal._id}

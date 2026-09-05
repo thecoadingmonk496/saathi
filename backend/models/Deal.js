@@ -75,6 +75,13 @@ const dealSchema = new mongoose.Schema(
       type: String,
       enum: [
         'ACCEPTED',
+        'BANK_DETAILS_PENDING',
+        'ESCROW_PENDING',
+        'FARMER_PHOTOS_UPLOADED',
+        'ADMIN_PRE_SHIPMENT_VERIFIED',
+        'BUYER_DELIVERY_UPLOADED',
+        'ADMIN_FINAL_APPROVED',
+        'ADMIN_FINAL_REJECTED',
         'PHOTO_PENDING',
         'AI_REVIEW',
         'AI_FLAGGED',
@@ -82,14 +89,25 @@ const dealSchema = new mongoose.Schema(
         'AGENT_PAYMENT_PENDING',
         'HUMAN_REVIEW',
         'VERIFIED',
-        'RECEIPT_SUBMITTED',
         'UNVERIFIED',
+        'RECEIPT_SUBMITTED',
         'COMPLETED',
+        'CANCELLED',
         'DISPUTED',
-        'CANCELLED'
       ],
       default: 'ACCEPTED',
     },
+    escrowStatus: {
+      type: String,
+      enum: ['PENDING', 'FUNDED', 'RELEASED', 'REFUNDED'],
+      default: 'PENDING',
+    },
+    farmerBankAccount: {
+      type: String,
+    },
+    deliverySubmissions: [{
+      type: String,
+    }],
     moisturePercent: {
       type: Number,
       default: 11.8,

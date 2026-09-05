@@ -553,4 +553,40 @@ router.post('/deals/:id/report', requireAuth, async (req, res) => {
   }
 });
 
+// ESCROW ROUTES
+router.post('/deals/:id/farmer-bank', requireAuth, requireRole('FARMER'), async (req, res) => {
+  try {
+    const { farmerBankAccount } = req.body;
+    const deal = await Deal.findOne({ _id: req.params.id, farmerId: req.user._id });
+    if (!deal) return res.status(404).json({ message: 'Deal not found' });
+    deal.farmerBankAccount = farmerBankAccount;
+    if (deal.status === 'ACCEPTED') deal.status = 'ESCROW_PENDING';
+    await deal.save();
+    res.json(deal);
+  } catch (error) { res.status(500).json({ message: error.message }); }
+});
+
+router.post('/deals/:id/pay-escrow', requireAuth, requireRole('BUYER'), async (req, res) => {
+  try {
+    const deal = await Deal.findOne({ _id: req.params.id, buyerId: req.user._id });
+    if (!deal) return res.status(404).json({ message: 'Deal not found' });
+    deal.escrowStatus = 'FUNDED';
+    deal.status = 'ACCEPTED'; // Reset to accepted so farmer can now upload photos
+    await deal.save();
+    res.json(deal);
+  } catch (error) { res.status(500).json({ message: error.message }); }
+});
+
+router.post('/deals/:id/buyer-delivery-photos', requireAuth, requireRole('BUYER'), async (req, res) => {
+  try {
+    const { imageUrls } = req.body;
+    const deal = await Deal.findOne({ _id: req.params.id, buyerId: req.user._id });
+    if (!deal) return res.status(404).json({ message: 'Deal not found' });
+    deal.deliverySubmissions = imageUrls;
+    deal.status = 'BUYER_DELIVERY_UPLOADED';
+    await deal.save();
+    res.json(deal);
+  } catch (error) { res.status(500).json({ message: error.message }); }
+});
+
 module.exports = router;

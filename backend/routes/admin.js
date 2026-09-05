@@ -128,8 +128,13 @@ router.patch('/deals/:id/verify', verifyAdminToken, async (req, res) => {
     const deal = await Deal.findById(req.params.id);
     if (!deal) return res.status(404).json({ success: false, message: 'Deal not found' });
 
-    deal.status = 'VERIFIED';
-    deal.verifiedAt = new Date();
+    if (req.body.status === 'REJECTED') {
+      deal.status = 'CANCELLED';
+      deal.escrowStatus = 'REFUNDED';
+    } else {
+      deal.status = 'ADMIN_PRE_SHIPMENT_VERIFIED';
+      deal.verifiedAt = new Date();
+    }
 
     if (deal.qualitySubmissions && deal.qualitySubmissions.length > 0) {
       const lastSub = deal.qualitySubmissions[deal.qualitySubmissions.length - 1];
@@ -190,6 +195,26 @@ router.patch('/deals/:id/complete', verifyAdminToken, async (req, res) => {
     console.error('Error completing deal:', error.message);
     res.status(500).json({ success: false, message: 'Server error while completing deal' });
   }
+});
+
+router.post('/deals/:id/final-verification', verifyAdminToken, async (req, res) => {
+  try {
+    const { status, notes } = req.body;
+    const deal = await Deal.findById(req.params.id);
+    if (!deal) return res.status(404).json({ message: 'Deal not found' });
+    
+    if (status === 'APPROVED') {
+      deal.status = 'COMPLETED';
+      deal.escrowStatus = 'RELEASED';
+      deal.completedAt = Date.now();
+      deal.transactionReceiptUrl = 'mock_receipt_url_' + Date.now();
+    } else {
+      deal.status = 'CANCELLED';
+      deal.escrowStatus = 'REFUNDED';
+    }
+    await deal.save();
+    res.json(deal);
+  } catch (error) { res.status(500).json({ message: error.message }); }
 });
 
 module.exports = router;
