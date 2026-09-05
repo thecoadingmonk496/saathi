@@ -271,11 +271,23 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                     </div>
                   )}
                 </div>
-              </div>
-            )}
-          </div>
+                </div>
+              )}
 
-          {/* Action Area */}
+              {/* Delivery Photo preview thumbnails if available */}
+              {deal.deliverySubmissions && deal.deliverySubmissions.length > 0 && (
+                <div className="mt-6 pt-5 border-t border-gray-100">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Uploaded Delivery Photos ({deal.deliverySubmissions.length})</p>
+                  <div className="flex flex-wrap gap-2">
+                    {deal.deliverySubmissions.map((img, i) => (
+                      <img key={i} src={img} alt={`Delivery ${i + 1}`} className="w-14 h-14 object-cover rounded-lg border border-gray-200 shadow-xs" />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Action Area */}
           <div>
             <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">Action Required</h4>
 
