@@ -40,7 +40,7 @@ export default function PlatformTopNav({ preferredLanguage, user, onLanguageChan
               <span className="text-xl font-black uppercase tracking-widest text-[var(--saathi-primary)] leading-none">
                 SAATHI
               </span>
-              <span className="hidden text-[10px] font-bold text-[#52b788] sm:block">
+              <span className="hidden text-xs font-bold text-[#52b788] sm:block">
                 Aapki Aawaz, Aapka Bazaar
               </span>
             </div>
@@ -95,7 +95,7 @@ export default function PlatformTopNav({ preferredLanguage, user, onLanguageChan
             to="/profile"
             aria-label={t('nav.profile')}
           >
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--saathi-primary)] text-[#212121] font-bold text-[10px]">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--saathi-primary)] text-[#212121] font-bold text-xs">
               {user?.name ? user.name[0] : 'R'}
             </div>
             <span className="hidden text-xs font-semibold sm:inline">{user?.name || 'Ramesh Kumar'}</span>

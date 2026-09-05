@@ -356,7 +356,7 @@ export default function HeroSearch() {
                     {highlightMatch(suggestion.text, query.trim())}
                   </span>
                 </div>
-                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400 shrink-0 bg-[var(--saathi-surface-alt)] px-2 py-0.5 rounded">
+                <span className="text-xs sm:text-xs font-bold uppercase tracking-wider text-slate-400 shrink-0 bg-[var(--saathi-surface-alt)] px-2 py-0.5 rounded">
                   {typeLabel(suggestion.type)}
                 </span>
               </button>

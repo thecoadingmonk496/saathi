@@ -491,7 +491,7 @@ export default function MarketPrices() {
                   {accuracy && (
                     <>
                       <span className="text-slate-300 hidden md:inline">•</span>
-                      <span className="text-slate-400 text-[11px] hidden md:inline">
+                      <span className="text-slate-400 text-sm hidden md:inline">
                         Accuracy: ±{Math.round(accuracy)}m
                       </span>
                     </>
@@ -596,7 +596,7 @@ export default function MarketPrices() {
                 ) : topRecordHistory && topRecordHistory.length >= 2 ? (
                   renderSparkline()
                 ) : (
-                  <p className="text-[10px] leading-tight text-slate-400 max-w-[100px]">
+                  <p className="text-xs leading-tight text-slate-400 max-w-[100px]">
                     {t('prices.buildingNote') || 'Building price history — check back soon'}
                   </p>
                 )}
@@ -824,19 +824,19 @@ export default function MarketPrices() {
 
                 <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-[var(--saathi-text-secondary)] mt-3 bg-[var(--saathi-surface-alt)] rounded-xl p-3 border border-slate-100">
                   <div>
-                    <span className="text-[10px] text-slate-400 uppercase block">{t('prices.marketCol') || 'Market'}</span>
+                    <span className="text-xs text-slate-400 uppercase block">{t('prices.marketCol') || 'Market'}</span>
                     <span className="text-[var(--saathi-text)]">{record.market}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 uppercase block">{t('prices.districtCol') || 'District'} / {t('prices.stateCol') || 'State'}</span>
+                    <span className="text-xs text-slate-400 uppercase block">{t('prices.districtCol') || 'District'} / {t('prices.stateCol') || 'State'}</span>
                     <span className="text-[var(--saathi-text)]">{record.district}, {record.state}</span>
                   </div>
                   <div className="mt-2">
-                    <span className="text-[10px] text-slate-400 uppercase block">{t('prices.minCol') || 'Min'} / {t('prices.maxCol') || 'Max'}</span>
+                    <span className="text-xs text-slate-400 uppercase block">{t('prices.minCol') || 'Min'} / {t('prices.maxCol') || 'Max'}</span>
                     <span className="text-[var(--saathi-text-secondary)]">{formatRupees(record.min_price)} - {formatRupees(record.max_price)}</span>
                   </div>
                   <div className="mt-2">
-                    <span className="text-[10px] text-slate-400 uppercase block">{t('prices.arrivalDateCol') || 'Arrival Date'}</span>
+                    <span className="text-xs text-slate-400 uppercase block">{t('prices.arrivalDateCol') || 'Arrival Date'}</span>
                     <span className="text-[var(--saathi-text-secondary)]">{record.arrival_date}</span>
                   </div>
                 </div>
@@ -873,7 +873,7 @@ export default function MarketPrices() {
               alt="Indo-Gangetic Plains Golden Wheat Field"
               className="w-full h-full object-cover object-center group-hover:scale-105 transition duration-500"
               loading="lazy"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCBUWrgrSwKu6BQ6AARnfhXTTasI4n06JRA-zBYGfBcJUp9LLPKst3yRdVyn61We2uF_jTmDm-HuBx3qyzM0PdxU-Uhz6uVEzaI9A2vMX-8pqz6tAiK7hUz7zT27bI69T4TFlPAccaY-4ZoublIdaG9l96PyIuGrO70jJVPw7Fs8E0b9HI-8d2uKx_yaRWIYayzvKfxBnB-MzBnpkHWJB_JBuqUt3_NFoiHAHi9MgxEWuqqpn7bB3aB"
+              src="https://images.unsplash.com/photo-1586201375761-83865001e31c?w=800&q=80"
             />
             <div className="absolute top-4 left-4">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/90 backdrop-blur-md text-emerald-800 shadow-sm border border-white/60">
@@ -903,12 +903,12 @@ export default function MarketPrices() {
         {/* Feature Card 2: APMC Mandi Network */}
         <article className="group bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm hover:shadow-md transition duration-300 flex flex-col">
           <div className="relative h-64 md:h-72 w-full overflow-hidden bg-slate-100">
-            <img
-              alt="Indian APMC Mandi Market Trade Scene"
-              className="w-full h-full object-cover object-center group-hover:scale-105 transition duration-500"
-              loading="lazy"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuAw4BNkx-gwZp4gHCYJd83LrRhgfDzwiSXOEe2tlgyz9JBaQ_RaCyITrkUWOjldmdB_X5v0WkHapzP1fqmJJe7y12a1EbdWZ4TWrq1mBd_ZCMsgvK4JgmVR84yqENtFEvBfnxTCqlq6TcizwTt2x063HHg4QTT3PpYOGEND2NmgLn7Yv8NcQNHt0FbZAtnpJfaIiewH1EqubU3Jg6AyzutDY1Spbd9VxjfUEw_cFoLfPGCkmZPdhaFE"
-            />
+              <img
+                alt="Indian APMC Mandi Market Trade Scene"
+                className="w-full h-full object-cover object-center group-hover:scale-105 transition duration-500"
+                loading="lazy"
+                src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80"
+              />
             <div className="absolute top-4 left-4">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/90 backdrop-blur-md text-blue-800 shadow-sm border border-white/60">
                 <span>🇮🇳</span> 2,400+ APMC Yards

@@ -29,7 +29,7 @@ const SEARCH_CATEGORIES = [
 const CATEGORY_SERVICES = {
   market: [
     { title: 'Market Prices', path: '/prices' },
-    { title: 'Market Explorer', path: '/explorer' },
+    { title: 'Crop Journey', path: '/explorer' },
   ],
   discovery: [
     { title: 'Buyer Discovery', path: '/buyers' },
@@ -166,7 +166,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
                   SAATHI
                 </span>
               </div>
-              <span className="hidden sm:block text-[10px] font-semibold text-[var(--saathi-text-secondary)] leading-tight">
+              <span className="hidden sm:block text-xs font-semibold text-[var(--saathi-text-secondary)] leading-tight">
                 Aapki Aawaz, Aapka Bazaar
               </span>
             </div>
@@ -320,7 +320,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
               >
                 {/* 1. Market Column */}
                 <div className="space-y-1">
-                  <div className="px-1 text-[11px] font-extrabold uppercase tracking-wider text-[var(--saathi-primary)] border-b border-[var(--saathi-border-light)] pb-1">
+                  <div className="px-1 text-sm font-extrabold uppercase tracking-wider text-[var(--saathi-primary)] border-b border-[var(--saathi-border-light)] pb-1">
                     Market
                   </div>
                   <Link
@@ -333,7 +333,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
                       <ChartBarIcon className="h-4 w-4 text-[var(--saathi-primary)] shrink-0" />
                       <span>Market Prices</span>
                     </div>
-                    <span className="text-[10px] text-[var(--saathi-text-secondary)] block mt-0.5">Daily APMC rates</span>
+                    <span className="text-xs text-[var(--saathi-text-secondary)] block mt-0.5">Daily APMC rates</span>
                   </Link>
                   <Link
                     to="/explorer"
@@ -343,15 +343,15 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
                   >
                     <div className="flex items-center gap-1.5 font-bold text-[var(--saathi-text)]">
                       <PresentationChartLineIcon className="h-4 w-4 text-[var(--saathi-primary)] shrink-0" />
-                      <span>Explorer</span>
+                      <span>Crop Journey</span>
                     </div>
-                    <span className="text-[10px] text-[var(--saathi-text-secondary)] block mt-0.5">Supply chain</span>
+                    <span className="text-xs text-[var(--saathi-text-secondary)] block mt-0.5">Supply chain</span>
                   </Link>
                 </div>
 
                 {/* 2. Discovery Column */}
                 <div className="space-y-1 border-l border-[var(--saathi-border-light)] pl-3">
-                  <div className="px-1 text-[11px] font-extrabold uppercase tracking-wider text-[var(--saathi-primary)] border-b border-[var(--saathi-border-light)] pb-1">
+                  <div className="px-1 text-sm font-extrabold uppercase tracking-wider text-[var(--saathi-primary)] border-b border-[var(--saathi-border-light)] pb-1">
                     Discovery
                   </div>
                   <Link
@@ -362,9 +362,9 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
                   >
                     <div className="flex items-center gap-1.5 font-bold text-[var(--saathi-text)]">
                       <UserGroupIcon className="h-4 w-4 text-[var(--saathi-primary)] shrink-0" />
-                      <span>Buyers</span>
+                      <span>Buyer Discovery</span>
                     </div>
-                    <span className="text-[10px] text-[var(--saathi-text-secondary)] block mt-0.5">Verified buyers</span>
+                    <span className="text-xs text-[var(--saathi-text-secondary)] block mt-0.5">Verified buyers</span>
                   </Link>
                   <Link
                     to="/mandis"
@@ -374,15 +374,15 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
                   >
                     <div className="flex items-center gap-1.5 font-bold text-[var(--saathi-text)]">
                       <MapPinIcon className="h-4 w-4 text-[var(--saathi-primary)] shrink-0" />
-                      <span>Mandis</span>
+                      <span>Mandi Information</span>
                     </div>
-                    <span className="text-[10px] text-[var(--saathi-text-secondary)] block mt-0.5">APMC arrivals</span>
+                    <span className="text-xs text-[var(--saathi-text-secondary)] block mt-0.5">APMC arrivals</span>
                   </Link>
                 </div>
 
                 {/* 3. Saathi Column */}
                 <div className="space-y-1 border-l border-[var(--saathi-border-light)] pl-3">
-                  <div className="px-1 text-[11px] font-extrabold uppercase tracking-wider text-[var(--saathi-primary)] border-b border-[var(--saathi-border-light)] pb-1">
+                  <div className="px-1 text-sm font-extrabold uppercase tracking-wider text-[var(--saathi-primary)] border-b border-[var(--saathi-border-light)] pb-1">
                     Saathi
                   </div>
                   <button
@@ -398,7 +398,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
                       <MicrophoneIcon className="h-4 w-4 text-[var(--saathi-primary)] shrink-0" />
                       <span>Ask SAATHI</span>
                     </div>
-                    <span className="text-[10px] text-[var(--saathi-text-secondary)] block mt-0.5">Voice & text AI</span>
+                    <span className="text-xs text-[var(--saathi-text-secondary)] block mt-0.5">Voice & text AI</span>
                   </button>
                   <Link
                     to="/reviews"
@@ -410,7 +410,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
                       <StarIcon className="h-4 w-4 text-[var(--saathi-primary)] shrink-0" />
                       <span>Reviews</span>
                     </div>
-                    <span className="text-[10px] text-[var(--saathi-text-secondary)] block mt-0.5">Community feedback</span>
+                    <span className="text-xs text-[var(--saathi-text-secondary)] block mt-0.5">Community feedback</span>
                   </Link>
                   <Link
                     to="/about"
@@ -421,7 +421,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
                     <div className="flex items-center gap-1.5 font-bold text-[var(--saathi-text)]">
                       <span>About SAATHI</span>
                     </div>
-                    <span className="text-[10px] text-[var(--saathi-text-secondary)] block mt-0.5">Platform info</span>
+                    <span className="text-xs text-[var(--saathi-text-secondary)] block mt-0.5">Platform info</span>
                   </Link>
                 </div>
               </div>
@@ -482,7 +482,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
             </Link>
 
             <div className="border-t border-[var(--saathi-border-light)] pt-2">
-              <span className="block px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--saathi-text-secondary)]">
+              <span className="block px-3 py-1 text-sm font-bold uppercase tracking-wider text-[var(--saathi-text-secondary)]">
                 Market & Discovery
               </span>
               <div className="mt-1 space-y-1">
@@ -516,13 +516,13 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
                   className="flex items-center gap-2 rounded-md px-3 py-2 text-[var(--saathi-text)] hover:bg-[var(--saathi-surface-alt)]"
                 >
                   <PresentationChartLineIcon className="h-4 w-4 text-[var(--saathi-primary)]" />
-                  <span>Market Explorer</span>
+                  <span>Crop Journey</span>
                 </Link>
               </div>
             </div>
 
             <div className="border-t border-[var(--saathi-border-light)] pt-2">
-              <span className="block px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--saathi-text-secondary)]">
+              <span className="block px-3 py-1 text-sm font-bold uppercase tracking-wider text-[var(--saathi-text-secondary)]">
                 Assistant & Information
               </span>
               <div className="mt-1 space-y-1">
@@ -601,7 +601,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
       {/* Secondary Service Sub-Navigation Bar (Filtered ONLY to current category) */}
       {showSubNav && currentCategoryServices && (
         <div className="border-t border-[#E0E0E0]/80 bg-white mt-1.5 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
-          <div className="mx-auto flex max-w-7xl items-center justify-between overflow-x-auto no-scrollbar">
+          <div className="mx-auto flex max-w-7xl items-center justify-between overflow-x-auto overflow-y-hidden no-scrollbar">
             {/* Service Navigation Tabs for the Active Category */}
             <div className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm">
               {currentCategoryServices.map((service) => {
@@ -638,10 +638,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
               })}
             </div>
 
-            {/* Right side overflow ellipsis */}
-            <div className="hidden sm:flex items-center text-[var(--saathi-text-muted)] pl-2">
-              <span className="font-bold tracking-widest text-lg leading-none cursor-default select-none">⋮</span>
-            </div>
+
           </div>
         </div>
       )}

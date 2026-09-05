@@ -280,7 +280,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                 <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm space-y-3">
                   <div className="flex items-center justify-between pb-3 border-b border-gray-100">
                     <div>
-                      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Next Step</p>
+                      <p className="text-sm font-bold text-gray-400 uppercase tracking-wider">Next Step</p>
                       <h6 className="text-sm font-extrabold text-gray-900">Connect with On-Ground Field Agent</h6>
                     </div>
                     <span className="text-xl font-black text-red-700 bg-red-50 px-3 py-1 rounded-xl border border-red-200">
@@ -367,31 +367,31 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                 {/* 2. Small Bar: Buyer Details Showed to Farmer */}
                 <div className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-sm space-y-2">
                   <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-                    <span className="text-[11px] font-black uppercase text-emerald-700 tracking-wider flex items-center gap-1.5">
+                    <span className="text-sm font-black uppercase text-emerald-700 tracking-wider flex items-center gap-1.5">
                       <span>🏢</span> Buyer Details & Contact Information
                     </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
                       Verified Buyer ✓
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     <div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase">Buyer Name</p>
+                      <p className="text-xs font-bold text-gray-400 uppercase">Buyer Name</p>
                       <p className="font-bold text-gray-900 text-sm mt-0.5">
                         {deal.buyerId?.firstName} {deal.buyerId?.lastName}
                       </p>
                     </div>
 
                     <div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase">Buyer Phone / Number</p>
+                      <p className="text-xs font-bold text-gray-400 uppercase">Buyer Phone / Number</p>
                       <p className="font-mono font-bold text-emerald-700 mt-0.5 select-all text-sm">
                         📞 {deal.buyerId?.phone || 'Not provided'}
                       </p>
                     </div>
 
                     <div className="sm:col-span-2">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase">Buyer Address / Delivery Destination</p>
+                      <p className="text-xs font-bold text-gray-400 uppercase">Buyer Address / Delivery Destination</p>
                       <p className="text-gray-800 font-semibold mt-0.5">
                         📍 {deal.buyerId?.village ? `Village: ${deal.buyerId.village}, ` : ''}
                         {deal.buyerId?.district ? `District: ${deal.buyerId.district}, ` : ''}
@@ -409,7 +409,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                       <span className="text-xs font-black uppercase text-amber-900 tracking-wide flex items-center gap-1.5">
                         <span>📄</span> Transaction Proof & UTR Submitted
                       </span>
-                      <span className="text-[10px] font-bold bg-amber-200 text-amber-900 px-2.5 py-0.5 rounded-full">
+                      <span className="text-xs font-bold bg-amber-200 text-amber-900 px-2.5 py-0.5 rounded-full">
                         Pending Admin Sign-Off
                       </span>
                     </div>
@@ -449,7 +449,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
 
                     <div className="space-y-3">
                       <div>
-                        <label className="text-[11px] font-bold text-gray-600 block mb-1">
+                        <label className="text-sm font-bold text-gray-600 block mb-1">
                           1. Upload Transaction Receipt Photo
                         </label>
                         <input
@@ -466,7 +466,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                       </div>
 
                       <div>
-                        <label className="text-[11px] font-bold text-gray-600 block mb-1">
+                        <label className="text-sm font-bold text-gray-600 block mb-1">
                           2. Type UTR / Transaction Reference Number
                         </label>
                         <input
@@ -547,7 +547,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                   </div>
                   <div>
                     <h4 className="font-extrabold text-sm tracking-tight text-white">SAATHI Secure FastPay</h4>
-                    <p className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                    <p className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
                       <span>✓</span> 256-Bit SSL Encrypted
                     </p>
                   </div>
@@ -565,10 +565,10 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
 
               <div className="mt-4 pt-3 border-t border-slate-800 flex items-end justify-between">
                 <div>
-                  <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Amount to Pay</p>
+                  <p className="text-sm text-slate-400 uppercase tracking-wider font-semibold">Amount to Pay</p>
                   <p className="text-2xl font-black text-white">₹250.00</p>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   Field Agent Assignment Fee
                 </span>
               </div>
@@ -601,7 +601,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
 
                 {/* Payment Methods */}
                 <div>
-                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Select Payment Method</p>
+                  <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Select Payment Method</p>
                   <div className="grid grid-cols-3 gap-2">
                     {[
                       { key: 'UPI', label: '📱 UPI', desc: 'GPay, PhonePe' },
@@ -619,7 +619,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                         }`}
                       >
                         <p className="text-xs font-bold text-gray-900">{m.label}</p>
-                        <p className="text-[10px] text-gray-500 mt-0.5">{m.desc}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{m.desc}</p>
                       </button>
                     ))}
                   </div>
@@ -628,7 +628,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                 {/* Form fields based on selected method */}
                 {paymentMethod === 'UPI' && (
                   <div className="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
-                    <label className="text-[11px] font-bold text-gray-600">Enter UPI ID</label>
+                    <label className="text-sm font-bold text-gray-600">Enter UPI ID</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -640,7 +640,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                         Verified ✓
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 pt-1 text-[10px] text-gray-500">
+                    <div className="flex items-center gap-2 pt-1 text-xs text-gray-500">
                       <span>Popular apps:</span>
                       <span className="font-bold text-blue-600">GPay</span>
                       <span>•</span>
@@ -654,7 +654,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                 {paymentMethod === 'CARD' && (
                   <div className="space-y-2.5 p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs">
                     <div>
-                      <label className="text-[11px] font-bold text-gray-600">Card Number</label>
+                      <label className="text-sm font-bold text-gray-600">Card Number</label>
                       <input
                         type="text"
                         readOnly
@@ -664,7 +664,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[11px] font-bold text-gray-600">Expiry</label>
+                        <label className="text-sm font-bold text-gray-600">Expiry</label>
                         <input
                           type="text"
                           readOnly
@@ -673,7 +673,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                         />
                       </div>
                       <div>
-                        <label className="text-[11px] font-bold text-gray-600">CVV</label>
+                        <label className="text-sm font-bold text-gray-600">CVV</label>
                         <input
                           type="password"
                           readOnly
@@ -687,7 +687,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
 
                 {paymentMethod === 'NETBANKING' && (
                   <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
-                    <label className="text-[11px] font-bold text-gray-600 block mb-2">Select Bank</label>
+                    <label className="text-sm font-bold text-gray-600 block mb-2">Select Bank</label>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       {['State Bank of India', 'HDFC Bank', 'ICICI Bank', 'Punjab National Bank'].map((b, i) => (
                         <div key={b} className={`p-2 rounded-lg border bg-white flex items-center gap-2 ${i === 0 ? 'border-red-600 font-bold text-red-700' : 'border-gray-200 text-gray-700'}`}>
@@ -718,7 +718,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                   )}
                 </button>
 
-                <p className="text-[10px] text-gray-400 text-center">
+                <p className="text-xs text-gray-400 text-center">
                   Clicking Pay completes the ₹250 field agent fee and advances to admin verification.
                 </p>
               </div>

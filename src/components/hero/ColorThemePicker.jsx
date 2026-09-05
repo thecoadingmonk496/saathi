@@ -152,7 +152,7 @@ export default function ColorThemePicker({ isOpen, onClose }) {
       </div>
 
       <div className="border-t border-white/10 pt-2 text-center">
-        <span className="text-[11px] text-slate-400">
+        <span className="text-sm text-slate-400">
           Changes portal UI colors and accents
         </span>
       </div>

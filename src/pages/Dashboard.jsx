@@ -31,7 +31,7 @@ export default function Dashboard({ onVoiceStart, voiceAssistantResponse, onOpen
         {/* 5. Buyer Discovery Preview */}
         <BuyerSnapshot />
 
-        {/* 6. Market Explorer Preview */}
+        {/* 6. Crop Journey Preview */}
         <MarketJourneySection />
 
         {/* 7. Ask SAATHI (Voice & Text Assistant) */}

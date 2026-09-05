@@ -25,7 +25,7 @@ const requireRole = (role) => (req, res, next) => {
 // Create a new request (Buyer only)
 router.post('/requests', requireAuth, requireRole('BUYER'), async (req, res) => {
   try {
-    const { crop, quantity, unit, offeredPrice, location, description } = req.body;
+    const { crop, quantity, unit, offeredPrice, location, description, cropImage } = req.body;
     const newRequest = await BuyerRequest.create({
       buyerId: req.user._id,
       crop,
@@ -45,7 +45,7 @@ router.post('/requests', requireAuth, requireRole('BUYER'), async (req, res) => 
 // Re-apply / edit a rejected request (Buyer only)
 router.post('/requests/:id/reapply', requireAuth, requireRole('BUYER'), async (req, res) => {
   try {
-    const { crop, quantity, unit, offeredPrice, location, description } = req.body;
+    const { crop, quantity, unit, offeredPrice, location, description, cropImage } = req.body;
     const request = await BuyerRequest.findOne({ _id: req.params.id, buyerId: req.user._id });
     if (!request) {
       return res.status(404).json({ success: false, message: 'Request not found' });
@@ -70,7 +70,12 @@ router.post('/requests/:id/reapply', requireAuth, requireRole('BUYER'), async (r
 // Get all published requests for marketplace viewing (Any authenticated user / Buyer browse)
 router.get('/requests/all-published', requireAuth, async (req, res) => {
   try {
-    const requests = await BuyerRequest.find({ status: 'PUBLISHED' })
+    const publishedFilter = { status: 'PUBLISHED' };
+    if (req.user.role === 'BUYER') {
+      publishedFilter.buyerId = { $ne: req.user._id };
+    }
+
+    const requests = await BuyerRequest.find(publishedFilter)
       .populate('buyerId', 'firstName lastName village district state')
       .sort('-publishedAt');
     res.json({ success: true, data: requests });

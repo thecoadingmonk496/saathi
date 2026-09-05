@@ -657,14 +657,14 @@ export default function AIVoiceModal({
                     {msg.role === 'assistant' && (
                       <div className="mb-1 flex items-center gap-1.5">
                         <img src="/saathi-mic-logo.png" alt="" className="h-4 w-4 rounded-full bg-[#fdfbf7] object-contain" />
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600">SAATHI</span>
+                        <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-600">SAATHI</span>
                         <button
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
                             replayAssistantMessage(msg);
                           }}
-                          className="ml-auto inline-flex items-center gap-0.5 rounded bg-emerald-100/70 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 transition hover:bg-emerald-200"
+                          className="ml-auto inline-flex items-center gap-0.5 rounded bg-emerald-100/70 px-1.5 py-0.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-200"
                           aria-label="Play this response"
                           title="Play this response"
                         >
@@ -673,7 +673,7 @@ export default function AIVoiceModal({
                       </div>
                     )}
                     {msg.role === 'user' && (
-                      <p className="mb-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white/70">You</p>
+                      <p className="mb-0.5 text-xs font-extrabold uppercase tracking-wider text-white/70">You</p>
                     )}
                     <p className="whitespace-pre-wrap">{msg.content}</p>
                   </div>
@@ -703,7 +703,7 @@ export default function AIVoiceModal({
 
             {displayTranscript && (status === 'listening' || status === 'user_speaking' || status === 'processing') && (
               <div className="mt-3 rounded-md border border-slate-100 bg-white p-3 shadow-sm">
-                <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                <p className="text-sm font-extrabold uppercase tracking-wider text-slate-400">
                   {t('ai.queryLabel') || 'Your Spoken Query'}
                 </p>
                 <p className="mt-1 text-base font-bold leading-7 text-[var(--saathi-text)]">

@@ -52,7 +52,7 @@ export default function PortalFooter({ onVoiceStart }) {
               </li>
               <li>
                 <Link to="/explorer" className="hover:text-[#52b788] transition-colors">
-                  Market Explorer
+                  Crop Journey
                 </Link>
               </li>
               <li>

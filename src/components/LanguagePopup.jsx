@@ -114,10 +114,10 @@ export default function LanguagePopup({ isOpen, onClose, onLanguageSelect }) {
         {/* Scrollable Language Grid */}
         <div className="my-4 flex-1 overflow-y-auto pr-1">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
+            <span className="text-sm font-bold uppercase tracking-wider text-primary">
               Active Translation & Voice ({ALL_22_LANGUAGES.filter((l) => l.isSupported).length})
             </span>
-            <span className="text-[11px] text-slate-400">
+            <span className="text-sm text-slate-400">
               Select any active language
             </span>
           </div>
@@ -145,7 +145,7 @@ export default function LanguagePopup({ isOpen, onClose, onLanguageSelect }) {
                       <span className="block text-xs font-bold text-[var(--saathi-text)]">
                         {lang.nativeName}
                       </span>
-                      <span className="block text-[11px] text-[var(--saathi-text-muted)]">
+                      <span className="block text-sm text-[var(--saathi-text-muted)]">
                         {lang.name}
                       </span>
                     </div>
@@ -157,7 +157,7 @@ export default function LanguagePopup({ isOpen, onClose, onLanguageSelect }) {
                   </div>
 
                   {!lang.isSupported && (
-                    <span className="mt-2 block text-[10px] font-semibold text-slate-400">
+                    <span className="mt-2 block text-xs font-semibold text-slate-400">
                       Coming Soon
                     </span>
                   )}

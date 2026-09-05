@@ -40,7 +40,7 @@ export default function FarmerServices({ onVoiceStart }) {
     },
     {
       id: 'journey',
-      title: t('services.journey.title') || t('nav.marketExplorer') || 'Market Explorer',
+      title: t('services.journey.title') || t('nav.marketExplorer') || 'Crop Journey',
       description: t('services.journey.desc') || 'Understand the multi-stage crop journey and supply chain distribution stages.',
       path: '/explorer',
       icon: PresentationChartLineIcon,

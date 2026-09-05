@@ -17,7 +17,7 @@ export const translations = {
   English: {
 
     'nav.dashboard': 'Dashboard',
-    'nav.marketExplorer': 'Market Explorer',
+    'nav.marketExplorer': 'Crop Journey',
     'nav.marketPrices': 'Market Prices',
     'nav.buyerDiscovery': 'Buyer Discovery',
     'nav.askSaathi': 'Ask SAATHI',
@@ -148,7 +148,7 @@ export const translations = {
     'card.pricesInfo': '{crop} {price} / Quintal',
     'card.pricesUpdated': 'Updated: Today',
 
-    'card.explorerTitle': 'Market Explorer',
+    'card.explorerTitle': 'Crop Journey',
     'card.explorerSubtitle': 'Understand your crop journey & pricing',
     'card.explorerFlow': 'Farmer → Wholesaler → Distributor → Retailer → Consumer',
     'card.explorerDetails': 'Product journey · Price · Transport',
@@ -170,9 +170,9 @@ export const translations = {
     'ai.speakAgain': 'Speak Again',
     'ai.close': 'Close',
 
-    'explorer.title': 'Market Explorer',
+    'explorer.title': 'Crop Journey',
     'explorer.tagline': 'MARKET TRANSPARENCY',
-    'explorer.heading': 'Market Explorer',
+    'explorer.heading': 'Crop Journey',
     'explorer.subtitle': 'Track your product from farm to consumer — with price, distance, transport and market information at every stage.',
     'explorer.searchPlaceholder': 'Search any product, e.g. Wheat, Onion, Seeds, Fertilizer',
     'explorer.searchButton': 'Explore Journey',

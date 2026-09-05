@@ -685,7 +685,7 @@ export default function Admin() {
                               Offered: ₹{Number(req.offeredPrice).toLocaleString('en-IN')}/{req.unit || 'Qtl'}
                             </span>
                             <span
-                              className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wider ${
+                              className={`px-2.5 py-0.5 rounded-full text-sm font-bold tracking-wider ${
                                 isPending
                                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
                                   : isPublished
@@ -699,11 +699,11 @@ export default function Admin() {
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs text-slate-300 pt-1">
                             <div>
-                              <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Delivery Location: </span>
+                              <span className="text-slate-500 font-bold uppercase tracking-wider text-xs">Delivery Location: </span>
                               <span className="font-semibold text-white">{req.location || 'Not specified'}</span>
                             </div>
                             <div>
-                              <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Buyer Name: </span>
+                              <span className="text-slate-500 font-bold uppercase tracking-wider text-xs">Buyer Name: </span>
                               <button
                                 onClick={() => openKycForRequest(req)}
                                 className="font-semibold text-blue-400 hover:text-blue-300 hover:underline inline-flex items-center gap-1"
@@ -711,11 +711,11 @@ export default function Admin() {
                               >
                                 <span>{req.buyerId?.firstName} {req.buyerId?.lastName}</span>
                                 <span>({req.buyerId?.phone || 'No phone'})</span>
-                                <span className="text-[10px] bg-blue-500/20 px-1.5 py-0.2 rounded border border-blue-500/30">KYC 🔍</span>
+                                <span className="text-xs bg-blue-500/20 px-1.5 py-0.2 rounded border border-blue-500/30">KYC 🔍</span>
                               </button>
                             </div>
                             <div>
-                              <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Estimated Value: </span>
+                              <span className="text-slate-500 font-bold uppercase tracking-wider text-xs">Estimated Value: </span>
                               <span className="font-bold text-emerald-400">
                                 ₹{((Number(req.quantity) || 0) * (Number(req.offeredPrice) || 0)).toLocaleString('en-IN')}
                               </span>
@@ -734,7 +734,7 @@ export default function Admin() {
                             </p>
                           )}
 
-                          <div className="flex items-center gap-4 text-[11px] text-slate-500">
+                          <div className="flex items-center gap-4 text-sm text-slate-500">
                             <span>Submitted: {new Date(req.createdAt).toLocaleString('en-IN')}</span>
                             {req.reviewedAt && <span>Reviewed: {new Date(req.reviewedAt).toLocaleString('en-IN')}</span>}
                           </div>
@@ -923,7 +923,7 @@ export default function Admin() {
                           <div className="font-bold text-white text-sm">
                             {user.firstName} {user.lastName}
                           </div>
-                          <div className="text-[11px] font-mono text-slate-500 mt-0.5 select-all">
+                          <div className="text-sm font-mono text-slate-500 mt-0.5 select-all">
                             ID: {user._id}
                           </div>
                         </td>
@@ -1037,7 +1037,7 @@ export default function Admin() {
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-800">
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                            <span className="text-sm font-mono font-bold text-slate-400 uppercase tracking-wider">
                               DEAL #{deal._id?.slice(-6).toUpperCase()}
                             </span>
                             <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
@@ -1077,13 +1077,13 @@ export default function Admin() {
                           <div className="flex items-center gap-2">
                             <span className="text-lg">💧</span>
                             <div>
-                              <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-wide">Moisture Analysis</p>
+                              <p className="text-sm font-bold text-emerald-400 uppercase tracking-wide">Moisture Analysis</p>
                               <p className="text-xs font-semibold text-emerald-200">
                                 {deal.moisturePercent || 11.8}% (Acceptable standard 10%-14%)
                               </p>
                             </div>
                           </div>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500 text-slate-950 uppercase">
+                          <span className="px-2 py-0.5 rounded text-xs font-black bg-emerald-500 text-slate-950 uppercase">
                             Screening Passed
                           </span>
                         </div>
@@ -1096,13 +1096,13 @@ export default function Admin() {
                           <div className="flex items-center gap-2">
                             <span className="text-lg">💳</span>
                             <div>
-                              <p className="text-[11px] font-bold text-blue-400 uppercase tracking-wide">Agent Connection Fee</p>
+                              <p className="text-sm font-bold text-blue-400 uppercase tracking-wide">Agent Connection Fee</p>
                               <p className="text-xs font-semibold text-slate-200">
                                 {deal.agentFeePaid ? '₹250 Paid by Farmer' : '₹250 Payment Pending'}
                               </p>
                             </div>
                           </div>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                          <span className={`px-2 py-0.5 rounded text-xs font-black uppercase ${
                             deal.agentFeePaid
                               ? 'bg-blue-500 text-white'
                               : 'bg-slate-700 text-slate-300'
@@ -1178,7 +1178,7 @@ export default function Admin() {
                             <span className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
                               <span>📷</span> Uploaded Crop Photos ({images.length})
                             </span>
-                            <span className="text-[11px] text-slate-500">Click any photo to zoom in full screen</span>
+                            <span className="text-sm text-slate-500">Click any photo to zoom in full screen</span>
                           </div>
                           <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2.5">
                             {images.map((img, idx) => (
@@ -1208,7 +1208,7 @@ export default function Admin() {
                             <span className="text-xs font-black uppercase text-emerald-400 tracking-wider flex items-center gap-1.5">
                               <span>🧾</span> Sale Payment Proof & UTR Reference
                             </span>
-                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase ${
                               deal.status === 'COMPLETED'
                                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                                 : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
@@ -1241,7 +1241,7 @@ export default function Admin() {
                                   {deal.utrNumber || 'No UTR typed'}
                                 </span>
                               </p>
-                              <p className="text-[11px] text-slate-400">
+                              <p className="text-sm text-slate-400">
                                 Uploaded by farmer after receiving payment from buyer.
                               </p>
                             </div>
@@ -1384,7 +1384,7 @@ export default function Admin() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Stage 1: Personal Details */}
                   <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2">
-                    <h4 className="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <h4 className="text-sm font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                       <span>👤 Stage 1: Applicant Information</span>
                     </h4>
                     <div className="space-y-1 text-slate-300">
@@ -1396,7 +1396,7 @@ export default function Admin() {
 
                   {/* Stage 2 & 3: Business & Buyer Type */}
                   <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2">
-                    <h4 className="text-[11px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <h4 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
                       <span>🏢 Stage 2 & 3: Business Profile</span>
                     </h4>
                     <div className="space-y-1 text-slate-300">
@@ -1410,7 +1410,7 @@ export default function Admin() {
 
                   {/* Stage 4: Location */}
                   <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2">
-                    <h4 className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <h4 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
                       <span>📍 Stage 4: Operating Location</span>
                     </h4>
                     <div className="space-y-1 text-slate-300">
@@ -1423,7 +1423,7 @@ export default function Admin() {
 
                   {/* Stage 5 & 6: Commodities & Radius */}
                   <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2">
-                    <h4 className="text-[11px] font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <h4 className="text-sm font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
                       <span>🌾 Stage 5 & 6: Products & Trading Radius</span>
                     </h4>
                     <div className="space-y-1 text-slate-300">
@@ -1432,7 +1432,7 @@ export default function Admin() {
                       {selectedKycApp.commodities && selectedKycApp.commodities.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5 pt-1">
                           {selectedKycApp.commodities.map((c, i) => (
-                            <span key={i} className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[10px] font-bold">
+                            <span key={i} className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 text-xs font-bold">
                               {c.name} {c.offerPrice ? `(₹${c.offerPrice}/${c.unit || 'Qtl'})` : ''}
                             </span>
                           ))}
@@ -1450,7 +1450,7 @@ export default function Admin() {
                     <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
                       <span>📑 Stage 7 & 8: Uploaded Documents & Image Proofs</span>
                     </h4>
-                    <span className="text-slate-500 text-[10px]">Click image thumbnail to inspect full resolution</span>
+                    <span className="text-slate-500 text-xs">Click image thumbnail to inspect full resolution</span>
                   </div>
 
                   {(!selectedKycApp.documents || Object.values(selectedKycApp.documents).filter(Boolean).length === 0) ? (
@@ -1475,7 +1475,7 @@ export default function Admin() {
                         return (
                           <div key={doc.key} className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2 flex flex-col justify-between">
                             <div>
-                              <span className="text-[10px] font-bold text-slate-400 uppercase block truncate mb-1">
+                              <span className="text-xs font-bold text-slate-400 uppercase block truncate mb-1">
                                 {doc.label}
                               </span>
                               {isImage ? (
@@ -1491,7 +1491,7 @@ export default function Admin() {
                               ) : (
                                 <div className="w-full h-32 rounded-lg bg-slate-950 border border-slate-800 flex flex-col items-center justify-center text-slate-400 p-2 text-center">
                                   <span className="text-2xl mb-1">📄</span>
-                                  <span className="text-[10px] truncate max-w-[150px]">Document File</span>
+                                  <span className="text-xs truncate max-w-[150px]">Document File</span>
                                 </div>
                               )}
                             </div>
@@ -1501,7 +1501,7 @@ export default function Admin() {
                               target="_blank"
                               rel="noreferrer"
                               download={`${selectedKycApp.applicantName}_${doc.key}`}
-                              className="text-center py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg text-[10px] transition block"
+                              className="text-center py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg text-xs transition block"
                             >
                               Download / Open File ↗
                             </a>
@@ -1514,7 +1514,7 @@ export default function Admin() {
 
                 {/* Stage 9: Declaration & Review Audit */}
                 <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 text-slate-400 text-xs space-y-1">
-                  <h4 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2">
+                  <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-2">
                     ⚖️ Stage 9: Declaration & Audit
                   </h4>
                   <div>Submitted On: {selectedKycApp.submittedAt ? new Date(selectedKycApp.submittedAt).toLocaleString('en-IN') : 'N/A'}</div>

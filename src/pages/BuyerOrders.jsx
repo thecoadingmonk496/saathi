@@ -92,15 +92,15 @@ export default function BuyerOrders() {
                   <h3 className="text-xl font-black text-[var(--saathi-text)]">{order.product}</h3>
                   <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <p className="text-[var(--saathi-text-muted)] font-semibold uppercase text-[10px]">Farmer</p>
+                      <p className="text-[var(--saathi-text-muted)] font-semibold uppercase text-xs">Farmer</p>
                       <p className="font-bold text-[var(--saathi-text)]">{order.sellerId?.firstName} {order.sellerId?.lastName}</p>
                     </div>
                     <div>
-                      <p className="text-[var(--saathi-text-muted)] font-semibold uppercase text-[10px]">Price</p>
+                      <p className="text-[var(--saathi-text-muted)] font-semibold uppercase text-xs">Price</p>
                       <p className="font-bold text-[var(--saathi-primary)]">₹{order.price.toLocaleString('en-IN')}/qtl</p>
                     </div>
                     <div>
-                      <p className="text-[var(--saathi-text-muted)] font-semibold uppercase text-[10px]">Location</p>
+                      <p className="text-[var(--saathi-text-muted)] font-semibold uppercase text-xs">Location</p>
                       <p className="font-bold text-[var(--saathi-text)] truncate" title={order.location}>{order.location}</p>
                     </div>
                   </div>

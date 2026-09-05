@@ -91,7 +91,7 @@ async function applyBuyer(req, res) {
 
     // --- Commodities ---
     const commodities = Array.isArray(body.commodities) ? body.commodities : [];
-    if (commodities.length === 0) return res.status(400).json({ success: false, message: 'Please select at least one crop / commodity' });
+    
 
     const cleanedCommodities = commodities.map((item) => {
       const name = clean(item.name);
@@ -116,7 +116,7 @@ async function applyBuyer(req, res) {
       };
     }).filter((item) => item.name);
 
-    if (cleanedCommodities.length === 0) return res.status(400).json({ success: false, message: 'Please select at least one valid crop / commodity' });
+    
 
     // --- Preferred Purchase Radius ---
     const preferredPurchaseRadius = clean(body.preferredPurchaseRadius || '25');

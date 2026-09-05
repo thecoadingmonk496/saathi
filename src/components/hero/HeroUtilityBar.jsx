@@ -16,7 +16,7 @@ export default function HeroUtilityBar() {
         </a>
 
         {/* Right Info Note */}
-        <div className="text-[11px] font-medium text-slate-300 hidden sm:block">
+        <div className="text-sm font-medium text-slate-300 hidden sm:block">
           🌾 Public Farmer Services & Live Mandi Intelligence
         </div>
       </div>

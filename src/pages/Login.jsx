@@ -207,7 +207,7 @@ export default function Login() {
             <span className="text-base sm:text-lg font-extrabold tracking-wider text-white">
               SAATHI
             </span>
-            <span className="hidden sm:block text-[10px] font-bold text-[#52b788] leading-tight">
+            <span className="hidden sm:block text-xs font-bold text-[#52b788] leading-tight">
               Aapki Aawaz, Aapka Bazaar
             </span>
           </div>

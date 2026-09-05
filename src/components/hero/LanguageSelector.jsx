@@ -71,7 +71,7 @@ export default function LanguageSelector({ onOpenFullModal }) {
           aria-orientation="vertical"
           className="absolute right-0 mt-1.5 w-52 origin-top-right rounded-xl border border-[#E0E0E0] bg-[#0c1a29]/95 p-1.5 text-white shadow-2xl backdrop-blur-xl ring-1 ring-black/40 z-50 animate-in fade-in zoom-in-95 duration-150"
         >
-          <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-white/10">
+          <div className="px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-white/10">
             Choose Language / भाषा चुनें
           </div>
 
@@ -93,7 +93,7 @@ export default function LanguageSelector({ onOpenFullModal }) {
                 >
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">{lang.nativeName}</span>
-                    <span className="text-[11px] text-slate-400">({lang.name})</span>
+                    <span className="text-sm text-slate-400">({lang.name})</span>
                   </div>
                   {isSelected && <CheckIcon className="h-3.5 w-3.5 text-white" />}
                 </button>

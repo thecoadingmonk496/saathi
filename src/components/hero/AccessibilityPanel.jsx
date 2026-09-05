@@ -141,7 +141,7 @@ export default function AccessibilityPanel({ isOpen, onClose }) {
       <div className="py-3 space-y-3.5">
         {/* 1. Text Size Scaling */}
         <div>
-          <span className="block font-bold text-[var(--saathi-text-secondary)] mb-1.5 uppercase tracking-wide text-[10px]">
+          <span className="block font-bold text-[var(--saathi-text-secondary)] mb-1.5 uppercase tracking-wide text-xs">
             Text Size ({Math.round(fontScale * 100)}%)
           </span>
           <div className="grid grid-cols-3 gap-1.5">
@@ -219,7 +219,7 @@ export default function AccessibilityPanel({ isOpen, onClose }) {
         <button
           type="button"
           onClick={handleResetAll}
-          className="flex items-center gap-1 text-[11px] font-semibold text-[var(--saathi-text-secondary)] hover:text-[var(--saathi-text)] transition"
+          className="flex items-center gap-1 text-sm font-semibold text-[var(--saathi-text-secondary)] hover:text-[var(--saathi-text)] transition"
         >
           <ArrowPathIcon className="h-3 w-3" />
           <span>Reset Settings</span>

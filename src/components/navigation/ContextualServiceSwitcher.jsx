@@ -23,7 +23,7 @@ export const SERVICE_GROUPS = {
       },
       {
         id: 'explorer',
-        title: 'Market Explorer',
+        title: 'Crop Journey',
         description: 'Explore crop journeys',
         path: '/explorer',
         icon: PresentationChartLineIcon,
@@ -107,10 +107,10 @@ export default function ContextualServiceSwitcher() {
     >
       {/* Product Group Header */}
       <div className="mb-2.5 flex items-center justify-between border-b border-[#E0E0E0]/60 pb-1.5">
-        <span className="text-[11px] font-black uppercase tracking-wider text-[#424242]">
+        <span className="text-sm font-black uppercase tracking-wider text-[#424242]">
           {currentGroup.title}
         </span>
-        <span className="text-[10px] font-semibold text-[#616161] hidden sm:inline">
+        <span className="text-xs font-semibold text-[#616161] hidden sm:inline">
           Related Services
         </span>
       </div>

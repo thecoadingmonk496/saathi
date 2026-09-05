@@ -9,8 +9,7 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   SparklesIcon,
-  PlusIcon,
-  MicrophoneIcon
+  PlusIcon
 } from '@heroicons/react/24/outline';
 
 export default function Profile() {
@@ -20,58 +19,26 @@ export default function Profile() {
 
   // Profile form state
   const [profile, setProfile] = useState({
-    name: user.name || (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : (user.firstName || user.lastName || "")),
-    mobile: user.mobile || user.phone ,
-    farmerId: user.farmerId || "",
-    village: user.village || address?.locality ,
-    block: user.block || address?.city ,
-    district: user.district || address?.district ,
-    state: user.state || address?.state ,
-    landHolding: user.landHolding || "",
-    khasraNo: user.khasraNo || "",
-    primaryCrops: user.primaryCrops || "",
-    varieties: user.varieties || "",
-    expectedYield: user.expectedYield || "",
-    mandiEstValue: user.mandiEstValue || "",
-    harvestWindow: user.harvestWindow || "",
-    mandiSlot: user.mandiSlot || "",
+    name: user.name || (user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : (user.firstName || user.lastName || 'Aryan Singh')),
+    mobile: user.mobile || user.phone || '9695929436',
+    farmerId: user.farmerId || 'UP-GBN-230491',
+    village: user.village || address?.locality || 'Bisrakh Jalalpur',
+    block: user.block || address?.city || 'Dadri',
+    district: user.district || address?.district || 'Gautam Buddha Nagar',
+    state: user.state || address?.state || 'Uttar Pradesh',
+    landHolding: user.landHolding || '4.5 Acres (18 Bigha)',
+    khasraNo: user.khasraNo || '412/1',
+    primaryCrops: user.primaryCrops || 'Wheat & Mustard',
+    varieties: user.varieties || 'Sharbati (HD-3086), Pusa Bold',
+    expectedYield: user.expectedYield || '120 - 140 Quintals',
+    mandiEstValue: user.mandiEstValue || '₹2.85 - 3.2L',
+    harvestWindow: user.harvestWindow || 'Mar 25 - Apr 10',
+    mandiSlot: user.mandiSlot || 'APMC Dadri Mandi',
   });
 
   const [profileImage, setProfileImage] = useState(user.profileImage || '');
   const [saveMessage, setSaveMessage] = useState('');
   const [copiedId, setCopiedId] = useState(false);
-
-  const [isListening, setIsListening] = useState(false);
-  const [activeVoiceField, setActiveVoiceField] = useState(null);
-
-  const startVoiceDictation = (fieldName) => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      setSaveMessage('Voice dictation is not supported in this browser.');
-      return;
-    }
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'hi-IN'; // Defaulting to Hindi/Indian accents
-    recognition.continuous = false;
-    
-    recognition.onstart = () => {
-      setIsListening(true);
-      setActiveVoiceField(fieldName);
-    };
-    
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setProfile(prev => ({ ...prev, [fieldName]: transcript }));
-    };
-    
-    recognition.onend = () => {
-      setIsListening(false);
-      setActiveVoiceField(null);
-    };
-    
-    recognition.start();
-  };
-
 
   // Modals state
   const [activeModal, setActiveModal] = useState(null); // 'land', 'crop', 'yield', 'gatepass'
@@ -178,14 +145,14 @@ export default function Profile() {
   };
 
   const handleCopyFarmerId = () => {
-    navigator.clipboard.writeText(profile.farmerId );
+    navigator.clipboard.writeText(profile.farmerId || 'UP-GBN-230491');
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 3000);
   };
 
   const handleSave = (e) => {
     if (e) e.preventDefault();
-    if (!(profile.name || "").trim() || !(profile.mobile || "").trim()) {
+    if (!profile.name.trim() || !profile.mobile.trim()) {
       setSaveMessage('Full name and mobile number are required.');
       return;
     }
@@ -193,8 +160,8 @@ export default function Profile() {
     const updatedUser = {
       ...user,
       ...profile,
-      name: (profile.name || "").trim(),
-      mobile: (profile.mobile || "").trim(),
+      name: profile.name.trim(),
+      mobile: profile.mobile.trim(),
       profileImage,
     };
 
@@ -205,21 +172,21 @@ export default function Profile() {
 
   const handleReset = () => {
     setProfile({
-      name: user.name || "",
-      mobile: user.mobile || "",
-      farmerId: user.farmerId || "",
-      village: user.village || "",
-      block: user.block || "",
-      district: user.district || "",
-      state: user.state || "",
-      landHolding: user.landHolding || "",
-      khasraNo: user.khasraNo || "",
-      primaryCrops: user.primaryCrops || "",
-      varieties: user.varieties || "",
-      expectedYield: user.expectedYield || "",
-      mandiEstValue: user.mandiEstValue || "",
-      harvestWindow: user.harvestWindow || "",
-      mandiSlot: user.mandiSlot || "",
+      name: user.name || 'Aryan Singh',
+      mobile: user.mobile || '9695929436',
+      farmerId: user.farmerId || 'UP-GBN-230491',
+      village: user.village || 'Bisrakh Jalalpur',
+      block: user.block || 'Dadri',
+      district: user.district || 'Gautam Buddha Nagar',
+      state: user.state || 'Uttar Pradesh',
+      landHolding: user.landHolding || '4.5 Acres (18 Bigha)',
+      khasraNo: user.khasraNo || '412/1',
+      primaryCrops: user.primaryCrops || 'Wheat & Mustard',
+      varieties: user.varieties || 'Sharbati (HD-3086), Pusa Bold',
+      expectedYield: user.expectedYield || '120 - 140 Quintals',
+      mandiEstValue: user.mandiEstValue || '₹2.85 - 3.2L',
+      harvestWindow: user.harvestWindow || 'Mar 25 - Apr 10',
+      mandiSlot: user.mandiSlot || 'APMC Dadri Mandi',
     });
     setProfileImage(user.profileImage || '');
     setSaveMessage('Form fields reset to saved values.');
@@ -237,11 +204,59 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-slate-50/90 py-6 px-3 sm:px-6 lg:px-8 text-slate-800 font-sans">
       
-
+      {/* Top Portal Institutional Sub-Header */}
+      <div className="max-w-4xl mx-auto mb-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600 px-1">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 font-bold tracking-tight text-slate-800 text-sm">
+            <span className="w-6 h-6 rounded-md bg-emerald-800 text-white flex items-center justify-center text-xs font-black shadow-sm">🌱</span>
+            <span>SAATHI <span className="text-emerald-700 font-semibold">AgriPortal</span></span>
+          </div>
+          <span className="text-slate-300">|</span>
+          <span className="hidden sm:inline font-medium text-slate-500">Ministry of Agriculture & Farmers Welfare</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-800 bg-emerald-100/70 border border-emerald-200 px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+            AgriStack Connected
+          </span>
+          <span className="text-slate-400 text-xs hidden sm:inline">Helpdesk: 1800-180-1551</span>
+        </div>
+      </div>
 
       <main className="max-w-4xl mx-auto space-y-6">
         
-        
+        {/* Alert Banner for incomplete / verification status */}
+        <section className="relative overflow-hidden bg-gradient-to-r from-amber-50 via-amber-50/95 to-orange-50/80 border border-amber-200/90 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all">
+          <div className="flex items-start gap-3.5">
+            <div className="flex-shrink-0 p-2.5 bg-amber-100/90 text-amber-800 rounded-xl border border-amber-200/60">
+              <ExclamationTriangleIcon className="w-5 h-5 text-amber-800" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-sm sm:text-base font-bold text-amber-950 tracking-tight">
+                  Profile Status • Land Holding & Verification Records
+                </h2>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-200 text-amber-900">
+                  AgriStack Active
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-amber-900/80 mt-1 leading-relaxed">
+                Link your RoR / Khasra-Khatauni records to unlock direct APMC mandi spot sales & MSP procurement.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-stretch sm:self-center shrink-0 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={handleGpsAutofill}
+              disabled={locationLoading}
+              className="inline-flex items-center justify-center gap-2 w-full sm:w-auto text-xs font-semibold px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white shadow-sm transition-all cursor-pointer"
+            >
+              <MapPinIcon className={`w-4 h-4 text-amber-200 ${locationLoading ? 'animate-spin' : ''}`} />
+              <span>{locationLoading ? 'Locating...' : 'Autofill via GPS & Land Registry'}</span>
+            </button>
+          </div>
+        </section>
 
         {/* Identity Header Card */}
         <section className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
@@ -257,7 +272,7 @@ export default function Profile() {
                     <img src={profileImage} alt={profile.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   ) : (
                     <img 
-                      src="https://images.unsplash.com/photo-1558222218-b7b54eede3f3?w=800&q=80" 
+                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBkWiB687SdznjItVd0tiaOYNtVXumcH2joLtn9iI1YPFQFZJWdnQmJ2Y-8WPTPOIjM4FsDUossPU0fI-IX9nNmKiu_I10gE_oSLM6BPeVfGLezJT_iy5RR2bfrSjhX4_ntciwoUj2AM5Flj3j0jFAg5fR_gQTgDBnrf8OmBTw8s3XaXv3FCkl9tOXIwugAK1MBH1U9WuynKv66BkfAok18jqwjStazkTzL9t_XjWsBngNvC3uQDlX" 
                       alt="Farmer Portrait" 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
@@ -272,12 +287,23 @@ export default function Profile() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{profile.name}</h1>
-                  
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300/80">
+                    <CheckCircleIcon className="w-3.5 h-3.5 text-emerald-600" />
+                    Aadhaar e-KYC Verified
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                    PM-KISAN Registered (DBT Active)
+                  </span>
                 </div>
 
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
-                  <div className="inline-flex items-center gap-1.5 font-medium text-slate-700 bg-emerald-100 px-3 py-1 rounded-md border border-emerald-200 shadow-sm">
-                    <span className="font-bold text-emerald-900 uppercase tracking-wider">{user?.role === "BUYER" ? "Buyer" : "Farmer"}</span>
+                  <div className="inline-flex items-center gap-1.5 font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                    <span className="text-slate-500">Farmer ID:</span>
+                    <span className="font-bold text-slate-900 tracking-wide font-mono">{profile.farmerId}</span>
+                    <button type="button" onClick={handleCopyFarmerId} className="text-slate-400 hover:text-slate-600 ml-0.5" title="Copy Farmer ID">
+                      <ClipboardDocumentIcon className="w-3.5 h-3.5" />
+                    </button>
+                    {copiedId && <span className="text-[10px] text-emerald-600 font-bold">Copied!</span>}
                   </div>
                   <span className="text-slate-600 font-medium">Member since <strong>Kharif 2022</strong></span>
                   <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
@@ -300,7 +326,7 @@ export default function Profile() {
                   <SparklesIcon className="w-3.5 h-3.5 text-emerald-700" />
                   Profile Strength
                 </span>
-                <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-sm">
+                <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-[11px]">
                   {strengthPct}% Completed
                 </span>
               </div>
@@ -310,7 +336,12 @@ export default function Profile() {
                   style={{ width: `${strengthPct}%` }}
                 ></div>
               </div>
-              
+              <div className="mt-2.5 pt-2 border-t border-slate-200/80 flex items-start gap-1.5">
+                <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-1 rounded uppercase shrink-0">+15%</span>
+                <p className="text-[11px] text-slate-600 leading-snug">
+                  Add Land Patta / Khasra No. to reach 100% and unlock instant e-NAM direct auctions.
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -330,7 +361,12 @@ export default function Profile() {
                   <p className="text-xs text-slate-500">Official identification synced with AgriStack & Land Revenue records</p>
                 </div>
               </div>
-
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">Step 1 of 2</span>
+                <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-emerald-700 font-medium">
+                  <CheckCircleIcon className="w-3.5 h-3.5" /> Synced with UIDAI
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -340,7 +376,7 @@ export default function Profile() {
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider" htmlFor="name">
                     Full Name <span className="text-rose-500">*</span>
                   </label>
-                  <span className="text-xs text-slate-400 font-medium">As per Aadhaar</span>
+                  <span className="text-[10px] text-slate-400 font-medium">As per Aadhaar</span>
                 </div>
                 <input 
                   id="name"
@@ -359,7 +395,7 @@ export default function Profile() {
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider" htmlFor="mobile">
                     Mobile Number <span className="text-rose-500">*</span>
                   </label>
-                  <span className="text-xs text-emerald-700 font-medium">SMS Alerts Active</span>
+                  <span className="text-[10px] text-emerald-700 font-medium">SMS Alerts Active</span>
                 </div>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-sm font-semibold text-slate-500">+91</span>
@@ -373,16 +409,40 @@ export default function Profile() {
                     className="w-full rounded-xl border border-slate-300 pl-12 pr-24 py-2.5 text-sm text-slate-900 font-semibold focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition outline-none"
                   />
                   <span className="absolute inset-y-0 right-2 flex items-center">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-sm font-semibold bg-emerald-100 text-emerald-800">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800">
                       <CheckCircleIcon className="w-3 h-3 text-emerald-700" /> Verified
                     </span>
                   </span>
                 </div>
               </div>
 
+              {/* Farmer ID (Read-only) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider" htmlFor="farmerId">
+                  Farmer Unique ID (UP-AgriStack)
+                </label>
+                <div className="relative">
+                  <input 
+                    id="farmerId"
+                    name="farmerId"
+                    type="text" 
+                    value={profile.farmerId} 
+                    readOnly
+                    className="w-full rounded-xl border border-slate-200 bg-slate-100/80 pl-3.5 pr-12 py-2.5 text-sm font-bold text-slate-800 font-mono cursor-not-allowed outline-none"
+                  />
+                  <button 
+                    type="button"
+                    onClick={handleCopyFarmerId}
+                    className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600" 
+                    title="Copy Farmer ID"
+                  >
+                    <ClipboardDocumentIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
 
               {/* Village / Town */}
-              <div className="relative">
+              <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider" htmlFor="village">
                     Village / Town <span className="text-rose-500">*</span>
@@ -390,9 +450,9 @@ export default function Profile() {
                   <button 
                     type="button" 
                     onClick={handleGpsAutofill} 
-                    className="text-sm text-emerald-700 font-medium hover:underline flex items-center gap-0.5"
+                    className="text-[11px] text-emerald-700 font-medium hover:underline flex items-center gap-0.5"
                   >
-                    <MapPinIcon className={`w-3 h-3 ${locationLoading ? "animate-spin" : ""}`} /> {locationLoading ? "Locating..." : "Auto-Detect Location (GPS)"}
+                    <MapPinIcon className="w-3 h-3" /> Pin on Map
                   </button>
                 </div>
                 <input 
@@ -404,13 +464,10 @@ export default function Profile() {
                   placeholder="e.g. Bisrakh Jalalpur"
                   className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition bg-white outline-none"
                 />
-                <button type="button" onClick={() => startVoiceDictation("village")} className={`absolute right-3 top-[34px] p-1.5 rounded-full shadow-sm bg-white border border-slate-200 ${activeVoiceField === "village" ? "bg-emerald-50 text-emerald-600 animate-pulse border-emerald-300" : "text-slate-400 hover:text-emerald-600 hover:border-emerald-300"}`}>
-                  <MicrophoneIcon className="w-3.5 h-3.5" />
-                </button>
               </div>
 
               {/* Block / Tehsil */}
-              <div className="relative">
+              <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider" htmlFor="block">
                   Block / Tehsil
                 </label>
@@ -423,9 +480,6 @@ export default function Profile() {
                   placeholder="e.g. Dadri"
                   className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition outline-none"
                 />
-                <button type="button" onClick={() => startVoiceDictation("block")} className={`absolute right-3 top-[28px] p-1.5 rounded-full shadow-sm bg-white border border-slate-200 ${activeVoiceField === "block" ? "bg-emerald-50 text-emerald-600 animate-pulse border-emerald-300" : "text-slate-400 hover:text-emerald-600 hover:border-emerald-300"}`}>
-                  <MicrophoneIcon className="w-3.5 h-3.5" />
-                </button>
               </div>
 
               {/* District */}
@@ -464,7 +518,7 @@ export default function Profile() {
                   <option value="Maharashtra">Maharashtra</option>
                   <option value="Gujarat">Gujarat</option>
                 </select>
-                <p className="mt-2 text-sm text-slate-500 flex items-center gap-1.5">
+                <p className="mt-2 text-[11px] text-slate-500 flex items-center gap-1.5">
                   <CheckCircleIcon className="w-3.5 h-3.5 text-slate-400" />
                   Details synchronized with PM-KISAN, AgriStack & Uttar Pradesh Bhulekh Revenue Records.
                 </p>
@@ -472,9 +526,7 @@ export default function Profile() {
             </div>
           </section>
 
-          {user?.role !== "BUYER" && (
-<>
-{/* Section 2: Agricultural Holdings & Produce */}
+          {/* Section 2: Agricultural Holdings & Produce */}
           <section className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-7 shadow-sm">
             <div className="border-b border-slate-100 pb-4 mb-6 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -509,18 +561,18 @@ export default function Profile() {
                         <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
                       </svg>
                     </div>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                       Verified
                     </span>
                   </div>
-                  <span className="text-sm font-bold text-slate-500 uppercase tracking-wider block">Land Holding</span>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Land Holding</span>
                   <div className="mt-1 text-base font-extrabold text-slate-900 leading-tight">
                     {profile.landHolding}
                   </div>
-                  <p className="mt-1 text-sm text-slate-600">Irrigated Canal Land • Khasra {profile.khasraNo}</p>
+                  <p className="mt-1 text-[11px] text-slate-600">Irrigated Canal Land • Khasra {profile.khasraNo}</p>
                 </div>
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-sm text-slate-400">RoR Attached</span>
+                  <span className="text-[11px] text-slate-400">RoR Attached</span>
                   <button 
                     type="button" 
                     onClick={() => setActiveModal('land')} 
@@ -540,24 +592,24 @@ export default function Profile() {
                         <path d="M12 3v18m0-18C8.5 7 7 11 7 15m5-12c3.5 4 5 8 5 12m-5-8c-2 2-3 4-3 7m3-7c2 2 3 4 3 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
                       </svg>
                     </div>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
                       Rabi 2024-25
                     </span>
                   </div>
-                  <span className="text-sm font-bold text-slate-500 uppercase tracking-wider block">Primary Crops</span>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Primary Crops</span>
                   <div className="mt-1 text-base font-extrabold text-slate-900 leading-tight">
                     {profile.primaryCrops}
                   </div>
                   <div className="mt-1.5 flex flex-wrap gap-1">
-                    {(profile.varieties || "").split(',').map((v, i) => (
-                      <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                    {profile.varieties.split(',').map((v, i) => (
+                      <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
                         {v.trim()}
                       </span>
                     ))}
                   </div>
                 </div>
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-sm text-slate-400">Active Season</span>
+                  <span className="text-[11px] text-slate-400">Active Season</span>
                   <button 
                     type="button" 
                     onClick={() => setActiveModal('crop')} 
@@ -577,18 +629,18 @@ export default function Profile() {
                         <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
                       </svg>
                     </div>
-                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
                       +8% YoY
                     </span>
                   </div>
-                  <span className="text-sm font-bold text-slate-500 uppercase tracking-wider block">Expected Yield</span>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Expected Yield</span>
                   <div className="mt-1 text-base font-extrabold text-slate-900 leading-tight">
                     {profile.expectedYield}
                   </div>
-                  <p className="mt-1 text-sm text-slate-600">Est. Mandi Value: <strong className="text-slate-800 font-bold">{profile.mandiEstValue}</strong></p>
+                  <p className="mt-1 text-[11px] text-slate-600">Est. Mandi Value: <strong className="text-slate-800 font-bold">{profile.mandiEstValue}</strong></p>
                 </div>
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-sm text-slate-400">MSP Guaranteed</span>
+                  <span className="text-[11px] text-slate-400">MSP Guaranteed</span>
                   <button 
                     type="button" 
                     onClick={() => setActiveModal('yield')} 
@@ -608,18 +660,18 @@ export default function Profile() {
                         <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
                       </svg>
                     </div>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-800">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">
                       18 Days Left
                     </span>
                   </div>
-                  <span className="text-sm font-bold text-slate-500 uppercase tracking-wider block">Harvest Window</span>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Harvest Window</span>
                   <div className="mt-1 text-base font-extrabold text-slate-900 leading-tight">
                     {profile.harvestWindow}
                   </div>
-                  <p className="mt-1 text-sm text-slate-600">Pre-book {profile.mandiSlot} slot</p>
+                  <p className="mt-1 text-[11px] text-slate-600">Pre-book {profile.mandiSlot} slot</p>
                 </div>
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-sm text-emerald-600 font-medium">Slots Open</span>
+                  <span className="text-[11px] text-emerald-600 font-medium">Slots Open</span>
                   <button 
                     type="button" 
                     onClick={() => setActiveModal('gatepass')} 
@@ -632,8 +684,6 @@ export default function Profile() {
 
             </div>
           </section>
-</>
-)}
 
           {/* Action Footer */}
           <footer className="pt-2 pb-6 space-y-4">
@@ -822,7 +872,7 @@ export default function Profile() {
                 <h3 className="text-lg font-bold text-slate-900 mb-1">Gate Pass Issued!</h3>
                 <p className="text-xs text-slate-500 mb-4">Present this digital pass at the APMC Mandi entry gate.</p>
                 <div className="p-4 bg-slate-900 text-white rounded-xl font-mono text-center mb-6">
-                  <span className="text-xs text-slate-400 block uppercase">Ticket Pass No.</span>
+                  <span className="text-[10px] text-slate-400 block uppercase">Ticket Pass No.</span>
                   <span className="text-xl font-bold text-emerald-400">{gatePassTicket}</span>
                 </div>
                 <button 

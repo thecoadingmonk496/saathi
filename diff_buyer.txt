@@ -1,0 +1,259 @@
+diff --git a/src/components/buyer-discovery/BuyerDashboard.jsx b/src/components/buyer-discovery/BuyerDashboard.jsx
+index 3620089..e064aec 100644
+--- a/src/components/buyer-discovery/BuyerDashboard.jsx
++++ b/src/components/buyer-discovery/BuyerDashboard.jsx
+@@ -209,31 +209,47 @@ export default function BuyerDashboard() {
+   };
+ 
+   /* ── render guards ── */
+   if (loading && requests.length === 0 && allPublishedRequests.length === 0) {
+     return <div className="text-center py-16 text-gray-400 font-semibold">Loading Buyer Dashboard…</div>;
+   }
+ 
+   /* ── main dashboard ── */
+   return (
+     <div className="space-y-8">
++      {/* ── KYC / PROFILE DETAILS SECTION ── */}
++      {appStatus === 'NOT_FOUND' ? (
++        <section className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 relative overflow-hidden">
++          <div className="relative z-10 mb-6">
++            <h2 className="text-2xl font-extrabold text-gray-900">Register Details to Publish</h2>
++            <p className="text-sm text-gray-500 mt-1">Please complete your business verification profile. This information helps farmers trust your requirements.</p>
++          </div>
++          <div className="relative z-10 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
++            <BuyerRegister embedded={true} onSuccess={() => setAppStatus('FOUND')} />
++          </div>
++        </section>
++      ) : appStatus === 'FOUND' ? (
++        <section className="bg-emerald-50 rounded-2xl border border-emerald-200 shadow-sm p-4 sm:p-6 flex items-center justify-between">
++          <div>
++            <h2 className="text-lg font-bold text-emerald-900 flex items-center gap-2">
++              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
++              Business Details Verified
++            </h2>
++            <p className="text-sm text-emerald-700 mt-0.5">Your buyer profile is complete and approved. You can now publish requirements.</p>
++          </div>
++        </section>
++      ) : null}
++
+       {/* ── TOP SECTION: Registration for Publish Form ── */}
+-      <section className="bg-white rounded-3xl border-2 border-red-100 shadow-md p-6 sm:p-8 relative overflow-hidden">
+-        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-red-50 to-amber-50 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+-        
++      <section className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 relative overflow-hidden">
+         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 relative z-10">
+           <div>
+-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 border border-red-200 text-red-800 text-xs font-bold uppercase tracking-wider mb-2">
+-              <span>🌾 Step 1 in Workflow</span>
+-              <span>•</span>
+-              <span>Buyer Registration for Publish</span>
+-            </div>
+             <h2 className="text-2xl font-extrabold text-gray-900">
+               {editingRequestId ? '✏️ Edit & Re-Apply for Verification' : 'Register Crop Requirement for Publish'}
+             </h2>
+             <p className="text-sm text-gray-500 mt-1">
+               Submit your procurement demand. It will go directly to the <strong>Saathi Admin Panel for verification</strong>. Once approved, it will be published to verified farmers.
+             </p>
+           </div>
+ 
+           <button
+             type="button"
+@@ -588,102 +604,129 @@ export default function BuyerDashboard() {
+       {/* ─── TAB 2: Marketplace Publications (Browse-only for buyers) ─── */}
+       {activeTab === 'marketplace' && (
+         <div className="space-y-4">
+           <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-4">
+             <div>
+               <h3 className="text-sm font-bold text-gray-900">Marketplace Demand Stream</h3>
+               <p className="text-xs text-gray-500 mt-0.5">
+                 All currently active publications from buyers across India. As a buyer, you can browse demands here to assess price trends.
+               </p>
+             </div>
+-            <span className="px-3 py-1.5 rounded-xl bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold shrink-0">
+-              🔒 Read-Only (Farmers submit offers)
+-            </span>
+           </div>
+ 
+           {allPublishedRequests.length === 0 ? (
+             <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
+               <p className="text-gray-400 font-semibold">No other publications live on the marketplace right now.</p>
+             </div>
+           ) : (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+               {allPublishedRequests.map(pub => (
+-                <div key={pub._id} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:shadow-md transition">
+-                  <div className="flex items-start justify-between gap-3 mb-3">
+-                    <div>
+-                      <span className="text-xs font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+-                        ● Verified Publication
+-                      </span>
+-                      <h4 className="text-lg font-bold text-gray-900 mt-1.5">{pub.crop}</h4>
+-                      <p className="text-xs text-gray-500">📍 {pub.location || 'India'}</p>
+-                    </div>
+-                    <div className="text-right">
+-                      <p className="text-xl font-extrabold text-gray-900">{pub.quantity} <span className="text-xs font-bold text-gray-400">Qtl</span></p>
+-                      <p className="text-xs font-bold text-red-700">₹{Number(pub.offeredPrice).toLocaleString('en-IN')}/Qtl</p>
+-                    </div>
+-                  </div>
+-
+-                  {pub.description && (
+-                    <p className="text-xs text-gray-600 bg-gray-50 p-2.5 rounded-xl line-clamp-2 mb-3">
+-                      {pub.description}
+-                    </p>
+-                  )}
+-
+-                  <div className="border-t border-gray-100 pt-3 flex items-center justify-between text-[11px] text-gray-400">
+-                    <span>Buyer: {pub.buyerId?.firstName} {pub.buyerId?.lastName}</span>
+-                    <span className="text-gray-500 font-semibold italic">Farmer application only</span>
+-                  </div>
+-                </div>
+-              ))}
+-            </div>
+-          )}
+-        </div>
+-      )}
+-
+-      {/* ─── TAB 3: Deals Tab (full DealTracker cards) ─── */}
+-      {activeTab === 'deals' && (
+-        <div className="space-y-6">
+-          {deals.length === 0 ? (
+-            <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
+-              <p className="text-gray-400 font-semibold">No active deals.</p>
+-            </div>
+-          ) : (
+-            <>
+-              {selectedDeal ? (
+-                <div>
+-                  <button onClick={() => setSelectedDeal(null)} className="mb-4 text-sm font-bold text-red-700 hover:underline">← Back to all deals</button>
+-                  <DealTracker deal={selectedDeal} userRole="BUYER" onRefresh={() => { setSelectedDeal(null); fetchData(); }} />
+-                </div>
+-              ) : (
+-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+-                  {deals.map(deal => (
+-                    <div
+-                      key={deal._id}
+-                      onClick={() => setSelectedDeal(deal)}
+-                      className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-red-200 transition cursor-pointer"
+-                    >
+-                      <div className="flex items-center justify-between mb-4">
+-                        <div className="flex items-center gap-2.5">
+-                          <Avatar name={deal.farmerId?.firstName} size="sm" />
+-                          <div>
+-                            <p className="text-sm font-bold text-gray-900">{deal.farmerId?.firstName} {deal.farmerId?.lastName}</p>
+-                            <p className="text-xs text-gray-500">{deal.crop}</p>
++                <article key={pub._id} className="group relative bg-white rounded-2xl border border-gray-200 hover:border-slate-800/30 transition-all duration-200 hover:-translate-y-1 shadow-sm hover:shadow-md flex flex-col justify-between overflow-hidden">
++                    {/* Top Visual Indicator Line on Hover */}
++                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-slate-900 to-red-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
++            
++                    {/* Upper Card Content */}
++                    <div className="p-5 sm:p-6 space-y-4">
++                      
++                      {/* Header Meta Row */}
++                      <div className="flex items-center justify-between gap-2">
++                        {/* Category badge */}
++                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-800 text-[11px] font-semibold tracking-wide border border-slate-200">
++                          <span className="truncate max-w-[120px]">{pub.cropType || 'Commodity'}</span>
++                        </div>
++            
++                        {/* Verified Badge */}
++                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-800 text-[11px] font-semibold shadow-sm">
++                          <span className="flex items-center justify-center w-3.5 h-3.5 rounded-full bg-slate-800 text-white">
++                            <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
++                              <polyline points="20 6 9 17 4 12"></polyline>
++                            </svg>
++                          </span>
++                          <span>Verified</span>
++                        </div>
++                      </div>
++            
++                      {/* Crop Name & Location */}
++                      <div>
++                        <div className="flex items-baseline justify-between gap-2">
++                          <h2 className="text-2xl font-bold text-slate-900 tracking-tight group-hover:text-slate-700 transition-colors">
++                            {pub.crop}
++                          </h2>
++                        </div>
++                        <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-500">
++                          <svg className="w-3.5 h-3.5 text-red-600 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
++                            <path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd"></path>
++                          </svg>
++                          <span className="font-medium text-slate-800">{pub.location || 'India'}</span>
++                        </div>
++                      </div>
++            
++                      {/* Pricing & Quantity Box */}
++                      <div className="bg-gray-50 rounded-xl p-3.5 border border-gray-200 flex items-center justify-between gap-3">
++                        {/* Offered Price */}
++                        <div>
++                          <span className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500">Offered Price</span>
++                          <div className="flex items-baseline gap-1 mt-0.5">
++                            <span className="text-2xl sm:text-3xl font-extrabold text-red-600 tracking-tight">₹{Number(pub.offeredPrice).toLocaleString('en-IN')}</span>
++                            <span className="text-xs font-semibold text-slate-800/70">/Qtl</span>
++                          </div>
++                        </div>
++            
++                        {/* Divider */}
++                        <div className="h-9 w-px bg-gray-200"></div>
++            
++                        {/* Quantity Requested */}
++                        <div className="text-right">
++                          <span className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500">Quantity Req.</span>
++                          <div className="flex items-baseline justify-end gap-1 mt-0.5">
++                            <span className="text-xl sm:text-2xl font-bold text-slate-900">{pub.quantity}</span>
++                            <span className="text-xs font-medium text-gray-500">Qtl</span>
+                           </div>
+                         </div>
+-                        <span className="text-lg font-extrabold text-gray-900">{deal.quantity} <span className="text-xs font-bold text-gray-400">Qtl</span></span>
+                       </div>
+-                      <div className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2 mb-3">
+-                        <span className="text-gray-500 font-medium">Agreed Price</span>
+-                        <span className="font-bold text-gray-900">₹{Number(deal.agreedPrice).toLocaleString('en-IN')}/Qtl</span>
++            
++                      {/* Description / Note */}
++                      {pub.description ? (
++                        <div className="relative rounded-xl bg-white border border-gray-100 p-3 text-xs leading-relaxed text-gray-600 shadow-sm">
++                          <div className="flex items-start gap-2">
++                            <svg className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor">
++                              <path d="M4.583 17.321C3.553 16.227 3 15 3 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 01-3.5 3.5c-1.073 0-2.099-.49-2.748-1.179zm10 0C13.553 16.227 13 15 13 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 01-3.5 3.5c-1.073 0-2.099-.49-2.748-1.179z"></path>
++                            </svg>
++                            <p className="italic line-clamp-3">"{pub.description}"</p>
++                          </div>
++                        </div>
++                      ) : (
++                        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-3 text-xs flex items-center gap-2 text-gray-500">
++                          <svg className="w-4 h-4 text-gray-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
++                            <circle cx="12" cy="12" r="10"></circle>
++                            <line x1="12" y1="16" x2="12" y2="12"></line>
++                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
++                          </svg>
++                          <span className="italic">No special notes provided by buyer. Standard APMC quality parameters apply.</span>
++                        </div>
++                      )}
++            
++                    </div>
++            
++                    {/* Footer Section */}
++                    <div className="border-t border-gray-200 bg-gray-50/80 px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
++                      <div className="flex items-center gap-2">
++                        <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-[10px] uppercase">
++                          {pub.buyerId?.firstName?.charAt(0) || ''}{pub.buyerId?.lastName?.charAt(0) || ''}
++                        </div>
++                        <div className="text-xs">
++                          <span className="text-gray-500">Buyer:</span>
++                          <span className="font-semibold text-slate-900 ml-1">{pub.buyerId?.firstName} {pub.buyerId?.lastName}</span>
++                        </div>
+                       </div>
+-                      <MiniDealSteps status={deal.status} />
+                     </div>
+-                  ))}
++                  </article>
++                ))}
+                 </div>
+               )}
+             </>
+           )}
+         </div>
+       )}
+     </div>
+   );
+ }

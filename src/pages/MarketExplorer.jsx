@@ -299,7 +299,7 @@ const ExpandableTransactionDetails = ({ data, isDemo, status }) => {
           )}
           {isDemo && (
             <div className="sm:col-span-2 mt-1">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-bold tracking-wider">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-xs font-bold tracking-wider">
                 DEMO DATA
               </span>
             </div>
@@ -351,15 +351,15 @@ const StageCard = ({ title, icon: Icon, color, data, status, isUnavailable, next
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-4 gap-x-2 bg-[var(--saathi-surface-alt)]/50 rounded-xl p-4 border border-gray-50">
           <div>
-            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Quantity</p>
+            <p className="text-xs uppercase tracking-wider font-bold text-gray-400 mb-1">Quantity</p>
             <p className="font-bold text-[var(--saathi-text)] text-sm">{data.quantity} {data.unit === 'quintal' ? 'QTL' : data.unit}</p>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Price</p>
+            <p className="text-xs uppercase tracking-wider font-bold text-gray-400 mb-1">Price</p>
             <p className="font-bold text-[var(--saathi-primary)] text-sm">₹{data.price?.toLocaleString('en-IN')}</p>
           </div>
           <div className="col-span-2 sm:col-span-1">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Location</p>
+            <p className="text-xs uppercase tracking-wider font-bold text-gray-400 mb-1">Location</p>
             <p className="font-semibold text-[var(--saathi-text-secondary)] text-sm truncate flex items-center gap-1"><MapPin className="w-3 h-3 text-gray-400 shrink-0"/>{data.location || 'Not available'}</p>
           </div>
         </div>
@@ -558,7 +558,7 @@ export default function MarketExplorer() {
       {/* 1. HEADER SECTION */}
       <header className="mb-6">
         <p className="text-xs font-extrabold uppercase tracking-widest text-[var(--saathi-primary)] mb-1">IMMUTABLE RECORD</p>
-        <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">Market Explorer</h1>
+        <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">Crop Journey</h1>
 
         {batchJourneyData && (
         <div className="mt-5 flex flex-col gap-4 rounded-2xl bg-white p-4 sm:p-5 border border-[var(--saathi-border-light)] shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -578,7 +578,7 @@ export default function MarketExplorer() {
           
           {batchJourneyData && (
             <div className="text-left sm:text-right mt-2 sm:mt-0 flex flex-col sm:items-end border-t border-gray-100 sm:border-0 pt-3 sm:pt-0">
-              <p className="text-[10px] font-bold text-[var(--saathi-text-muted)] uppercase tracking-wider mb-1">Current Location</p>
+              <p className="text-xs font-bold text-[var(--saathi-text-muted)] uppercase tracking-wider mb-1">Current Location</p>
               <div className="text-lg font-bold text-[var(--saathi-text)] flex items-center gap-1.5">
                 {currentStageName}
                 {isCompleted && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
@@ -661,19 +661,19 @@ export default function MarketExplorer() {
               {/* SUMMARY PANEL */}
               <div className="bg-white rounded-2xl shadow-sm border border-[var(--saathi-border-light)] p-6 grid grid-cols-2 md:grid-cols-4 gap-4 divide-x divide-gray-100">
                 <div className="px-2 text-center">
-                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Origin</div>
+                  <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Origin</div>
                   <div className="text-xl font-extrabold text-[var(--saathi-text)]">{totalFarmers} <span className="text-sm font-semibold text-[var(--saathi-text-muted)]">Farmers</span></div>
                 </div>
                 <div className="px-2 text-center">
-                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Sourced</div>
+                  <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Total Sourced</div>
                   <div className="text-xl font-extrabold text-[var(--saathi-primary)]">{totalQuantity} <span className="text-sm font-semibold opacity-70">QTL</span></div>
                 </div>
                 <div className="px-2 text-center">
-                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Stages</div>
+                  <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Stages</div>
                   <div className="text-xl font-extrabold text-[var(--saathi-text)]">{stagesRecorded} <span className="text-sm font-semibold text-[var(--saathi-text-muted)]">/ 6</span></div>
                 </div>
                 <div className="px-2 text-center">
-                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Verified</div>
+                  <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Verified</div>
                   <div className="text-xl font-extrabold text-[var(--saathi-text)]">{stagesRecorded} <span className="text-sm font-semibold text-[var(--saathi-text-muted)]">hops</span></div>
                 </div>
               </div>
@@ -689,7 +689,7 @@ export default function MarketExplorer() {
                   <div className="absolute left-[11px] top-6 bottom-[-24px] w-[2px] bg-emerald-200 md:hidden z-0"></div>
                   
                   <div className="flex items-center gap-2 mb-4 md:justify-center">
-                    <div className="bg-[var(--saathi-border-light)] text-[var(--saathi-primary)] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-[var(--saathi-border)] z-10 bg-white">
+                    <div className="bg-[var(--saathi-border-light)] text-[var(--saathi-primary)] px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-[var(--saathi-border)] z-10 bg-white">
                       Farm Origin
                     </div>
                   </div>
@@ -704,14 +704,14 @@ export default function MarketExplorer() {
                              </div>
                              <div>
                                <h4 className="font-bold text-[var(--saathi-text)] text-sm">{farmer.data?.seller || 'Unknown Farmer'}</h4>
-                               <p className="text-[10px] font-semibold text-[var(--saathi-text-muted)] flex items-center gap-0.5 mt-0.5"><MapPin className="w-3 h-3"/> {farmer.data?.location || 'Unknown'}</p>
+                               <p className="text-xs font-semibold text-[var(--saathi-text-muted)] flex items-center gap-0.5 mt-0.5"><MapPin className="w-3 h-3"/> {farmer.data?.location || 'Unknown'}</p>
                              </div>
                            </div>
                            <div className="text-[var(--saathi-primary)]"><CheckCircle2 className="w-4 h-4" /></div>
                         </div>
                         <div className="bg-[var(--saathi-surface-alt)] rounded-lg p-3 grid grid-cols-2 gap-2 text-xs border border-gray-100">
-                          <div><span className="text-gray-400 font-bold text-[10px] uppercase">Qty</span><br/><span className="font-bold text-[var(--saathi-text)]">{farmer.data?.quantity} QTL</span></div>
-                          <div><span className="text-gray-400 font-bold text-[10px] uppercase">Price</span><br/><span className="font-bold text-[var(--saathi-primary)]">₹{farmer.data?.price}</span></div>
+                          <div><span className="text-gray-400 font-bold text-xs uppercase">Qty</span><br/><span className="font-bold text-[var(--saathi-text)]">{farmer.data?.quantity} QTL</span></div>
+                          <div><span className="text-gray-400 font-bold text-xs uppercase">Price</span><br/><span className="font-bold text-[var(--saathi-primary)]">₹{farmer.data?.price}</span></div>
                         </div>
                         <ExpandableTransactionDetails data={farmer.data} isDemo={farmer.data?.transactionId?.includes('DEMO')} status={farmer.status} />
                       </div>
@@ -808,7 +808,7 @@ export default function MarketExplorer() {
 
                   <div className="space-y-4">
                      <div>
-                      <label className="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">State</label>
+                      <label className="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">State</label>
                       <select 
                         value={selectedState} 
                         onChange={(e) => setSelectedState(e.target.value)}
@@ -817,7 +817,7 @@ export default function MarketExplorer() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">District</label>
+                      <label className="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">District</label>
                       <select 
                         value={selectedDistrict}
                         onChange={(e) => setSelectedDistrict(e.target.value)}
@@ -827,7 +827,7 @@ export default function MarketExplorer() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Crop</label>
+                      <label className="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Crop</label>
                       <select 
                         value={selectedCrop}
                         onChange={(e) => setSelectedCrop(e.target.value)}
@@ -837,7 +837,7 @@ export default function MarketExplorer() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Market</label>
+                      <label className="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Market</label>
                       <select 
                         value={selectedMandi}
                         onChange={(e) => setSelectedMandi(e.target.value)}
@@ -858,7 +858,7 @@ export default function MarketExplorer() {
                   {mandiRecord && (
                     <div className="mt-6 pt-5 border-t border-gray-100">
                       <div className="flex justify-between items-start mb-2">
-                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Official Modal Price</div>
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Official Modal Price</div>
                         <div className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-50 text-[var(--saathi-accent-dark)] border border-red-100">data.gov.in</div>
                       </div>
                       <div className="text-3xl font-extrabold text-blue-900 mb-1">
@@ -867,7 +867,7 @@ export default function MarketExplorer() {
                       <div className="text-xs font-semibold text-[var(--saathi-text-secondary)] flex items-center gap-1.5">
                         <MapPin className="w-3.5 h-3.5 text-gray-400" /> {mandiRecord.market}, {mandiRecord.district}
                       </div>
-                      <div className="text-[10px] font-medium text-gray-400 mt-3 flex items-center gap-1">
+                      <div className="text-xs font-medium text-gray-400 mt-3 flex items-center gap-1">
                         <Clock className="w-3 h-3" /> Arrival Date: {mandiRecord.arrival_date}
                       </div>
                     </div>

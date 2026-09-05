@@ -27,6 +27,7 @@ const buyerRequestSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    cropImage: { type: String, trim: true },
     location: {
       type: String,
       trim: true,

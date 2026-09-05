@@ -74,7 +74,7 @@ export default function LocationWidget({ variant = 'bar', className = '' }) {
           >
             <MapPinIcon className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
             <span className="max-w-[140px] truncate">{displayLocation || 'Set location'}</span>
-            <span className="text-[var(--saathi-text-muted)] group-hover:text-[var(--saathi-accent)] text-[10px]">▾</span>
+            <span className="text-[var(--saathi-text-muted)] group-hover:text-[var(--saathi-accent)] text-xs">▾</span>
           </button>
         ) : (
           <button
@@ -138,12 +138,12 @@ export default function LocationWidget({ variant = 'bar', className = '' }) {
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-extrabold text-[var(--saathi-primary)] truncate">{displayLocation}</p>
                   {source === 'device' && (
-                    <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                    <span className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                       <CheckIcon className="h-3 w-3" />GPS
                     </span>
                   )}
                   {source === 'manual' && (
-                    <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                    <span className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
                       ✎ Manual
                     </span>
                   )}
@@ -255,7 +255,7 @@ export default function LocationWidget({ variant = 'bar', className = '' }) {
                 { label: 'State', val: address?.state || '—' },
               ].map(({ label, val }) => (
                 <div key={label} className="px-2 first:pl-0 last:pr-0">
-                  <p className="text-[10px] font-semibold text-[var(--saathi-text-muted)] uppercase">{label}</p>
+                  <p className="text-xs font-semibold text-[var(--saathi-text-muted)] uppercase">{label}</p>
                   <p className="text-xs font-bold text-[var(--saathi-text)] mt-0.5 truncate">{val}</p>
                 </div>
               ))}
@@ -306,7 +306,7 @@ function ManualLocationDropdown({ form, onChange, onSubmit, onGPS, onClose, comp
     <form onSubmit={onSubmit} className="space-y-3">
       <div className={`grid gap-2 ${compact ? 'grid-cols-1' : 'sm:grid-cols-3'}`}>
         <div className="space-y-1">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--saathi-text-muted)]">State</label>
+          <label className="text-xs font-bold uppercase tracking-wider text-[var(--saathi-text-muted)]">State</label>
           <select
             value={form.state}
             onChange={e => onChange({ state: e.target.value, district: '', village: '' })}
@@ -317,7 +317,7 @@ function ManualLocationDropdown({ form, onChange, onSubmit, onGPS, onClose, comp
           </select>
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--saathi-text-muted)]">District</label>
+          <label className="text-xs font-bold uppercase tracking-wider text-[var(--saathi-text-muted)]">District</label>
           <select
             value={form.district}
             onChange={e => onChange({ ...form, district: e.target.value, village: '' })}
@@ -329,7 +329,7 @@ function ManualLocationDropdown({ form, onChange, onSubmit, onGPS, onClose, comp
           </select>
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--saathi-text-muted)]">Village / Tehsil</label>
+          <label className="text-xs font-bold uppercase tracking-wider text-[var(--saathi-text-muted)]">Village / Tehsil</label>
           <select
             value={form.village}
             onChange={e => onChange({ ...form, village: e.target.value })}

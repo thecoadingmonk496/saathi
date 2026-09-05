@@ -6,7 +6,7 @@ import { useTranslation } from '../hooks/useTranslation';
 const dashboardItems = [
   { key: 'nav.buyerDiscovery', fallback: 'Buyer Discovery', path: '/buyers', icon: '🤝', color: 'bg-red-50 text-accent-dark' },
   { key: 'nav.marketPrices', fallback: 'Market Prices', path: '/prices', icon: '📈', color: 'bg-red-50 text-accent-dark' },
-  { key: 'nav.marketExplorer', fallback: 'Market Explorer', path: '/explorer', icon: '🗺️', color: 'bg-sky-50 text-sky-700' },
+  { key: 'nav.marketExplorer', fallback: 'Crop Journey', path: '/explorer', icon: '🗺️', color: 'bg-sky-50 text-sky-700' },
   { key: 'card.govtTitle', fallback: 'Government Schemes', path: '/government', icon: '🏛️', color: 'bg-violet-50 text-violet-700' },
 ];
 

@@ -65,9 +65,6 @@ const STEPS = [
   'Buyer Type',
   'Business',
   'Location',
-  'Products',
-  'Requirements',
-  'Offers',
   'Documents',
   'Declaration',
 ];
@@ -93,7 +90,7 @@ const initialForm = {
   declaration: false,
 };
 
-export default function BuyerRegister({ embedded = false }) {
+export default function BuyerRegister({ embedded = false, onSuccess }) {
   const navigate = useNavigate();
   const { user, login } = useUser();
   const { coordinates, address, requestLocation } = useLocationContext();
@@ -242,22 +239,13 @@ export default function BuyerRegister({ embedded = false }) {
       if (!/^\d{6}$/.test(form.pincode)) newErrors.pincode = 'Enter a valid 6-digit pincode';
     }
     if (step === 4) {
-      const hasRealSelection = selectedCommodities.some((c) => c !== 'Other') || otherCommodity.trim();
-      if (!hasRealSelection) {
-        newErrors.commodities = 'Please select at least one crop / commodity';
-      }
-      if (selectedCommodities.includes('Other') && !otherCommodity.trim()) {
-        newErrors.otherCommodity = 'Please specify your commodity';
-      }
-    }
-    if (step === 7) {
       DOCUMENT_FIELDS.forEach((field) => {
         if (field.required && !documents[field.key]) {
           newErrors[field.key] = `${field.label} is required`;
         }
       });
     }
-    if (step === 8) {
+    if (step === 5) {
       if (!form.declaration) newErrors.declaration = 'You must agree to the declaration';
     }
     setErrors(newErrors);
@@ -441,7 +429,7 @@ export default function BuyerRegister({ embedded = false }) {
                   >
                     {index < step ? '✓' : index + 1}
                   </div>
-                  <span className={`text-[10px] font-semibold hidden sm:block ${index === step ? 'text-[var(--saathi-primary)]' : 'text-[var(--saathi-text-muted)]'}`}>
+                  <span className={`text-xs font-semibold hidden sm:block ${index === step ? 'text-[var(--saathi-primary)]' : 'text-[var(--saathi-text-muted)]'}`}>
                     {label}
                   </span>
                 </div>
@@ -689,196 +677,8 @@ export default function BuyerRegister({ embedded = false }) {
               </div>
             )}
 
-            {/* Step 4: Agricultural Products */}
+            {/* Step 4: Verification Documents */}
             {step === 4 && (
-              <div className="space-y-5">
-                <SectionTitle title="Agricultural Products Purchased" subtitle="Select the crops / commodities you purchase" />
-                {COMMODITY_CATEGORIES.map((cat) => (
-                  <div key={cat.category}>
-                    <p className="text-xs font-bold uppercase tracking-wider text-[var(--saathi-text-muted)] mb-2">{cat.category}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {cat.items.map((item) => (
-                        <button
-                          key={item}
-                          type="button"
-                          onClick={() => toggleCommodity(item)}
-                          className={`px-4 py-2 rounded-full text-sm font-semibold border-2 transition ${
-                            selectedCommodities.includes(item)
-                              ? 'bg-[var(--saathi-primary)] text-white border-[#2E7D32]'
-                              : 'bg-white text-[var(--saathi-text-secondary)] border-[var(--saathi-border-light)] hover:border-[var(--saathi-border)]'
-                          }`}
-                        >
-                          {item}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                {/* Other category - only this reveals free-text input */}
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-[var(--saathi-text-muted)] mb-2">Other</p>
-                  <button
-                    type="button"
-                    onClick={() => toggleCommodity('Other')}
-                    className={`px-4 py-2 rounded-full text-sm font-semibold border-2 transition ${
-                      selectedCommodities.includes('Other')
-                        ? 'bg-[var(--saathi-primary)] text-white border-[#2E7D32]'
-                        : 'bg-white text-[var(--saathi-text-secondary)] border-[var(--saathi-border-light)] hover:border-[var(--saathi-border)]'
-                    }`}
-                  >
-                    Other
-                  </button>
-                </div>
-                {selectedCommodities.includes('Other') && (
-                  <div>
-                    <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">Please specify commodity <span className="text-red-600 font-bold ml-0.5">*</span></label>
-                    <input
-                      type="text"
-                      value={otherCommodity}
-                      onChange={(e) => setOtherCommodity(e.target.value)}
-                      placeholder="Enter a crop / commodity not listed above"
-                      className={`w-full h-11 rounded-lg border px-3 text-sm text-[var(--saathi-text)] outline-none transition focus:ring-2 ${
-                        errors.otherCommodity
-                          ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                          : 'border-[var(--saathi-border)] focus:border-[#2E7D32] focus:ring-emerald-100'
-                      }`}
-                    />
-                    {errors.otherCommodity && <ErrorText message={errors.otherCommodity} />}
-                  </div>
-                )}
-                {errors.commodities && <ErrorText message={errors.commodities} />}
-              </div>
-            )}
-
-            {/* Step 5: Purchase Requirements */}
-            {step === 5 && (
-              <div className="space-y-5">
-                <SectionTitle title="Purchase Requirements" subtitle="How much and how often do you purchase?" />
-                <div>
-                  <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-3">Preferred Purchase Radius <span className="text-red-600 font-bold ml-0.5">*</span></label>
-                  <div className="bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] rounded-xl p-5">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-[var(--saathi-text-muted)]">5 km</span>
-                      <span className="text-lg font-extrabold text-[var(--saathi-primary)]">
-                        {form.preferredPurchaseRadius === 'any_location' ? 'Any Location' : `${form.preferredPurchaseRadius} km`}
-                      </span>
-                      <span className="text-xs font-bold text-[var(--saathi-text-muted)]">500+ km</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="5"
-                      max="510"
-                      step="5"
-                      value={form.preferredPurchaseRadius === 'any_location' ? 510 : Number(form.preferredPurchaseRadius) || 25}
-                      onChange={(e) => {
-                        const val = Number(e.target.value);
-                        setForm(prev => ({
-                          ...prev,
-                          preferredPurchaseRadius: val >= 510 ? 'any_location' : String(val)
-                        }));
-                      }}
-                      className="w-full h-2 bg-slate-200 rounded-full appearance-none cursor-pointer accent-[var(--saathi-accent)]"
-                    />
-                    <div className="flex justify-between mt-2 text-[10px] font-bold text-[var(--saathi-text-muted)]">
-                      <span>Local</span>
-                      <span>|</span>
-                      <span>25 km</span>
-                      <span>|</span>
-                      <span>50 km</span>
-                      <span>|</span>
-                      <span>100 km</span>
-                      <span>|</span>
-                      <span>200 km</span>
-                      <span>|</span>
-                      <span>Any</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] rounded-xl p-4">
-                  <p className="text-sm font-semibold text-[var(--saathi-text-secondary)]">
-                    Selected commodities: {getAllSelectedNames().length > 0 ? getAllSelectedNames().join(', ') : 'None'}
-                  </p>
-                  <p className="mt-1 text-xs text-[var(--saathi-text-muted)]">
-                    You can specify detailed quantity and frequency for each commodity after submission, or continue with default settings.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Step 6: Current Buying Offers */}
-            {step === 6 && (
-              <div className="space-y-5">
-                <SectionTitle title="Current Buying Offers" subtitle="Optional - add an offer for any of your selected commodities" />
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                  <p className="text-sm text-amber-800 font-semibold">
-                    💡 Offers are optional per commodity. Leave a commodity blank if you don't want to publish an offer yet.
-                  </p>
-                </div>
-                {getAllSelectedNames().length === 0 ? (
-                  <div className="bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] rounded-xl p-4">
-                    <p className="text-sm font-semibold text-[var(--saathi-text-secondary)]">
-                      No commodities selected yet. Go back to the Products step to select commodities first.
-                    </p>
-                  </div>
-                ) : (
-                  getAllSelectedNames().map((name) => {
-                    const offer = offers[name] || {};
-                    const todayLabel = new Date().toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                    });
-                    return (
-                      <div key={name} className="border border-[var(--saathi-border-light)] rounded-xl p-4 space-y-3">
-                        <p className="text-sm font-bold text-[var(--saathi-text)]">🌾 {name}</p>
-                        <div className="grid gap-3 sm:grid-cols-3">
-                          <div>
-                            <label className="block text-xs font-bold uppercase text-[var(--saathi-text-muted)] mb-1.5">Offer Price (₹)</label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={offer.offerPrice ?? ''}
-                              onChange={(e) => handleOfferChange(name, 'offerPrice', e.target.value)}
-                              placeholder="e.g. 2100"
-                              className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold uppercase text-[var(--saathi-text-muted)] mb-1.5">Unit</label>
-                            <select
-                              value={offer.unit || 'quintal'}
-                              onChange={(e) => handleOfferChange(name, 'unit', e.target.value)}
-                              className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
-                            >
-                              <option value="quintal">Quintal</option>
-                              <option value="ton">Ton</option>
-                              <option value="kg">Kg</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold uppercase text-[var(--saathi-text-muted)] mb-1.5">Quantity Required</label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={offer.quantity ?? ''}
-                              onChange={(e) => handleOfferChange(name, 'quantity', e.target.value)}
-                              placeholder="e.g. 50"
-                              className="w-full h-11 rounded-lg border border-[var(--saathi-border)] px-3 text-sm text-[var(--saathi-text)] focus:border-[#2E7D32] focus:ring-2 focus:ring-emerald-100 outline-none"
-                            />
-                          </div>
-                        </div>
-                        {offer.offerPrice && Number(offer.offerPrice) > 0 && (
-                          <p className="text-xs font-semibold text-[var(--saathi-primary)]">Price last updated: {todayLabel}</p>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
-
-            {/* Step 7: Verification Documents */}
-            {step === 7 && (
               <div className="space-y-5">
                 <SectionTitle title="Verification Documents" subtitle="Upload required documents for verification" />
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
@@ -930,8 +730,8 @@ export default function BuyerRegister({ embedded = false }) {
               </div>
             )}
 
-            {/* Step 8: Declaration */}
-            {step === 8 && (
+            {/* Step 5: Declaration */}
+            {step === 5 && (
               <div className="space-y-5">
                 <SectionTitle title="Declaration" subtitle="Please review and confirm" />
                 <div className="bg-[var(--saathi-surface-alt)] border border-[var(--saathi-border-light)] rounded-xl p-5">

@@ -22,7 +22,7 @@ export default function MarketJourneySection() {
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeader
-          title={t('nav.marketExplorer') || "MARKET EXPLORER"}
+          title={t('nav.marketExplorer') || "CROP JOURNEY"}
           subtitle={t('services.journey.desc') || "Understanding the Agricultural Supply Chain"}
         />
 

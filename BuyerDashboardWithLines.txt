@@ -1,0 +1,732 @@
+1: import { useState, useEffect } from 'react';
+2: import { useUser } from '../../context/UserContext';
+3: import DealTracker from './DealTracker';
+4: import BuyerRegister from '../../pages/BuyerRegister';
+5: 
+6: const API_BASE = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')).replace(/\/$/, '') + '/api';
+7: 
+8: /* ── tiny helper components ── */
+9: function Avatar({ name, size = 'md' }) {
+10:   const s = size === 'sm' ? 'w-8 h-8 text-xs' : 'w-10 h-10 text-sm';
+11:   const initial = (name || '?').charAt(0).toUpperCase();
+12:   return (
+13:     <div className={`${s} rounded-full bg-gradient-to-br from-red-100 to-red-200 text-red-800 font-bold flex items-center justify-center shrink-0`}>
+14:       {initial}
+15:     </div>
+16:   );
+17: }
+18: 
+19: function Badge({ children, variant = 'default' }) {
+20:   const styles = {
+21:     live: 'bg-green-600 text-white',
+22:     pending: 'bg-amber-500 text-white',
+23:     rejected: 'bg-red-600 text-white',
+24:     published: 'bg-green-100 text-green-800 border border-green-300',
+25:     counter: 'bg-red-600 text-white',
+26:     default: 'bg-gray-100 text-gray-700 border border-gray-200',
+27:   };
+28:   return (
+29:     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide ${styles[variant] || styles.default}`}>
+30:       {children}
+31:     </span>
+32:   );
+33: }
+34: 
+35: /* ── vertical mini-deal tracker (for Locked Deals sidebar) ── */
+36: function MiniDealSteps({ status }) {
+37:   const steps = [
+38:     { key: 'ACCEPTED', label: 'Accepted' },
+39:     { key: 'QC_PENDING', label: 'QC Pending' },
+40:     { key: 'VERIFIED', label: 'Verified' },
+41:     { key: 'COMPLETED', label: 'Completed' },
+42:   ];
+43: 
+44:   const statusMap = {
+45:     ACCEPTED: 0, PHOTO_PENDING: 0, AI_FLAGGED: 0,
+46:     AI_REVIEW: 1, AI_PASSED: 1, HUMAN_REVIEW: 1,
+47:     VERIFIED: 2,
+48:     COMPLETED: 3, DISPUTED: 3,
+49:   };
+50:   const currentIdx = statusMap[status] ?? -1;
+51: 
+52:   return (
+53:     <div className="space-y-0">
+54:       {steps.map((step, idx) => {
+55:         const done = idx < currentIdx;
+56:         const active = idx === currentIdx;
+57:         return (
+58:           <div key={step.key} className="flex items-start gap-2.5">
+59:             <div className="flex flex-col items-center">
+60:               <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${
+61:                 done ? 'bg-red-700' : active ? 'bg-red-600 ring-2 ring-red-200' : 'bg-gray-200'
+62:               }`}>
+63:                 {done && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+64:               </div>
+65:               {idx < steps.length - 1 && (
+66:                 <div className={`w-0.5 h-5 ${done ? 'bg-red-700' : 'bg-gray-200'}`} />
+67:               )}
+68:             </div>
+69:             <span className={`text-xs pt-0.5 ${done ? 'text-red-800 font-bold' : active ? 'text-red-700 font-bold' : 'text-gray-400 font-medium'}`}>
+70:               {active && '● '}{step.label}
+71:             </span>
+72:           </div>
+73:         );
+74:       })}
+75:     </div>
+76:   );
+77: }
+78: 
+79: /* ════════════════════════════════════════════════════════════ */
+80: export default function BuyerDashboard() {
+81:   const { user } = useUser();
+82:   const [requests, setRequests] = useState([]);
+83:   const [allPublishedRequests, setAllPublishedRequests] = useState([]);
+84:   const [deals, setDeals] = useState([]);
+85:   const [newRequest, setNewRequest] = useState({ crop: '', quantity: '', offeredPrice: '', location: '', description: '' });
+86:   const [editingRequestId, setEditingRequestId] = useState(null);
+87:   const [loading, setLoading] = useState(true);
+88:   const [activeTab, setActiveTab] = useState('requests');
+89:   const [activeOffers, setActiveOffers] = useState(null);
+90:   const [appStatus, setAppStatus] = useState('LOADING');
+91:   const [showForm, setShowForm] = useState(true);
+92:   const [selectedDeal, setSelectedDeal] = useState(null);
+93:   const [submitMsg, setSubmitMsg] = useState('');
+94: 
+95:   /* ── data fetching ── */
+96:   const fetchData = async () => {
+97:     try {
+98:       setLoading(true);
+99:       const token = localStorage.getItem('token');
+100: 
+101:       // Optional check for buyer application profile without blocking the dashboard
+102:       const phone = user?.mobile || user?.phone || '';
+103:       if (phone) {
+104:         try {
+105:           const appRes = await fetch(`${API_BASE}/buyers/my-application?phone=${phone}`);
+106:           if (appRes.ok) setAppStatus('FOUND');
+107:           else setAppStatus('NOT_FOUND');
+108:         } catch (_) {}
+109:       }
+110: 
+111:       // 1. Fetch buyer's own requests
+112:       const reqRes = await fetch(`${API_BASE}/buyer-discovery/requests/mine`, { headers: { Authorization: `Bearer ${token}` } });
+113:       const reqData = await reqRes.json();
+114:       if (reqData.success) setRequests(reqData.data);
+115: 
+116:       // 2. Fetch all marketplace published requests for browse section
+117:       const allPubRes = await fetch(`${API_BASE}/buyer-discovery/requests/all-published`, { headers: { Authorization: `Bearer ${token}` } });
+118:       const allPubData = await allPubRes.json();
+119:       if (allPubData.success) setAllPublishedRequests(allPubData.data || []);
+120: 
+121:       // 3. Fetch buyer deals
+122:       const dealRes = await fetch(`${API_BASE}/buyer-discovery/deals`, { headers: { Authorization: `Bearer ${token}` } });
+123:       const dealData = await dealRes.json();
+124:       if (dealData.success) setDeals(dealData.data);
+125:     } catch (e) { console.error(e); } finally { setLoading(false); }
+126:   };
+127: 
+128:   useEffect(() => { fetchData(); }, []);
+129: 
+130:   const handleCreateOrReapplyRequest = async (e) => {
+131:     e.preventDefault();
+132:     const token = localStorage.getItem('token');
+133:     
+134:     // Check whether creating new or reapplying for a rejected one
+135:     const endpoint = editingRequestId 
+136:       ? `${API_BASE}/buyer-discovery/requests/${editingRequestId}/reapply` 
+137:       : `${API_BASE}/buyer-discovery/requests`;
+138: 
+139:     const res = await fetch(endpoint, {
+140:       method: 'POST',
+141:       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+142:       body: JSON.stringify({ ...newRequest, unit: 'quintals' }),
+143:     });
+144:     const data = await res.json();
+145:     if (data.success) {
+146:       setSubmitMsg(editingRequestId 
+147:         ? '✓ Request resubmitted to Saathi Admin for verification!' 
+148:         : '✓ Registration submitted for Saathi Admin verification! Once approved, it will be published to farmers.'
+149:       );
+150:       setNewRequest({ crop: '', quantity: '', offeredPrice: '', location: '', description: '' });
+151:       setEditingRequestId(null);
+152:       fetchData();
+153:       setTimeout(() => setSubmitMsg(''), 7000);
+154:     } else {
+155:       alert(data.message || 'Error submitting request');
+156:     }
+157:   };
+158: 
+159:   const handleStartReapply = (req) => {
+160:     setEditingRequestId(req._id);
+161:     setNewRequest({
+162:       crop: req.crop || '',
+163:       quantity: req.quantity || '',
+164:       offeredPrice: req.offeredPrice || '',
+165:       location: req.location || '',
+166:       description: req.description || '',
+167:     });
+168:     setShowForm(true);
+169:     window.scrollTo({ top: 0, behavior: 'smooth' });
+170:   };
+171: 
+172:   const handleCancelReapply = () => {
+173:     setEditingRequestId(null);
+174:     setNewRequest({ crop: '', quantity: '', offeredPrice: '', location: '', description: '' });
+175:   };
+176: 
+177:   const loadOffers = async (requestId) => {
+178:     const token = localStorage.getItem('token');
+179:     const res = await fetch(`${API_BASE}/buyer-discovery/requests/${requestId}/offers`, { headers: { Authorization: `Bearer ${token}` } });
+180:     const data = await res.json();
+181:     if (data.success) setActiveOffers({ requestId, offers: data.data });
+182:   };
+183: 
+184:   const [counterForms, setCounterForms] = useState({});
+185: 
+186:   const handleOfferAction = async (offerId, action, payload = null) => {
+187:     const token = localStorage.getItem('token');
+188:     const options = {
+189:       method: 'POST',
+190:       headers: { Authorization: `Bearer ${token}` }
+191:     };
+192:     if (payload) {
+193:       options.headers['Content-Type'] = 'application/json';
+194:       options.body = JSON.stringify(payload);
+195:     }
+196:     await fetch(`${API_BASE}/buyer-discovery/offers/${offerId}/${action}`, options);
+197:     if (activeOffers) loadOffers(activeOffers.requestId);
+198:     fetchData();
+199:     setCounterForms({ ...counterForms, [offerId]: null });
+200:   };
+201: 
+202:   /* ── fulfilled quantity ── */
+203:   const getFulfilled = (req) => {
+204:     if (req.fulfilledQuantity != null) return req.fulfilledQuantity;
+205:     if (!activeOffers || activeOffers.requestId !== req._id) return 0;
+206:     return activeOffers.offers
+207:       .filter(o => o.status === 'ACCEPTED')
+208:       .reduce((sum, o) => sum + Number(o.quantity || 0), 0);
+209:   };
+210: 
+211:   /* ── render guards ── */
+212:   if (loading && requests.length === 0 && allPublishedRequests.length === 0) {
+213:     return <div className="text-center py-16 text-gray-400 font-semibold">Loading Buyer Dashboard…</div>;
+214:   }
+215: 
+216:   /* ── main dashboard ── */
+217:   return (
+218:     <div className="space-y-8">
+219:       {/* ── KYC / PROFILE DETAILS SECTION ── */}
+220:       {appStatus === 'NOT_FOUND' ? (
+221:         <section className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 relative overflow-hidden">
+222:           <div className="relative z-10 mb-6">
+223:             <h2 className="text-2xl font-extrabold text-gray-900">Register Details to Publish</h2>
+224:             <p className="text-sm text-gray-500 mt-1">Please complete your business verification profile. This information helps farmers trust your requirements.</p>
+225:           </div>
+226:           <div className="relative z-10 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+227:             <BuyerRegister embedded={true} onSuccess={() => setAppStatus('FOUND')} />
+228:           </div>
+229:         </section>
+230:       ) : appStatus === 'FOUND' ? (
+231:         <section className="bg-emerald-50 rounded-2xl border border-emerald-200 shadow-sm p-4 sm:p-6 flex items-center justify-between">
+232:           <div>
+233:             <h2 className="text-lg font-bold text-emerald-900 flex items-center gap-2">
+234:               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+235:               Business Details Verified
+236:             </h2>
+237:             <p className="text-sm text-emerald-700 mt-0.5">Your buyer profile is complete and approved. You can now publish requirements.</p>
+238:           </div>
+239:         </section>
+240:       ) : null}
+241: 
+242:       {/* ── TOP SECTION: Registration for Publish Form ── */}
+243:       <section className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 relative overflow-hidden">
+244:         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 relative z-10">
+245:           <div>
+246:             <h2 className="text-2xl font-extrabold text-gray-900">
+247:               {editingRequestId ? '✏️ Edit & Re-Apply for Verification' : 'Register Crop Requirement for Publish'}
+248:             </h2>
+249:             <p className="text-sm text-gray-500 mt-1">
+250:               Submit your procurement demand. It will go directly to the <strong>Saathi Admin Panel for verification</strong>. Once approved, it will be published to verified farmers.
+251:             </p>
+252:           </div>
+253: 
+254:           <button
+255:             type="button"
+256:             onClick={() => setShowForm(f => !f)}
+257:             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition shrink-0"
+258:           >
+259:             {showForm ? '▲ Hide Form' : '▼ Expand Form'}
+260:           </button>
+261:         </div>
+262: 
+263:         {submitMsg && (
+264:           <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-bold flex items-center justify-between">
+265:             <span>{submitMsg}</span>
+266:             <button onClick={() => setSubmitMsg('')} className="text-emerald-600 text-xs hover:underline">Dismiss</button>
+267:           </div>
+268:         )}
+269: 
+270:         {showForm && (
+271:           <form onSubmit={handleCreateOrReapplyRequest} className="space-y-4 relative z-10">
+272:             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+273:               <div>
+274:                 <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Crop Type *</label>
+275:                 <input
+276:                   required
+277:                   type="text"
+278:                   placeholder="e.g. Premium Basmati Rice"
+279:                   className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-red-200 focus:border-red-600 outline-none"
+280:                   value={newRequest.crop}
+281:                   onChange={e => setNewRequest({ ...newRequest, crop: e.target.value })}
+282:                 />
+283:               </div>
+284: 
+285:               <div>
+286:                 <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Required Quantity (Quintals) *</label>
+287:                 <input
+288:                   required
+289:                   type="number"
+290:                   min="1"
+291:                   placeholder="e.g. 500"
+292:                   className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-red-200 focus:border-red-600 outline-none"
+293:                   value={newRequest.quantity}
+294:                   onChange={e => setNewRequest({ ...newRequest, quantity: e.target.value })}
+295:                 />
+296:               </div>
+297: 
+298:               <div>
+299:                 <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Offered Price (₹ / Quintal) *</label>
+300:                 <input
+301:                   required
+302:                   type="number"
+303:                   min="1"
+304:                   placeholder="e.g. 2800"
+305:                   className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-red-200 focus:border-red-600 outline-none"
+306:                   value={newRequest.offeredPrice}
+307:                   onChange={e => setNewRequest({ ...newRequest, offeredPrice: e.target.value })}
+308:                 />
+309:               </div>
+310: 
+311:               <div>
+312:                 <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Delivery Location *</label>
+313:                 <input
+314:                   required
+315:                   type="text"
+316:                   placeholder="e.g. Karnal Mandi, Haryana"
+317:                   className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-red-200 focus:border-red-600 outline-none"
+318:                   value={newRequest.location}
+319:                   onChange={e => setNewRequest({ ...newRequest, location: e.target.value })}
+320:                 />
+321:               </div>
+322:             </div>
+323: 
+324:             <div>
+325:               <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Quality Specifications & Terms</label>
+326:               <textarea
+327:                 rows={2}
+328:                 placeholder="Specify moisture tolerance, packaging requirements, grain size, delivery timeline, etc."
+329:                 className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-red-200 focus:border-red-600 outline-none resize-none"
+330:                 value={newRequest.description}
+331:                 onChange={e => setNewRequest({ ...newRequest, description: e.target.value })}
+332:               />
+333:             </div>
+334: 
+335:             <div className="flex items-center gap-3 pt-2">
+336:               <button
+337:                 type="submit"
+338:                 className="px-6 py-3 bg-red-700 hover:bg-red-800 text-white font-bold rounded-xl text-sm transition shadow-md flex items-center gap-2"
+339:               >
+340:                 <span>🚀</span>
+341:                 <span>{editingRequestId ? 'Resubmit to Admin for Verification' : 'Submit for Admin Verification'}</span>
+342:               </button>
+343: 
+344:               {editingRequestId && (
+345:                 <button
+346:                   type="button"
+347:                   onClick={handleCancelReapply}
+348:                   className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-sm transition"
+349:                 >
+350:                   Cancel Reapply
+351:                 </button>
+352:               )}
+353:             </div>
+354:           </form>
+355:         )}
+356:       </section>
+357: 
+358:       {/* ─── Tabs ─── */}
+359:       <div className="flex items-center gap-1 border-b border-gray-200">
+360:         {[
+361:           { key: 'requests', label: `My Requirements (${requests.length})` },
+362:           { key: 'marketplace', label: `Browse All Publications (${allPublishedRequests.length})` },
+363:           { key: 'deals', label: `Active Deals (${deals.length})` },
+364:         ].map(t => (
+365:           <button
+366:             key={t.key}
+367:             onClick={() => setActiveTab(t.key)}
+368:             className={`px-5 py-3 text-sm font-bold transition-colors border-b-2 ${
+369:               activeTab === t.key
+370:                 ? 'border-red-700 text-red-800'
+371:                 : 'border-transparent text-gray-500 hover:text-gray-700'
+372:             }`}
+373:           >
+374:             {t.label}
+375:           </button>
+376:         ))}
+377:       </div>
+378: 
+379:       {/* ─── TAB 1: My Requests ─── */}
+380:       {activeTab === 'requests' && (
+381:         <div className="space-y-4">
+382:           {loading ? (
+383:             <p className="text-center text-gray-400 py-10">Loading your requirements…</p>
+384:           ) : requests.length === 0 ? (
+385:             <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
+386:               <p className="text-gray-400 font-semibold">No procurement requirements submitted yet.</p>
+387:               <p className="text-gray-400 text-sm mt-1">Use the registration form above to post your requirement.</p>
+388:             </div>
+389:           ) : (
+390:             requests.map(req => {
+391:               const fulfilled = getFulfilled(req);
+392:               const total = Number(req.quantity) || 1;
+393:               const pct = Math.min(Math.round((fulfilled / total) * 100), 100);
+394:               const isExpanded = activeOffers?.requestId === req._id;
+395:               const isPending = req.status === 'PENDING_REVIEW';
+396:               const isPublished = req.status === 'PUBLISHED';
+397:               const isRejected = req.status === 'REJECTED';
+398: 
+399:               return (
+400:                 <div key={req._id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+401:                   {/* Status Banner */}
+402:                   {isPending && (
+403:                     <div className="bg-amber-50 border-b border-amber-200 px-5 py-2.5 flex items-center justify-between text-xs text-amber-800 font-semibold">
+404:                       <span className="flex items-center gap-1.5">
+405:                         <span className="animate-spin text-amber-600">⏳</span>
+406:                         <span>Under Verification by Saathi Admin. Once verified, it will be published to farmers automatically.</span>
+407:                       </span>
+408:                       <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 font-bold uppercase tracking-wider text-[10px]">Pending Admin Review</span>
+409:                     </div>
+410:                   )}
+411: 
+412:                   {isRejected && (
+413:                     <div className="bg-red-50 border-b border-red-200 px-5 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-red-800 font-semibold">
+414:                       <div>
+415:                         <span className="font-bold text-red-900">✕ Verification Rejected by Admin:</span> {req.adminRemarks || 'Did not meet verification criteria.'}
+416:                       </div>
+417:                       <button
+418:                         onClick={() => handleStartReapply(req)}
+419:                         className="px-3.5 py-1.5 bg-red-700 text-white rounded-lg text-xs font-bold hover:bg-red-800 transition shrink-0 shadow-sm"
+420:                       >
+421:                         ✏️ Edit & Re-Apply
+422:                       </button>
+423:                     </div>
+424:                   )}
+425: 
+426:                   {/* ── Request Header Card ── */}
+427:                   <div
+428:                     className={`p-5 border-l-4 cursor-pointer hover:bg-gray-50 transition ${
+429:                       isPending ? 'border-amber-500' : isPublished ? 'border-green-600' : 'border-red-600'
+430:                     }`}
+431:                     onClick={() => {
+432:                       if (!isPublished) return;
+433:                       if (isExpanded) { setActiveOffers(null); } else { loadOffers(req._id); }
+434:                     }}
+435:                   >
+436:                     <div className="flex items-start justify-between gap-4">
+437:                       <div className="flex items-center gap-3">
+438:                         <div className="w-11 h-11 rounded-full bg-red-50 flex items-center justify-center text-xl">🌾</div>
+439:                         <div>
+440:                           <div className="flex items-center gap-2 flex-wrap">
+441:                             <h3 className="text-lg font-bold text-gray-900">{req.crop}</h3>
+442:                             {isPublished && <Badge variant="live">● Published & Live</Badge>}
+443:                             {isPending && <Badge variant="pending">● Under Review</Badge>}
+444:                             {isRejected && <Badge variant="rejected">● Rejected</Badge>}
+445:                           </div>
+446:                           <p className="text-sm text-gray-500 mt-0.5">
+447:                             📍 {req.location} &nbsp;·&nbsp; 💰 ₹{Number(req.offeredPrice).toLocaleString('en-IN')}/Quintal Target
+448:                           </p>
+449:                         </div>
+450:                       </div>
+451:                       <div className="text-right shrink-0">
+452:                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Required Quantity</p>
+453:                         <p className="text-3xl font-extrabold text-gray-900 leading-none mt-0.5">
+454:                           {Number(req.quantity).toLocaleString('en-IN')}
+455:                           <span className="text-sm font-bold text-gray-500 ml-1">Qtl</span>
+456:                         </p>
+457:                       </div>
+458:                     </div>
+459: 
+460:                     {/* Progress bar for live published requests */}
+461:                     {isPublished && (
+462:                       <div className="mt-4">
+463:                         <div className="flex justify-between text-xs font-bold mb-1.5">
+464:                           <span className="text-green-700">{pct}% Fulfilled</span>
+465:                           <span className="text-gray-500">{fulfilled} / {total} Quintals</span>
+466:                         </div>
+467:                         <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+468:                           <div className="h-full bg-gradient-to-r from-green-600 to-green-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+469:                         </div>
+470:                       </div>
+471:                     )}
+472:                   </div>
+473: 
+474:                   {/* ── Expanded: Offers + Deals (if published) ── */}
+475:                   {isPublished && isExpanded && (
+476:                     <div className="border-t border-gray-100">
+477:                       <div className="grid grid-cols-1 lg:grid-cols-5 divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
+478:                         {/* Left: Incoming Offers */}
+479:                         <div className="lg:col-span-3 p-5">
+480:                           <div className="flex items-center gap-2 mb-4">
+481:                             <h4 className="text-base font-bold text-gray-900">Incoming Farmer Proposals</h4>
+482:                             {activeOffers?.offers.filter(o => o.status === 'PENDING').length > 0 && (
+483:                               <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px] font-bold">
+484:                                 {activeOffers.offers.filter(o => o.status === 'PENDING').length} New
+485:                               </span>
+486:                             )}
+487:                           </div>
+488: 
+489:                           {!activeOffers || activeOffers.offers.length === 0 ? (
+490:                             <p className="text-sm text-gray-400 italic">No farmer offers received yet.</p>
+491:                           ) : (
+492:                             <div className="space-y-4">
+493:                               {activeOffers.offers.map(offer => {
+494:                                 const isCounter = offer.counterOfferPrice && Number(offer.counterOfferPrice) !== Number(req.offeredPrice);
+495:                                 return (
+496:                                   <div key={offer._id} className="border border-gray-200 rounded-xl p-4 hover:shadow-sm transition relative">
+497:                                     {isCounter && (
+498:                                       <div className="absolute -top-2.5 right-3">
+499:                                         <Badge variant="counter">Counter Offer</Badge>
+500:                                       </div>
+501:                                     )}
+502:                                     <div className="flex items-start justify-between gap-3">
+503:                                       <div className="flex items-center gap-3">
+504:                                         <Avatar name={offer.farmerId?.firstName} />
+505:                                         <div>
+506:                                           <p className="font-bold text-gray-900 text-sm">
+507:                                             {offer.farmerId?.firstName} {offer.farmerId?.lastName}
+508:                                             <span className="ml-1.5 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">Verified</span>
+509:                                           </p>
+510:                                           <p className="text-xs text-gray-500">📍 {offer.farmerId?.district || offer.farmerId?.village || 'India'}</p>
+511:                                         </div>
+512:                                       </div>
+513:                                       <div className="text-right">
+514:                                         <p className="text-lg font-extrabold text-gray-900">{Number(offer.quantity).toLocaleString('en-IN')} <span className="text-xs font-bold text-gray-500">Qtl</span></p>
+515:                                       </div>
+516:                                     </div>
+517: 
+518:                                     {/* Price row */}
+519:                                     <div className="mt-3 flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2">
+520:                                       <span className="text-xs font-bold text-gray-500">{isCounter ? 'Counter Price' : 'Offer Price'}</span>
+521:                                       <span className="text-base font-extrabold text-gray-900">₹{Number(offer.counterOfferPrice || req.offeredPrice).toLocaleString('en-IN')} <span className="text-xs font-medium text-gray-500">/Qtl</span></span>
+522:                                     </div>
+523: 
+524:                                     {/* Negotiation History */}
+525:                                     {offer.negotiationHistory && offer.negotiationHistory.length > 1 && (
+526:                                       <div className="bg-white border border-gray-100 rounded-lg p-2 mt-3 mb-2 max-h-32 overflow-y-auto space-y-1.5">
+527:                                         {offer.negotiationHistory.map((hist, idx) => (
+528:                                           <div key={idx} className={`text-[10px] p-1.5 rounded ${hist.byRole === 'BUYER' ? 'bg-red-50 text-red-800 ml-4' : 'bg-gray-100 text-gray-800 mr-4'}`}>
+529:                                             <span className="font-bold">{hist.byRole}:</span> ₹{hist.price}/Q
+530:                                             {hist.message && <p className="mt-0.5 opacity-80">{hist.message}</p>}
+531:                                           </div>
+532:                                         ))}
+533:                                       </div>
+534:                                     )}
+535: 
+536:                                     {/* Actions */}
+537:                                     {(offer.status === 'PENDING' || offer.status === 'COUNTERED_BY_FARMER') ? (
+538:                                       <div className="mt-3">
+539:                                         {!counterForms[offer._id] ? (
+540:                                           <div className="flex items-center gap-2">
+541:                                             <button onClick={() => handleOfferAction(offer._id, 'accept')} className="flex-1 py-2 bg-green-700 text-white text-sm font-bold rounded-lg hover:bg-green-800 transition">Accept Deal</button>
+542:                                             <button onClick={() => setCounterForms({ ...counterForms, [offer._id]: { price: offer.counterOfferPrice, message: '' } })} className="flex-1 py-2 border border-red-700 text-red-700 text-sm font-bold rounded-lg hover:bg-red-50 transition">Counter</button>
+543:                                             <button onClick={() => handleOfferAction(offer._id, 'reject')} className="w-10 h-10 flex items-center justify-center border border-gray-300 text-gray-400 rounded-lg hover:bg-gray-100 transition text-lg">✕</button>
+544:                                           </div>
+545:                                         ) : (
+546:                                           <div className="bg-white p-2 border border-red-100 rounded-lg shadow-sm mt-3">
+547:                                             <input type="number" className="w-full text-xs p-2 border border-gray-200 rounded mb-2" placeholder="Your Counter Price" value={counterForms[offer._id].price} onChange={(e) => setCounterForms({ ...counterForms, [offer._id]: { ...counterForms[offer._id], price: e.target.value } })} />
+548:                                             <input type="text" className="w-full text-xs p-2 border border-gray-200 rounded mb-2" placeholder="Message (Optional)" value={counterForms[offer._id].message} onChange={(e) => setCounterForms({ ...counterForms, [offer._id]: { ...counterForms[offer._id], message: e.target.value } })} />
+549:                                             <div className="flex gap-2">
+550:                                               <button onClick={() => handleOfferAction(offer._id, 'counter', counterForms[offer._id])} className="flex-1 py-1.5 bg-red-700 text-white text-xs font-bold rounded">Send Counter</button>
+551:                                               <button onClick={() => setCounterForms({ ...counterForms, [offer._id]: null })} className="py-1.5 px-3 text-gray-500 text-xs font-bold">Cancel</button>
+552:                                             </div>
+553:                                           </div>
+554:                                         )}
+555:                                       </div>
+556:                                     ) : (
+557:                                       <div className="mt-3 text-right">
+558:                                         <Badge variant={offer.status === 'ACCEPTED' ? 'published' : (offer.status === 'COUNTERED_BY_BUYER' || offer.status === 'COUNTERED_BY_FARMER') ? 'counter' : 'default'}>{offer.status.replace(/_/g, ' ')}</Badge>
+559:                                       </div>
+560:                                     )}
+561:                                   </div>
+562:                                 );
+563:                               })}
+564:                             </div>
+565:                           )}
+566:                         </div>
+567: 
+568:                         {/* Right: Locked Deals */}
+569:                         <div className="lg:col-span-2 p-5 bg-gray-50/50">
+570:                           <h4 className="text-base font-bold text-gray-900 mb-4">Locked Deals</h4>
+571:                           {deals.filter(d => d.crop === req.crop || d.requestId === req._id).length === 0 ? (
+572:                             <p className="text-sm text-gray-400 italic">No locked deals for this request yet.</p>
+573:                           ) : (
+574:                             <div className="space-y-5">
+575:                               {deals
+576:                                 .filter(d => d.crop === req.crop || d.requestId === req._id)
+577:                                 .map(deal => (
+578:                                   <div key={deal._id} className="bg-white rounded-xl border border-gray-200 p-4">
+579:                                     <div className="flex items-center justify-between mb-3">
+580:                                       <div className="flex items-center gap-2.5">
+581:                                         <Avatar name={deal.farmerId?.firstName} size="sm" />
+582:                                         <span className="text-sm font-bold text-gray-900">
+583:                                           {deal.farmerId?.firstName} {deal.farmerId?.lastName}
+584:                                         </span>
+585:                                       </div>
+586:                                       <span className="text-sm font-extrabold text-gray-800">{deal.quantity} <span className="text-xs font-bold text-gray-400">Qtl</span></span>
+587:                                     </div>
+588:                                     <MiniDealSteps status={deal.status} />
+589:                                   </div>
+590:                                 ))}
+591:                             </div>
+592:                           )}
+593:                         </div>
+594:                       </div>
+595:                     </div>
+596:                   )}
+597:                 </div>
+598:               );
+599:             })
+600:           )}
+601:         </div>
+602:       )}
+603: 
+604:       {/* ─── TAB 2: Marketplace Publications (Browse-only for buyers) ─── */}
+605:       {activeTab === 'marketplace' && (
+606:         <div className="space-y-4">
+607:           <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between gap-4">
+608:             <div>
+609:               <h3 className="text-sm font-bold text-gray-900">Marketplace Demand Stream</h3>
+610:               <p className="text-xs text-gray-500 mt-0.5">
+611:                 All currently active publications from buyers across India. As a buyer, you can browse demands here to assess price trends.
+612:               </p>
+613:             </div>
+614:           </div>
+615: 
+616:           {allPublishedRequests.length === 0 ? (
+617:             <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
+618:               <p className="text-gray-400 font-semibold">No other publications live on the marketplace right now.</p>
+619:             </div>
+620:           ) : (
+621:             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+622:               {allPublishedRequests.map(pub => (
+623:                 <article key={pub._id} className="group relative bg-white rounded-2xl border border-gray-200 hover:border-slate-800/30 transition-all duration-200 hover:-translate-y-1 shadow-sm hover:shadow-md flex flex-col justify-between overflow-hidden">
+624:                     {/* Top Visual Indicator Line on Hover */}
+625:                     <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-slate-900 to-red-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+626:             
+627:                     {/* Upper Card Content */}
+628:                     <div className="p-5 sm:p-6 space-y-4">
+629:                       
+630:                       {/* Header Meta Row */}
+631:                       <div className="flex items-center justify-between gap-2">
+632:                         {/* Category badge */}
+633:                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-800 text-[11px] font-semibold tracking-wide border border-slate-200">
+634:                           <span className="truncate max-w-[120px]">{pub.cropType || 'Commodity'}</span>
+635:                         </div>
+636:             
+637:                         {/* Verified Badge */}
+638:                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-800 text-[11px] font-semibold shadow-sm">
+639:                           <span className="flex items-center justify-center w-3.5 h-3.5 rounded-full bg-slate-800 text-white">
+640:                             <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+641:                               <polyline points="20 6 9 17 4 12"></polyline>
+642:                             </svg>
+643:                           </span>
+644:                           <span>Verified</span>
+645:                         </div>
+646:                       </div>
+647:             
+648:                       {/* Crop Name & Location */}
+649:                       <div>
+650:                         <div className="flex items-baseline justify-between gap-2">
+651:                           <h2 className="text-2xl font-bold text-slate-900 tracking-tight group-hover:text-slate-700 transition-colors">
+652:                             {pub.crop}
+653:                           </h2>
+654:                         </div>
+655:                         <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-500">
+656:                           <svg className="w-3.5 h-3.5 text-red-600 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+657:                             <path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd"></path>
+658:                           </svg>
+659:                           <span className="font-medium text-slate-800">{pub.location || 'India'}</span>
+660:                         </div>
+661:                       </div>
+662:             
+663:                       {/* Pricing & Quantity Box */}
+664:                       <div className="bg-gray-50 rounded-xl p-3.5 border border-gray-200 flex items-center justify-between gap-3">
+665:                         {/* Offered Price */}
+666:                         <div>
+667:                           <span className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500">Offered Price</span>
+668:                           <div className="flex items-baseline gap-1 mt-0.5">
+669:                             <span className="text-2xl sm:text-3xl font-extrabold text-red-600 tracking-tight">₹{Number(pub.offeredPrice).toLocaleString('en-IN')}</span>
+670:                             <span className="text-xs font-semibold text-slate-800/70">/Qtl</span>
+671:                           </div>
+672:                         </div>
+673:             
+674:                         {/* Divider */}
+675:                         <div className="h-9 w-px bg-gray-200"></div>
+676:             
+677:                         {/* Quantity Requested */}
+678:                         <div className="text-right">
+679:                           <span className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500">Quantity Req.</span>
+680:                           <div className="flex items-baseline justify-end gap-1 mt-0.5">
+681:                             <span className="text-xl sm:text-2xl font-bold text-slate-900">{pub.quantity}</span>
+682:                             <span className="text-xs font-medium text-gray-500">Qtl</span>
+683:                           </div>
+684:                         </div>
+685:                       </div>
+686:             
+687:                       {/* Description / Note */}
+688:                       {pub.description ? (
+689:                         <div className="relative rounded-xl bg-white border border-gray-100 p-3 text-xs leading-relaxed text-gray-600 shadow-sm">
+690:                           <div className="flex items-start gap-2">
+691:                             <svg className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor">
+692:                               <path d="M4.583 17.321C3.553 16.227 3 15 3 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 01-3.5 3.5c-1.073 0-2.099-.49-2.748-1.179zm10 0C13.553 16.227 13 15 13 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 01-3.5 3.5c-1.073 0-2.099-.49-2.748-1.179z"></path>
+693:                             </svg>
+694:                             <p className="italic line-clamp-3">"{pub.description}"</p>
+695:                           </div>
+696:                         </div>
+697:                       ) : (
+698:                         <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-3 text-xs flex items-center gap-2 text-gray-500">
+699:                           <svg className="w-4 h-4 text-gray-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+700:                             <circle cx="12" cy="12" r="10"></circle>
+701:                             <line x1="12" y1="16" x2="12" y2="12"></line>
+702:                             <line x1="12" y1="8" x2="12.01" y2="8"></line>
+703:                           </svg>
+704:                           <span className="italic">No special notes provided by buyer. Standard APMC quality parameters apply.</span>
+705:                         </div>
+706:                       )}
+707:             
+708:                     </div>
+709:             
+710:                     {/* Footer Section */}
+711:                     <div className="border-t border-gray-200 bg-gray-50/80 px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+712:                       <div className="flex items-center gap-2">
+713:                         <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-[10px] uppercase">
+714:                           {pub.buyerId?.firstName?.charAt(0) || ''}{pub.buyerId?.lastName?.charAt(0) || ''}
+715:                         </div>
+716:                         <div className="text-xs">
+717:                           <span className="text-gray-500">Buyer:</span>
+718:                           <span className="font-semibold text-slate-900 ml-1">{pub.buyerId?.firstName} {pub.buyerId?.lastName}</span>
+719:                         </div>
+720:                       </div>
+721:                     </div>
+722:                   </article>
+723:                 ))}
+724:                 </div>
+725:               )}
+726:             </>
+727:           )}
+728:         </div>
+729:       )}
+730:     </div>
+731:   );
+732: }

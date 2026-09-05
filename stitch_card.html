@@ -1,0 +1,392 @@
+<!DOCTYPE html><html lang="en" style=""><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAATHI - Marketplace Demand Listings</title>
+  <!-- Google Fonts & Tailwind -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              navy: '#13233A',
+              navyLight: '#1E3250',
+              red: '#E51B2A',
+              redLight: '#FEECEE',
+              bg: '#ECEFF1',
+              cardBg: '#FFFFFF',
+              surfaceMuted: '#F6F8FA',
+              border: '#E2E8F0',
+              borderSubtle: '#EDF2F7',
+              textPrimary: '#13233A',
+              textSecondary: '#4A5568',
+              textMuted: '#718096'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          boxShadow: {
+            card: '0 2px 8px -2px rgba(19, 35, 58, 0.05), 0 1px 3px -1px rgba(19, 35, 58, 0.03)',
+            cardHover: '0 12px 24px -6px rgba(19, 35, 58, 0.12), 0 4px 8px -3px rgba(19, 35, 58, 0.06)',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#ECEFF1] min-h-screen font-sans text-brand-textPrimary antialiased selection:bg-brand-red/10 selection:text-brand-red">
+
+  <!-- Header / Context Bar -->
+  
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col justify-center min-h-screen">
+
+    <!-- Page Title & Guidance -->
+    
+
+    <!-- Responsive Card Grid (1 col mobile, 2 col tablet, 3 col desktop) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+      <!-- ========================================================================= -->
+      <!-- CARD 1: Grain Category (e.g. Rice) - Full Data with Description & Verified -->
+      <!-- ========================================================================= -->
+      <article class="group relative bg-white rounded-2xl border border-brand-border hover:border-brand-navy/30 transition-all duration-200 hover:-translate-y-1 shadow-card hover:shadow-cardHover flex flex-col justify-between overflow-hidden">
+        <!-- Top Visual Indicator Line on Hover -->
+        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-navy to-brand-red opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+
+        <!-- Upper Card Content -->
+        <div class="p-5 sm:p-6 space-y-4">
+          
+          <!-- Header Meta Row: Category Tag & Trust Status -->
+          <div class="flex items-center justify-between gap-2">
+            <!-- Category Tag (Grains / Cereals) -->
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ECEFF1] text-brand-navy text-[11px] font-semibold tracking-wide border border-brand-navy/10">
+              <!-- Grain Icon -->
+              <svg class="w-3.5 h-3.5 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a4 4 0 0 0-4 4c0 3 4 8 4 8s4-5 4-8a4 4 0 0 0-4-4z"></path>
+                <path d="M12 14v8"></path>
+                <path d="M9 18l3-3 3 3"></path>
+              </svg>
+              <span class="">Grains &amp; Cereals</span>
+            </div>
+
+            <!-- Brand Aligned Verified Trust Badge (Navy + Red accent checkmark) -->
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-navy/5 border border-brand-navy/15 text-brand-navy text-[11px] font-semibold shadow-2xs">
+              <span class="flex items-center justify-center w-3.5 h-3.5 rounded-full bg-brand-navy text-white">
+                <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </span>
+              <span class="">Verified Publication</span>
+            </div>
+          </div>
+
+          <!-- Crop Name & Location Anchor -->
+          <div>
+            <div class="flex items-baseline justify-between gap-2">
+              <h2 class="text-2xl font-bold text-brand-navy tracking-tight group-hover:text-brand-navyLight transition-colors">
+                Rice (Basmati 1121)
+              </h2>
+            </div>
+            <!-- Location Line -->
+            <div class="flex items-center gap-1.5 mt-1 text-xs text-brand-textSecondary">
+              <svg class="w-3.5 h-3.5 text-brand-red flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
+              </svg>
+              <span class="font-medium text-brand-navy">Greater Noida</span>
+              <span class="text-brand-textMuted">• Uttar Pradesh</span>
+            </div>
+          </div>
+
+          <!-- Pricing & Quantity Core Hierarchy Box -->
+          <div class="bg-brand-surfaceMuted rounded-xl p-3.5 border border-brand-border flex items-center justify-between gap-3">
+            <!-- Offered Price (Core Eye-Catching Hero Number in #E51B2A) -->
+            <div>
+              <span class="block text-[11px] font-semibold uppercase tracking-wider text-brand-textMuted">Offered Price</span>
+              <div class="flex items-baseline gap-1 mt-0.5">
+                <span class="text-2xl sm:text-3xl font-extrabold text-brand-red tracking-tight">₹2,100</span>
+                <span class="text-xs font-semibold text-brand-navy/70">/Qtl</span>
+              </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="h-9 w-px bg-brand-border"></div>
+
+            <!-- Quantity Requested (Strong Secondary Figure in #13233A) -->
+            <div class="text-right">
+              <span class="block text-[11px] font-semibold uppercase tracking-wider text-brand-textMuted">Quantity Req.</span>
+              <div class="flex items-baseline justify-end gap-1 mt-0.5">
+                <span class="text-xl sm:text-2xl font-bold text-brand-navy">50</span>
+                <span class="text-xs font-medium text-brand-textMuted">Qtl</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Buyer Note / Description (Quoted format, not a dull placeholder box) -->
+          <div class="relative rounded-xl bg-white border border-brand-borderSubtle p-3 text-xs leading-relaxed text-brand-textSecondary shadow-2xs">
+            <div class="flex items-start gap-2">
+              <svg class="w-3.5 h-3.5 text-brand-red flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M4.583 17.321C3.553 16.227 3 15 3 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 01-3.5 3.5c-1.073 0-2.099-.49-2.748-1.179zm10 0C13.553 16.227 13 15 13 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 01-3.5 3.5c-1.073 0-2.099-.49-2.748-1.179z"></path>
+              </svg>
+              <p class="italic">"Moisture level below 12% preferred. Clean machine-harvested lot ready for immediate mill loading."</p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Footer Section: Structured Divider between "Who's Asking" & "Who Can Act" -->
+        <div class="border-t border-brand-border bg-brand-surfaceMuted/80 px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <!-- Buyer Identifier -->
+          <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-full bg-brand-navy/10 text-brand-navy flex items-center justify-center font-bold text-[10px]">
+              TB
+            </div>
+            <div class="text-xs">
+              <span class="text-brand-textMuted">Buyer:</span>
+              <span class="font-semibold text-brand-navy ml-1">test buyer</span>
+            </div>
+          </div>
+
+          <!-- Strict Farmer Action Note -->
+          <div class="inline-flex items-center gap-1.5 text-[11px] font-medium text-brand-red bg-brand-red/8 border border-brand-red/20 px-2 py-1 rounded-md">
+            <svg class="w-3 h-3 text-brand-red" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+            <span class="">Farmer application only</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- ========================================================================= -->
+      <!-- CARD 2: Pulse Category (e.g. Moong/Gram) - Unverified state example       -->
+      <!-- ========================================================================= -->
+      <article class="group relative bg-white rounded-2xl border border-brand-border hover:border-brand-navy/30 transition-all duration-200 hover:-translate-y-1 shadow-card hover:shadow-cardHover flex flex-col justify-between overflow-hidden">
+        <!-- Top Visual Indicator Line on Hover -->
+        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-navy to-brand-red opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+
+        <!-- Upper Card Content -->
+        <div class="p-5 sm:p-6 space-y-4">
+          
+          <!-- Header Meta Row: Category Tag & Trust Status -->
+          <div class="flex items-center justify-between gap-2">
+            <!-- Category Tag (Pulses & Legumes) -->
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ECEFF1] text-brand-navy text-[11px] font-semibold tracking-wide border border-brand-navy/10">
+              <!-- Pulse Icon -->
+              <svg class="w-3.5 h-3.5 text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="8"></circle>
+                <path d="M12 8v8"></path>
+                <path d="M8 12h8"></path>
+              </svg>
+              <span class="">Pulses &amp; Legumes</span>
+            </div>
+
+            <!-- Verified Status Badge (Verified Brand Navy) -->
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-navy/5 border border-brand-navy/15 text-brand-navy text-[11px] font-semibold shadow-2xs">
+              <span class="flex items-center justify-center w-3.5 h-3.5 rounded-full bg-brand-navy text-white">
+                <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </span>
+              <span class="">Verified Publication</span>
+            </div>
+          </div>
+
+          <!-- Crop Name & Location Anchor -->
+          <div>
+            <div class="flex items-baseline justify-between gap-2">
+              <h2 class="text-2xl font-bold text-brand-navy tracking-tight group-hover:text-brand-navyLight transition-colors">
+                Wheat (Sharbati)
+              </h2>
+            </div>
+            <!-- Location Line -->
+            <div class="flex items-center gap-1.5 mt-1 text-xs text-brand-textSecondary">
+              <svg class="w-3.5 h-3.5 text-brand-red flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
+              </svg>
+              <span class="font-medium text-brand-navy">Karnal</span>
+              <span class="text-brand-textMuted">• Haryana</span>
+            </div>
+          </div>
+
+          <!-- Pricing & Quantity Core Hierarchy Box -->
+          <div class="bg-brand-surfaceMuted rounded-xl p-3.5 border border-brand-border flex items-center justify-between gap-3">
+            <!-- Offered Price -->
+            <div>
+              <span class="block text-[11px] font-semibold uppercase tracking-wider text-brand-textMuted">Offered Price</span>
+              <div class="flex items-baseline gap-1 mt-0.5">
+                <span class="text-2xl sm:text-3xl font-extrabold text-brand-red tracking-tight">₹2,450</span>
+                <span class="text-xs font-semibold text-brand-navy/70">/Qtl</span>
+              </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="h-9 w-px bg-brand-border"></div>
+
+            <!-- Quantity Requested -->
+            <div class="text-right">
+              <span class="block text-[11px] font-semibold uppercase tracking-wider text-brand-textMuted">Quantity Req.</span>
+              <div class="flex items-baseline justify-end gap-1 mt-0.5">
+                <span class="text-xl sm:text-2xl font-bold text-brand-navy">500</span>
+                <span class="text-xs font-medium text-brand-textMuted">Qtl</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Buyer Note / Description -->
+          <div class="relative rounded-xl bg-white border border-brand-borderSubtle p-3 text-xs leading-relaxed text-brand-textSecondary shadow-2xs">
+            <div class="flex items-start gap-2">
+              <svg class="w-3.5 h-3.5 text-brand-red flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M4.583 17.321C3.553 16.227 3 15 3 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 01-3.5 3.5c-1.073 0-2.099-.49-2.748-1.179zm10 0C13.553 16.227 13 15 13 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 01-3.5 3.5c-1.073 0-2.099-.49-2.748-1.179z"></path>
+              </svg>
+              <p class="italic">"Direct delivery to warehouse depot required. Spot payment upon weighbridge slip verification."</p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Footer Section -->
+        <div class="border-t border-brand-border bg-brand-surfaceMuted/80 px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-full bg-brand-navy/10 text-brand-navy flex items-center justify-center font-bold text-[10px]">
+              BA
+            </div>
+            <div class="text-xs">
+              <span class="text-brand-textMuted">Buyer:</span>
+              <span class="font-semibold text-brand-navy ml-1">Buyer A (Agro Exports)</span>
+            </div>
+          </div>
+
+          <div class="inline-flex items-center gap-1.5 text-[11px] font-medium text-brand-red bg-brand-red/8 border border-brand-red/20 px-2 py-1 rounded-md">
+            <svg class="w-3 h-3 text-brand-red" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+            <span class="">Farmer application only</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- ========================================================================= -->
+      <!-- CARD 3: Cash Crop / Oilseed - MISSING DESCRIPTION EMPTY STATE (Graceful)  -->
+      <!-- ========================================================================= -->
+      <article class="group relative bg-white rounded-2xl border border-brand-border hover:border-brand-navy/30 transition-all duration-200 hover:-translate-y-1 shadow-card hover:shadow-cardHover flex flex-col justify-between overflow-hidden">
+        <!-- Top Visual Indicator Line on Hover -->
+        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-navy to-brand-red opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+
+        <!-- Upper Card Content -->
+        <div class="p-5 sm:p-6 space-y-4">
+          
+          <!-- Header Meta Row: Category Tag & Trust Status (Unverified Variation) -->
+          <div class="flex items-center justify-between gap-2">
+            <!-- Category Tag (Cash Crops / Mustard) -->
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ECEFF1] text-brand-navy text-[11px] font-semibold tracking-wide border border-brand-navy/10">
+              <!-- Cash Crop Leaf Icon -->
+              <svg class="w-3.5 h-3.5 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+                <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path>
+              </svg>
+              <span class="">Oilseeds &amp; Cash Crop</span>
+            </div>
+
+            <!-- Standard Trust / Verified Badge -->
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-navy/5 border border-brand-navy/15 text-brand-navy text-[11px] font-semibold shadow-2xs">
+              <span class="flex items-center justify-center w-3.5 h-3.5 rounded-full bg-brand-navy text-white">
+                <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </span>
+              <span class="">Verified Publication</span>
+            </div>
+          </div>
+
+          <!-- Crop Name & Location Anchor -->
+          <div>
+            <div class="flex items-baseline justify-between gap-2">
+              <h2 class="text-2xl font-bold text-brand-navy tracking-tight group-hover:text-brand-navyLight transition-colors">
+                Mustard (Sarson)
+              </h2>
+            </div>
+            <!-- Location Line -->
+            <div class="flex items-center gap-1.5 mt-1 text-xs text-brand-textSecondary">
+              <svg class="w-3.5 h-3.5 text-brand-red flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
+              </svg>
+              <span class="font-medium text-brand-navy">Bharatpur</span>
+              <span class="text-brand-textMuted">• Rajasthan</span>
+            </div>
+          </div>
+
+          <!-- Pricing & Quantity Core Hierarchy Box -->
+          <div class="bg-brand-surfaceMuted rounded-xl p-3.5 border border-brand-border flex items-center justify-between gap-3">
+            <!-- Offered Price -->
+            <div>
+              <span class="block text-[11px] font-semibold uppercase tracking-wider text-brand-textMuted">Offered Price</span>
+              <div class="flex items-baseline gap-1 mt-0.5">
+                <span class="text-2xl sm:text-3xl font-extrabold text-brand-red tracking-tight">₹5,400</span>
+                <span class="text-xs font-semibold text-brand-navy/70">/Qtl</span>
+              </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="h-9 w-px bg-brand-border"></div>
+
+            <!-- Quantity Requested -->
+            <div class="text-right">
+              <span class="block text-[11px] font-semibold uppercase tracking-wider text-brand-textMuted">Quantity Req.</span>
+              <div class="flex items-baseline justify-end gap-1 mt-0.5">
+                <span class="text-xl sm:text-2xl font-bold text-brand-navy">120</span>
+                <span class="text-xs font-medium text-brand-textMuted">Qtl</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Graceful Missing Description Empty State (Clean subtle helper, no awkward hole) -->
+          <div class="rounded-xl border border-dashed border-brand-border/80 bg-brand-surfaceMuted/40 p-3 text-xs flex items-center gap-2 text-brand-textMuted">
+            <svg class="w-4 h-4 text-brand-textMuted/60 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <span class="italic">No special notes provided by buyer. Standard APMC quality parameters apply.</span>
+          </div>
+
+        </div>
+
+        <!-- Footer Section -->
+        <div class="border-t border-brand-border bg-brand-surfaceMuted/80 px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-full bg-brand-navy/10 text-brand-navy flex items-center justify-center font-bold text-[10px]">
+              KO
+            </div>
+            <div class="text-xs">
+              <span class="text-brand-textMuted">Buyer:</span>
+              <span class="font-semibold text-brand-navy ml-1">Kisan Oil Mills</span>
+            </div>
+          </div>
+
+          <div class="inline-flex items-center gap-1.5 text-[11px] font-medium text-brand-red bg-brand-red/8 border border-brand-red/20 px-2 py-1 rounded-md">
+            <svg class="w-3 h-3 text-brand-red" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+            <span class="">Farmer application only</span>
+          </div>
+        </div>
+      </article>
+
+    </div>
+
+    <!-- Design Specification & Comparison Note Box -->
+    
+
+  </main>
+
+
+
+
+
+</body></html>
