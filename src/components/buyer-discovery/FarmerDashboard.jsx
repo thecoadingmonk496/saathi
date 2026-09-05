@@ -485,11 +485,6 @@ export default function FarmerDashboard() {
                     
                     {/* Middle: Details */}
                     <div className="flex-1 min-w-[200px] flex flex-col justify-center py-1 w-full">
-                      <div className="flex items-center mb-1.5">
-                        <span className="px-2 py-0.5 bg-[#eef8f2] text-green-700 text-[10px] font-bold rounded-full flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span> Published
-                        </span>
-                      </div>
                       <h3 className="text-xl md:text-2xl font-extrabold text-gray-900 mb-1 truncate">{req.crop}</h3>
                       <div className="flex items-center gap-3 text-sm text-gray-500 mb-1 overflow-hidden">
                         <span className="inline-flex items-center gap-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
@@ -503,14 +498,6 @@ export default function FarmerDashboard() {
                       {req.description && (
                         <p className="text-sm text-gray-500 line-clamp-1 mb-2.5">{req.description}</p>
                       )}
-                      <div className="mt-auto">
-                        <span className="px-2.5 py-1 bg-[#eef8f2] text-green-800 text-[11px] font-semibold rounded-full flex items-center gap-1.5 w-max">
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                          </svg>
-                          Crop Request
-                        </span>
-                      </div>
                     </div>
 
                     {/* Right: Stats & Actions */}
