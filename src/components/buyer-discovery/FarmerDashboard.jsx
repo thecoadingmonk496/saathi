@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '../../context/UserContext';
 import DealTracker from './DealTracker';
+import { UserIcon, MapPinIcon, ClockIcon, CurrencyRupeeIcon, CubeIcon } from '@heroicons/react/24/outline';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')).replace(/\/$/, '') + '/api';
 
@@ -475,61 +476,77 @@ export default function FarmerDashboard() {
                 return filteredAndSortedRequests.map(req => (
                   <div
                     key={req._id}
-                    className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 hover:shadow-md transition flex flex-col xl:flex-row flex-wrap gap-5 xl:gap-8"
+                    className="bg-white rounded-2xl border border-gray-100 p-3 hover:shadow-md transition flex flex-col xl:flex-row items-center gap-5"
                   >
                     {/* Left: Image */}
-                    <div className="w-full xl:w-72 h-48 xl:h-auto shrink-0 rounded-xl overflow-hidden relative">
+                    <div className="w-full xl:w-[220px] h-48 xl:h-[130px] shrink-0 rounded-[12px] overflow-hidden relative">
                       <img src={getCropImage(req)} alt={req.crop} className="w-full h-full object-cover" />
                     </div>
                     
                     {/* Middle: Details */}
-                    <div className="flex-1 min-w-[240px] flex flex-col justify-center py-2">
-
-                      <h3 className="text-2xl sm:text-3xl xl:text-4xl font-extrabold text-gray-900 mb-2 truncate">{req.crop}</h3>
-                        <div className="flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-500 mb-3 overflow-hidden">
-                          <span className="inline-flex items-center gap-1 sm:gap-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
-                            👤 <span>{req.buyerId?.firstName} {req.buyerId?.lastName}</span>
-                          </span>
-                          <span className="shrink-0 text-gray-300">•</span>
-                          <span className="inline-flex items-center gap-1 sm:gap-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
-                            📍 <span>{req.location || req.buyerId?.district || 'India'}</span>
-                          </span>
-                        </div>
+                    <div className="flex-1 min-w-[200px] flex flex-col justify-center py-1 w-full">
+                      <div className="flex items-center mb-1.5">
+                        <span className="px-2 py-0.5 bg-[#eef8f2] text-green-700 text-[10px] font-bold rounded-full flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span> Published
+                        </span>
+                      </div>
+                      <h3 className="text-xl md:text-2xl font-extrabold text-gray-900 mb-1 truncate">{req.crop}</h3>
+                      <div className="flex items-center gap-3 text-sm text-gray-500 mb-1 overflow-hidden">
+                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                          <UserIcon className="w-4 h-4 shrink-0" /> <span>{req.buyerId?.firstName} {req.buyerId?.lastName}</span>
+                        </span>
+                        <span className="shrink-0 text-gray-300">•</span>
+                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                          <MapPinIcon className="w-4 h-4 shrink-0" /> <span>{req.location || req.buyerId?.district || 'India'}</span>
+                        </span>
+                      </div>
                       {req.description && (
-                        <p className="text-base text-gray-600 mb-4">{req.description}</p>
+                        <p className="text-sm text-gray-500 line-clamp-1 mb-2.5">{req.description}</p>
                       )}
-
-                    </div>
-
-                    {/* Middle Right: Stats */}
-                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 xl:gap-5 shrink-0 py-2">
-                      <div className="bg-gray-50 rounded-xl p-4 xl:p-5 flex-1 sm:flex-none flex items-center gap-3 xl:gap-4 min-w-[160px]">
-                        <span className="text-3xl">📦</span>
-                        <div>
-                          <p className="text-2xl font-extrabold text-gray-900 leading-tight">{req.quantity} <span className="text-base font-semibold text-gray-500">Qtl</span></p>
-                          <p className="text-sm text-gray-500 leading-tight mt-0.5">Required Quantity</p>
-                        </div>
-                      </div>
-                      <div className="bg-green-50 rounded-xl p-4 xl:p-5 flex-1 sm:flex-none flex items-center gap-3 xl:gap-4 min-w-[160px]">
-                        <span className="text-3xl">₹</span>
-                        <div>
-                          <p className="text-2xl font-extrabold text-gray-900 leading-tight">₹{Number(req.offeredPrice).toLocaleString('en-IN')} <span className="text-base font-semibold text-gray-500">/ Qtl</span></p>
-                          <p className="text-sm text-gray-500 leading-tight mt-0.5">Offered Price</p>
-                        </div>
+                      <div className="mt-auto">
+                        <span className="px-2.5 py-1 bg-[#eef8f2] text-green-800 text-[11px] font-semibold rounded-full flex items-center gap-1.5 w-max">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                          </svg>
+                          Crop Request
+                        </span>
                       </div>
                     </div>
 
-                    {/* Right: Actions */}
-                    <div className="flex flex-row xl:flex-col items-center xl:items-stretch justify-center gap-3 shrink-0 min-w-[180px] w-full xl:w-auto py-2">
-                      <button onClick={() => selectRequest(req)} className="flex-1 xl:w-full px-4 xl:px-6 py-2.5 xl:py-3 rounded-xl border border-gray-300 text-sm xl:text-base font-bold text-gray-700 hover:bg-gray-50 transition shadow-sm whitespace-nowrap">
-                        View Request
-                      </button>
-                      <button onClick={() => selectRequest(req)} className="flex-1 xl:w-full px-4 xl:px-6 py-2.5 xl:py-3 rounded-xl bg-[#1a3a2a] text-white text-sm xl:text-base font-bold hover:bg-[#142e21] transition shadow-sm whitespace-nowrap">
-                        Make Offer →
-                      </button>
-                      <p className="text-center text-sm text-gray-400 mt-2 flex items-center justify-center gap-1.5">
-                        <span className="text-base">🕒</span> Posted {formatTimeAgo(req.publishedAt || req.createdAt)}
-                      </p>
+                    {/* Right: Stats & Actions */}
+                    <div className="flex flex-col items-end gap-3 shrink-0 w-full xl:w-auto py-1">
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full justify-end">
+                        {/* Stat 1 */}
+                        <div className="bg-[#f8fafc] rounded-xl p-3 flex items-center gap-3 min-w-[150px]">
+                          <CubeIcon className="w-6 h-6 text-gray-500 shrink-0" />
+                          <div>
+                            <p className="text-lg font-extrabold text-gray-900 leading-none mb-1.5">{req.quantity} <span className="text-sm font-semibold text-gray-500">Qtl</span></p>
+                            <p className="text-[11px] text-gray-500 leading-none">Required Quantity</p>
+                          </div>
+                        </div>
+                        {/* Stat 2 */}
+                        <div className="bg-[#f0fdf4] rounded-xl p-3 flex items-center gap-3 min-w-[150px]">
+                          <div className="w-7 h-7 rounded-full bg-[#dcfce7] flex items-center justify-center shrink-0">
+                            <CurrencyRupeeIcon className="w-4 h-4 text-green-700" />
+                          </div>
+                          <div>
+                            <p className="text-lg font-extrabold text-gray-900 leading-none mb-1.5">₹{Number(req.offeredPrice).toLocaleString('en-IN')} <span className="text-sm font-semibold text-gray-500">/ Qtl</span></p>
+                            <p className="text-[11px] text-gray-500 leading-none">Offered Price</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => selectRequest(req)} className="px-5 py-3 rounded-xl border border-gray-300 text-sm font-bold text-[#0c3925] hover:bg-gray-50 transition shadow-sm whitespace-nowrap">
+                            View Request
+                          </button>
+                          <button onClick={() => selectRequest(req)} className="px-5 py-3 rounded-xl bg-[#0c3925] text-white text-sm font-bold hover:bg-[#09291b] transition shadow-sm whitespace-nowrap flex items-center justify-center gap-1.5">
+                            Make Offer <span className="text-base leading-none">&rarr;</span>
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                        <ClockIcon className="w-3.5 h-3.5" /> Posted {formatTimeAgo(req.publishedAt || req.createdAt)}
+                      </div>
                     </div>
                   </div>
                 ));
