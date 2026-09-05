@@ -483,7 +483,7 @@ export default function FarmerDashboard() {
                     </div>
                     
                     {/* Middle: Details */}
-                    <div className="flex-1 min-w-0 flex flex-col justify-center py-2">
+                    <div className="flex-1 min-w-[240px] flex flex-col justify-center py-2">
 
                       <h3 className="text-2xl sm:text-3xl xl:text-4xl font-extrabold text-gray-900 mb-2 truncate">{req.crop}</h3>
                         <div className="flex items-center gap-2 sm:gap-3 text-sm sm:text-base text-gray-500 mb-3 overflow-hidden">
