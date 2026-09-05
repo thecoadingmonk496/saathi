@@ -413,7 +413,7 @@ export default function MarketExplorer() {
       }
 
       setLoadingData(true);
-      fetch(`${API_BASE}/api/transactions/journey/${batchId}`)
+      fetch(`${API_BASE}/transactions/journey/${batchId}`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.journey) {

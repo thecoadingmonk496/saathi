@@ -106,9 +106,19 @@ export default function BuyerDashboard() {
       if (phone) {
         try {
           const appRes = await fetch(`${API_BASE}/buyers/my-application?phone=${phone}`);
-          if (appRes.ok) setAppStatus('FOUND');
-          else setAppStatus('NOT_FOUND');
-        } catch (_) {}
+          if (appRes.ok) {
+            const appData = await appRes.json();
+            // Keep the six-step registration visible until the buyer profile is approved.
+            setAppStatus(appData.application?.verificationStatus === 'APPROVED' ? 'FOUND' : 'NOT_FOUND');
+          } else {
+            setAppStatus('NOT_FOUND');
+          }
+        } catch (error) {
+          console.error('Failed to check buyer registration status:', error);
+          setAppStatus('NOT_FOUND');
+        }
+      } else {
+        setAppStatus('NOT_FOUND');
       }
 
       // 1. Fetch buyer's own requests

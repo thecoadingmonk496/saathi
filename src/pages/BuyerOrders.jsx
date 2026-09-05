@@ -19,7 +19,7 @@ export default function BuyerOrders() {
     setLoading(true);
     try {
       const token = localStorage.getItem('saathi_token');
-      const res = await fetch('${API_BASE}/api/purchase-orders/pending', {
+      const res = await fetch(`${API_BASE}/purchase-orders/pending`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -35,7 +35,7 @@ export default function BuyerOrders() {
   const handleAction = async (orderId, action) => {
     try {
       const token = localStorage.getItem('saathi_token');
-      const res = await fetch(`${API_BASE}/api/purchase-orders/${orderId}/${action}`, {
+      const res = await fetch(`${API_BASE}/purchase-orders/${orderId}/${action}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
