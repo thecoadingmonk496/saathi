@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocationContext } from '../context/LocationContext';
 import { useUser } from '../context/UserContext';
@@ -103,6 +103,27 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
     email: user?.email || '',
   });
   const [selectedCommodities, setSelectedCommodities] = useState([]);
+  
+  useEffect(() => {
+    const saved = sessionStorage.getItem('buyerRegisterDraft');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.form) setForm(prev => ({ ...prev, ...parsed.form }));
+        if (parsed.step !== undefined) setStep(parsed.step);
+        if (parsed.selectedCommodities) setSelectedCommodities(parsed.selectedCommodities);
+      } catch (e) {
+        console.error('Failed to parse saved draft:', e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    sessionStorage.setItem('buyerRegisterDraft', JSON.stringify({
+      form, step, selectedCommodities
+    }));
+  }, [form, step, selectedCommodities]);
+
   const [otherCommodity, setOtherCommodity] = useState('');
   const [offers, setOffers] = useState({});
   const [documents, setDocuments] = useState({});
@@ -140,8 +161,8 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
       setErrors((prev) => ({ ...prev, [key]: 'Only PDF, JPG, JPEG, PNG files are allowed' }));
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setErrors((prev) => ({ ...prev, [key]: 'File size must be less than 5MB' }));
+    if (file.size > 500 * 1024) {
+      setErrors((prev) => ({ ...prev, [key]: 'File size must be less than 500KB' }));
       return;
     }
     const reader = new FileReader();
@@ -229,6 +250,7 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
         const currentYear = new Date().getFullYear();
         if (!Number.isInteger(year) || year < 1900 || year > currentYear) newErrors.yearEstablished = 'Enter a valid year';
       }
+      if (!form.gstNumber.trim()) newErrors.gstNumber = 'GST Number is required';
       if (!form.businessAddress.trim()) newErrors.businessAddress = 'Business address is required';
     }
     if (step === 3) {
@@ -315,7 +337,7 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
 
     const payload = {
       applicantName: `${form.firstName} ${form.lastName}`.trim(),
-      phone: form.phone,
+      phone: form.phone.replace(/^\+91/, '').replace(/\s/g, ''),
       email: form.email,
       profilePhoto: form.profilePhoto,
       buyerType: form.buyerType,
@@ -359,18 +381,20 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
       } catch (parseErr) {
         console.error('Non-JSON response:', text.substring(0, 500));
         console.error('Non-JSON response:', text.substring(0, 500));
-        setSubmitError(`Server error (${response.status}). The server may be starting up. Please try again in a moment.`);
+        setSubmitError(response.status === 413 ? 'File sizes too large. Please ensure all uploaded images are under 500KB.' : `Server error (${response.status}). Please try again later.`);
         return;
       }
       
 
       if (response.ok && data.success) {
+        console.log('Application submitted:', data);
+        sessionStorage.removeItem('buyerRegisterDraft');
         setSubmitSuccess({
-          applicationId: data.applicationId,
-          message: data.message,
+          applicationId: data.application?._id || data.applicationId,
+          message: data.message
         });
-      }
- else {
+        if (onSuccess) onSuccess();
+      } else {
         setSubmitError(data.message || `Unable to submit application (${response.status})`);
       }
     } catch (err) {
@@ -584,7 +608,7 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
                   />
                 </div>
                 <FormField
-                  label="GST Number (Optional)"
+                  label="GST Number *"
                   name="gstNumber"
                   value={form.gstNumber}
                   onChange={handleChange}
@@ -690,13 +714,13 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
             {/* Step 4: Verification Documents */}
             {step === 4 && (
               <div className="space-y-5">
-                <SectionTitle title="Verification Documents" subtitle="Upload required documents for verification" />
+                <SectionTitle title="Verification Documents" subtitle="Upload required documents for verification (Max 500KB per file)" />
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                   <p className="text-sm text-blue-800 font-semibold">
                     🔒 Documents are private and only accessible to authorized SAATHI administrators.
                   </p>
                   <p className="mt-1 text-xs text-blue-700">
-                    Allowed: PDF, JPG, JPEG, PNG (max 5MB)
+                    Allowed: PDF, JPG, JPEG, PNG (max 500KB)
                   </p>
                 </div>
                 {DOCUMENT_FIELDS.map((field) => (

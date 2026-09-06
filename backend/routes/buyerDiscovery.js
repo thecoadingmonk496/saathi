@@ -397,13 +397,47 @@ router.get('/deals/:id', requireAuth, async (req, res) => {
   }
 });
 
+// Submit Escrow Bank Details
+router.post('/deals/:id/escrow', requireAuth, requireRole('FARMER'), async (req, res) => {
+  try {
+    const deal = await Deal.findOne({ _id: req.params.id, farmerId: req.user._id });
+    if (!deal) return res.status(403).json({ success: false, message: 'Unauthorized' });
+
+    if (deal.status !== 'ACCEPTED') {
+      return res.status(400).json({ success: false, message: 'Deal is not ready for escrow details.' });
+    }
+
+    const { accountNumber, ifscCode, bankName, upiId, upiPhone } = req.body;
+    
+    if (!accountNumber || !ifscCode || !bankName || !upiId || !upiPhone) {
+      return res.status(400).json({ success: false, message: 'All escrow details are required.' });
+    }
+
+    deal.escrowBankAccount = {
+      accountNumber,
+      ifscCode,
+      bankName,
+      upiId,
+      upiPhone,
+      submittedAt: new Date()
+    };
+    
+    deal.status = 'PHOTO_PENDING';
+    await deal.save();
+
+    res.json({ success: true, data: deal, message: 'Escrow bank details saved successfully.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Upload Photos & Trigger AI
 router.post('/deals/:id/quality-submission', requireAuth, requireRole('FARMER'), async (req, res) => {
   try {
     const deal = await Deal.findOne({ _id: req.params.id, farmerId: req.user._id });
     if (!deal) return res.status(403).json({ success: false, message: 'Unauthorized' });
 
-    if (!['ACCEPTED', 'AI_FLAGGED'].includes(deal.status)) {
+    if (!['PHOTO_PENDING', 'AI_FLAGGED'].includes(deal.status)) {
       return res.status(400).json({ success: false, message: 'Deal is not ready for photo upload.' });
     }
 
@@ -415,7 +449,7 @@ router.post('/deals/:id/quality-submission', requireAuth, requireRole('FARMER'),
     // Call service boundary
     const aiResult = await cropQualityService.analyzePhotos(imageUrls);
     
-    deal.status = aiResult.passed ? 'AGENT_PAYMENT_PENDING' : 'AI_FLAGGED';
+    deal.status = aiResult.passed ? 'BUYER_PAYMENT_PENDING' : 'AI_FLAGGED';
     deal.moisturePercent = 11.8;
 
     deal.qualitySubmissions.push({
@@ -429,21 +463,27 @@ router.post('/deals/:id/quality-submission', requireAuth, requireRole('FARMER'),
     res.json({
       success: true,
       data: deal,
-      message: 'Moisture percent acceptable (11.8%)! Please proceed to pay ₹250 to connect with our on-ground verification agent.'
+      message: 'Moisture percent acceptable (11.8%)! Waiting for buyer to deposit the finalized amount and agent fee.'
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// Pay ₹250 Agent Connection Fee
-router.post('/deals/:id/pay-agent-fee', requireAuth, async (req, res) => {
+// Pay ₹250 Agent Fee + Escrow Deposit (Buyer)
+router.post('/deals/:id/pay-buyer-escrow', requireAuth, requireRole('BUYER'), async (req, res) => {
   try {
     const deal = await Deal.findById(req.params.id);
-    if (!deal) return res.status(404).json({ success: false, message: 'Deal not found' });
+    if (!deal || deal.buyerId.toString() !== req.user._id.toString()) {
+      return res.status(404).json({ success: false, message: 'Deal not found or unauthorized' });
+    }
+
+    const amount = req.body.amount || (deal.quantity * deal.agreedPrice);
 
     deal.agentFeePaid = true;
     deal.agentFeeAmount = 250;
+    deal.escrowDepositPaid = true;
+    deal.escrowDepositAmount = amount;
     deal.agentRequestedAt = new Date();
     deal.status = 'HUMAN_REVIEW'; // Sent to Admin Verification Center for on-ground physical check
 
@@ -451,7 +491,7 @@ router.post('/deals/:id/pay-agent-fee', requireAuth, async (req, res) => {
     res.json({
       success: true,
       data: deal,
-      message: 'Payment of ₹250 received! Our on-ground agent will come in contact with you soon.'
+      message: 'Payment received! Escrow deposit secured and on-ground agent will come in contact with you soon.'
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

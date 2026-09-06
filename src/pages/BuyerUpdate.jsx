@@ -90,8 +90,8 @@ export default function BuyerUpdate() {
       setDocErrors((prev) => ({ ...prev, [key]: 'Only PDF, JPG, JPEG, PNG files are allowed' }));
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setDocErrors((prev) => ({ ...prev, [key]: 'File size must be less than 5MB' }));
+    if (file.size > 500 * 1024) {
+      setDocErrors((prev) => ({ ...prev, [key]: 'File size must be less than 500KB' }));
       return;
     }
     const reader = new FileReader();
@@ -316,8 +316,8 @@ export default function BuyerUpdate() {
           {/* Documents */}
           <div className="space-y-4">
             <div>
-              <h2 className="text-lg font-extrabold text-[var(--saathi-text)]">Verification Documents</h2>
-              <p className="mt-1 text-xs text-[var(--saathi-text-muted)]">Re-upload documents as requested. Allowed: PDF, JPG, JPEG, PNG (max 5MB).</p>
+              <h2 className="text-xl font-extrabold text-gray-900">Document Verification (Max 500KB per file)</h2>
+              <p className="mt-1 text-sm text-[var(--saathi-text-muted)]">Re-upload documents as requested. Allowed: PDF, JPG, JPEG, PNG (max 500KB).</p>
             </div>
             {DOCUMENT_FIELDS.map((field) => (
               <div key={field.key} className="border border-[var(--saathi-border-light)] rounded-xl p-4">

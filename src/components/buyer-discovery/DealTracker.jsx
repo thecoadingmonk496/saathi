@@ -4,20 +4,22 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'h
 
 const STEPS = [
   { key: 'ACCEPTED', label: 'Accepted', icon: '✅' },
-  { key: 'ESCROW', label: 'Escrow', icon: '💰' },
+  { key: 'ESCROW_PENDING', label: 'Escrow', icon: '💰' },
   { key: 'QC_PENDING', label: 'Moisture 11.8%', icon: '💧' },
-  { key: 'QC_PASSED', label: 'Agent Assigned', icon: '🕵️' },
-  { key: 'PRE_SHIPMENT', label: 'Pre-Shipment Verified', icon: '📦' },
-  { key: 'DELIVERY', label: 'Delivery Uploaded', icon: '🚚' },
+  { key: 'AGENT_ASSIGNED', label: 'Agent Assigned', icon: '🕵️' },
+  { key: 'VERIFIED', label: 'Pre-Shipment Verified', icon: '📦' },
+  { key: 'DELIVERY_UPLOADED', label: 'Delivery Uploaded', icon: '🚚' },
   { key: 'COMPLETED', label: 'Completed', icon: '🎉' },
 ];
 
 const STATUS_MAP = {
-  ACCEPTED: 0, PHOTO_PENDING: 0, AI_FLAGGED: 0,
-  AGENT_PAYMENT_PENDING: 1, AI_PASSED: 1,
-  HUMAN_REVIEW: 2,
-  VERIFIED: 3,
-  COMPLETED: 4, DISPUTED: 4, UNVERIFIED: 2,
+  ACCEPTED: 1, 
+  PHOTO_PENDING: 2, AI_FLAGGED: 2,
+  BUYER_PAYMENT_PENDING: 3, AI_PASSED: 3,
+  HUMAN_REVIEW: 4,
+  VERIFIED: 4,
+  RECEIPT_SUBMITTED: 5,
+  COMPLETED: 6, DISPUTED: 6, UNVERIFIED: 4,
 };
 
 export default function DealTracker({ deal, userRole, onRefresh }) {
@@ -63,10 +65,47 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
   };
 
 
+  const [escrowForm, setEscrowForm] = useState({
+    accountNumber: '', confirmAccountNumber: '', ifscCode: '', bankName: '', upiId: '', upiPhone: ''
+  });
+  const [submittingEscrow, setSubmittingEscrow] = useState(false);
+
+  const handleEscrowChange = (e) => setEscrowForm({...escrowForm, [e.target.name]: e.target.value});
+
+  const handleSubmitEscrow = async (e) => {
+    e.preventDefault();
+    if (escrowForm.accountNumber !== escrowForm.confirmAccountNumber) {
+      alert("Account numbers do not match.");
+      return;
+    }
+    setSubmittingEscrow(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/escrow`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(escrowForm)
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Escrow bank details saved successfully.');
+        onRefresh();
+      } else {
+        alert(data.message || 'Error saving escrow details');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error while saving escrow details.');
+    } finally {
+      setSubmittingEscrow(false);
+    }
+  };
+
   const handlePhotoUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length < 5) { alert('Please select at least 5 photos of the crop for verification.'); return; }
     if (files.length > 10) { alert('Maximum 10 photos allowed.'); return; }
+    if (files.some(f => f.size > 500 * 1024)) { alert('One or more photos exceed 500KB limit. Please select smaller images.'); return; }
     setLoading(true);
     try {
       const base64Images = await Promise.all(files.map(f => new Promise((resolve, reject) => {
@@ -99,7 +138,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
       await new Promise(r => setTimeout(r, 800));
 
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/pay-agent-fee`, {
+      const res = await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/pay-buyer-escrow`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       });
@@ -130,6 +169,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
   const handleReceiptFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    if (file.size > 500 * 1024) { alert('Receipt image is too large. Please upload a file under 500KB.'); e.target.value = ''; return; }
     const reader = new FileReader();
     reader.onload = () => {
       setReceiptPreview(reader.result);
@@ -165,24 +205,24 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
     }
   };
 
-  const hasUploadedPhotos = (deal.qualitySubmissions && deal.qualitySubmissions.length > 0) || deal.moisturePercent || deal.status === 'HUMAN_REVIEW' || deal.status === 'AGENT_PAYMENT_PENDING' || deal.status === 'AI_PASSED';
-  const isFeePaid = Boolean(deal.agentFeePaid);
+  const hasUploadedPhotos = (deal.qualitySubmissions && deal.qualitySubmissions.length > 0) || deal.moisturePercent || deal.status === 'HUMAN_REVIEW' || deal.status === 'BUYER_PAYMENT_PENDING' || deal.status === 'AI_PASSED';
+  const isFeePaid = Boolean(deal.agentFeePaid) && Boolean(deal.escrowDepositPaid);
 
   let currentIdx = 0;
   if (deal.status === 'COMPLETED' || deal.status === 'DISPUTED') {
     currentIdx = 6;
-  } else if (deal.status === 'BUYER_DELIVERY_UPLOADED') {
+  } else if (deal.status === 'RECEIPT_SUBMITTED' || deal.status === 'BUYER_DELIVERY_UPLOADED') {
     currentIdx = 5;
-  } else if (deal.status === 'ADMIN_PRE_SHIPMENT_VERIFIED' || deal.status === 'VERIFIED') {
+  } else if (deal.status === 'VERIFIED' || deal.status === 'ADMIN_PRE_SHIPMENT_VERIFIED') {
     currentIdx = 4;
   } else if (isFeePaid || deal.status === 'HUMAN_REVIEW') {
-    currentIdx = 3; 
-  } else if (hasUploadedPhotos || deal.status === 'PHOTO_PENDING' || deal.status === 'AGENT_PAYMENT_PENDING' || deal.status === 'AI_PASSED') {
-    currentIdx = 2; 
-  } else if (deal.escrowStatus === 'FUNDED') {
-    currentIdx = 1;
+    currentIdx = 3; // Agent Assigned (Fee Paid)
+  } else if (hasUploadedPhotos || deal.status === 'BUYER_PAYMENT_PENDING' || deal.status === 'PHOTO_PENDING' || deal.status === 'AGENT_PAYMENT_PENDING' || deal.status === 'AI_PASSED') {
+    currentIdx = 2; // Moisture
+  } else if (deal.escrowStatus === 'FUNDED' || deal.status === 'ESCROW_PENDING' || deal.status === 'ACCEPTED') {
+    currentIdx = 1; // Escrow
   } else {
-    currentIdx = 0;
+    currentIdx = 0; // Accepted
   }
 
   const latestSubmission = deal.qualitySubmissions && deal.qualitySubmissions.length > 0
@@ -245,8 +285,8 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                       <p className={`text-sm font-bold ${done ? 'text-red-800' : active ? 'text-red-700' : 'text-gray-400'}`}>
                         {step.label}
                       </p>
-                      {active && !isFeePaid && hasUploadedPhotos && (
-                        <p className="text-xs text-emerald-600 font-semibold mt-0.5">Pay ₹250 to proceed</p>
+                      {active && !isFeePaid && deal.status === 'BUYER_PAYMENT_PENDING' && (
+                        <p className="text-xs text-emerald-600 font-semibold mt-0.5">Waiting for Buyer</p>
                       )}
                       {active && deal.status === 'AI_FLAGGED' && (
                         <p className="text-xs text-red-600 mt-0.5">Re-upload required</p>
@@ -291,18 +331,25 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
           <div>
             <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">Action Required</h4>
 
-            {/* Step 1: Upload Photos (only if not yet uploaded) */}
-            
-          {/* New Escrow & Delivery UI */}
-          {userRole === 'FARMER' && deal.status === 'ACCEPTED' && deal.escrowStatus !== 'FUNDED' && (
-            <div className="mb-4 p-4 border rounded-xl bg-orange-50 border-orange-200">
-              <label className="text-sm font-bold text-gray-700">Enter Bank Account for Escrow</label>
-              <div className="flex gap-2 mt-2">
-                <input className="px-3 py-2 border rounded-lg flex-1 text-sm" placeholder="Bank Account Number" value={bankAccount} onChange={e=>setBankAccount(e.target.value)} />
-                <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-sm" onClick={handleBankSubmit} disabled={loading}>Save</button>
+            {/* Step 1: Escrow Bank Details */}
+            {userRole === 'FARMER' && deal.status === 'ACCEPTED' && (
+              <div className="bg-orange-50 rounded-xl border border-orange-200 p-5 mb-6">
+                <h5 className="font-bold text-gray-900 mb-4">Enter Bank Account for Escrow</h5>
+                <form onSubmit={handleSubmitEscrow} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" name="accountNumber" placeholder="Bank Account Number" value={escrowForm.accountNumber} onChange={handleEscrowChange} required className="px-4 py-2 border rounded-lg focus:outline-red-700 w-full" />
+                    <input type="text" name="confirmAccountNumber" placeholder="Re-type Account Number" value={escrowForm.confirmAccountNumber} onChange={handleEscrowChange} required className="px-4 py-2 border rounded-lg focus:outline-red-700 w-full" />
+                    <input type="text" name="ifscCode" placeholder="IFSC Code" value={escrowForm.ifscCode} onChange={handleEscrowChange} required className="px-4 py-2 border rounded-lg focus:outline-red-700 w-full uppercase" />
+                    <input type="text" name="bankName" placeholder="Bank Name" value={escrowForm.bankName} onChange={handleEscrowChange} required className="px-4 py-2 border rounded-lg focus:outline-red-700 w-full" />
+                    <input type="text" name="upiId" placeholder="UPI ID" value={escrowForm.upiId} onChange={handleEscrowChange} required className="px-4 py-2 border rounded-lg focus:outline-red-700 w-full" />
+                    <input type="tel" name="upiPhone" placeholder="UPI Phone Number" value={escrowForm.upiPhone} onChange={handleEscrowChange} required className="px-4 py-2 border rounded-lg focus:outline-red-700 w-full" />
+                  </div>
+                  <button type="submit" disabled={submittingEscrow} className="px-6 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg transition disabled:bg-gray-400">
+                    {submittingEscrow ? 'Saving...' : 'Save'}
+                  </button>
+                </form>
               </div>
-            </div>
-          )}
+            )}
 
           {userRole === 'BUYER' && deal.status === 'ESCROW_PENDING' && (
             <div className="mb-4 p-4 border rounded-xl bg-orange-50 border-orange-200">
@@ -326,16 +373,9 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
               <p className="text-sm font-bold text-purple-800">Waiting for Admin to verify delivery and release Escrow funds.</p>
             </div>
           )}
-          
-          {deal.status === 'COMPLETED' && deal.transactionReceiptUrl && (
-            <div className="mb-4 p-4 border rounded-xl bg-green-50 border-green-200">
-              <p className="text-sm font-bold text-green-800">Deal Completed. Funds Released to Farmer!</p>
-              {userRole === 'FARMER' && <a href="#" onClick={(e)=>{e.preventDefault();alert('Receipt: '+deal.transactionReceiptUrl)}} className="text-sm text-blue-600 underline">View Payment Receipt</a>}
-            </div>
-          )}
 
-          {/* Original Upload Photos UI restricted */}
-          {!hasUploadedPhotos && userRole === 'FARMER' && deal.escrowStatus === 'FUNDED' && (deal.status === 'ACCEPTED' || deal.status === 'PHOTO_PENDING' || deal.status === 'AI_FLAGGED') && (
+            {/* Step 2: Upload Photos (only if not yet uploaded) */}
+            {!hasUploadedPhotos && (deal.status === 'PHOTO_PENDING' || deal.status === 'AI_FLAGGED') && (
               <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">
                 <h5 className="font-bold text-gray-900 mb-2">
                   {deal.status === 'AI_FLAGGED' ? '⚠️ AI Flagged: Re-Upload Photos' : '📷 Quality Screening'}
@@ -345,7 +385,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                     <strong>Findings:</strong> {latestSubmission?.aiFindings}
                   </div>
                 )}
-                <p className="text-sm text-gray-500 mb-3">Upload at least 5 clear photos of the crop for AI screening.</p>
+                <p className="text-sm text-gray-500 mb-3">Upload at least 5 clear photos of the crop for AI screening (Max 500KB per photo).</p>
                 <input type="file" multiple accept="image/*" ref={fileInputRef} className="hidden" onChange={handlePhotoUpload} />
                 <button
                   onClick={() => fileInputRef.current?.click()}
@@ -357,55 +397,68 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
               </div>
             )}
 
-            {/* Step 2: Payment Bar (Shown whenever moisture passed but ₹250 is NOT yet paid) */}
-            {hasUploadedPhotos && !isFeePaid && deal.status !== 'VERIFIED' && deal.status !== 'ADMIN_PRE_SHIPMENT_VERIFIED' && deal.status !== 'BUYER_DELIVERY_UPLOADED' && deal.status !== 'COMPLETED' && deal.status !== 'UNVERIFIED' && (
-              <>
-                {userRole === 'FARMER' ? (
-                  <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-5 space-y-4">
-                    <div>
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        💧 Moisture Data: {deal.moisturePercent || 11.8}% • ACCEPTABLE & VERIFIED
-                      </span>
-                      <h5 className="font-bold text-emerald-950 mt-2 text-base">
-                        Moisture percentage acceptable! Produce passed screening.
-                      </h5>
-                      <p className="text-xs text-emerald-700 mt-1">
-                        Optimal moisture recorded at {deal.moisturePercent || 11.8}% (Standard safe storage range: 10% - 14%).
-                      </p>
-                    </div>
+                  {/* Step 2: Payment Bar (Shown when moisture passed but fees NOT yet paid) */}
+            {hasUploadedPhotos && !isFeePaid && deal.status === 'BUYER_PAYMENT_PENDING' && (
+              <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-5 space-y-4">
+                <div>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    💧 Moisture Data: {deal.moisturePercent || 11.8}% • ACCEPTABLE & VERIFIED
+                  </span>
+                  <h5 className="font-bold text-emerald-950 mt-2 text-base">
+                    Moisture percentage acceptable! Produce passed screening.
+                  </h5>
+                  <p className="text-xs text-emerald-700 mt-1">
+                    Optimal moisture recorded at {deal.moisturePercent || 11.8}% (Standard safe storage range: 10% - 14%).
+                  </p>
+                </div>
 
-                    {/* The Payment Bar */}
-                    <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm space-y-3">
-                      <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-                        <div>
-                          <p className="text-sm font-bold text-gray-400 uppercase tracking-wider">Next Step</p>
-                          <h6 className="text-sm font-extrabold text-gray-900">Connect with On-Ground Field Agent</h6>
-                        </div>
+                {userRole === 'BUYER' ? (
+                  <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm space-y-3">
+                    <div className="flex flex-col gap-2 pb-3 border-b border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-bold text-gray-500">Escrow Deposit (Crop Value)</p>
+                        <span className="text-sm font-bold text-gray-900">₹{(deal.quantity * deal.agreedPrice).toLocaleString('en-IN')}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-bold text-gray-500">Field Agent Fee</p>
+                        <span className="text-sm font-bold text-gray-900">₹250</span>
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                        <h6 className="text-base font-extrabold text-gray-900">Total Payable Amount</h6>
                         <span className="text-xl font-black text-red-700 bg-red-50 px-3 py-1 rounded-xl border border-red-200">
-                          ₹250
+                          ₹{((deal.quantity * deal.agreedPrice) + 250).toLocaleString('en-IN')}
                         </span>
                       </div>
-
-                      <p className="text-xs text-gray-600 leading-relaxed">
-                        Pay ₹250 for getting in connect with our agent. <strong>He will come in contact with you</strong> for on-ground physical inspection and verification.
-                      </p>
-
-                      <button
-                        onClick={() => setShowPaymentModal(true)}
-                        className="w-full py-3.5 bg-red-700 hover:bg-red-800 text-white font-black rounded-xl shadow-lg shadow-red-700/20 transition text-sm flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        <span>💳</span>
-                        <span>Pay ₹250 & Connect with Agent →</span>
-                      </button>
                     </div>
+
+                    <p className="text-xs text-gray-600 leading-relaxed">
+                      Deposit the finalized crop amount into the secure escrow account and pay the agent fee. <strong>An on-ground agent will then be assigned</strong> for physical inspection.
+                    </p>
+
+                    <button
+                      onClick={() => setShowPaymentModal(true)}
+                      className="w-full py-3.5 bg-red-700 hover:bg-red-800 text-white font-black rounded-xl shadow-lg shadow-red-700/20 transition text-sm flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span>Pay ₹{((deal.quantity * deal.agreedPrice) + 250).toLocaleString('en-IN')} Now</span>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                    </button>
                   </div>
                 ) : (
-                  <div className="bg-blue-50 rounded-2xl border border-blue-200 p-5 text-center space-y-2">
-                    <p className="text-sm font-bold text-blue-900">Waiting for Farmer Verification</p>
-                    <p className="text-xs text-blue-700">The farmer has uploaded crop photos and is currently completing the field agent verification.</p>
+                  <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm space-y-3 flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                      <svg className="w-5 h-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h6 className="text-sm font-extrabold text-gray-900">Buyer is completing their process</h6>
+                      <p className="text-xs text-gray-500 mt-0.5">Waiting for the buyer to deposit the finalized escrow amount and agent fee. You will be notified once the agent is assigned.</p>
+                    </div>
                   </div>
                 )}
-              </>
+              </div>
             )}
 
             {/* Step 3: ONLY shown after ₹250 is Paid (isFeePaid === true) */}
@@ -419,6 +472,12 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                 </div>
 
                 <div className="bg-white p-4 rounded-xl border border-amber-200 shadow-xs space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-gray-500">Escrow Deposit</span>
+                    <span className="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      ₹{(deal.escrowDepositAmount || (deal.quantity * deal.agreedPrice)).toLocaleString('en-IN')} PAID ✓
+                    </span>
+                  </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-gray-500">Agent Connection Fee</span>
                     <span className="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
@@ -555,7 +614,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                     <div className="space-y-3">
                       <div>
                         <label className="text-sm font-bold text-gray-600 block mb-1">
-                          1. Upload Transaction Receipt Photo
+                          1. Upload Transaction Receipt Photo (Max 500KB)
                         </label>
                         <input
                           type="file"

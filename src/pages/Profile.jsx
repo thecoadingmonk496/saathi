@@ -119,6 +119,11 @@ export default function Profile() {
       return;
     }
 
+    if (file.size > 500 * 1024) {
+      setSaveMessage('File size must be less than 500KB.');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
@@ -263,7 +268,7 @@ export default function Profile() {
                     />
                   )}
                 </div>
-                <label className="absolute -bottom-1 -right-1 p-1.5 bg-emerald-800 text-white rounded-xl hover:bg-emerald-900 ring-2 ring-white shadow-md cursor-pointer transition-all">
+                  <label className="absolute -bottom-1 -right-1 p-1.5 bg-emerald-800 text-white rounded-xl hover:bg-emerald-900 ring-2 ring-white shadow-md cursor-pointer transition-all" title="Upload Photo (Max 500KB)">
                   <CameraIcon className="w-3.5 h-3.5" />
                   <input type="file" accept="image/*" className="sr-only" onChange={handleProfileImageUpload} />
                 </label>

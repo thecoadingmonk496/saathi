@@ -145,6 +145,22 @@ const dealSchema = new mongoose.Schema(
     completedAt: {
       type: Date,
     },
+    escrowDepositPaid: {
+      type: Boolean,
+      default: false,
+    },
+    escrowDepositAmount: {
+      type: Number,
+      default: 0,
+    },
+    escrowBankAccount: {
+      accountNumber: String,
+      ifscCode: String,
+      bankName: String,
+      upiId: String,
+      upiPhone: String,
+      submittedAt: Date,
+    },
   },
   { timestamps: true }
 );

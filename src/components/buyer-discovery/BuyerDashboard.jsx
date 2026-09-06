@@ -101,15 +101,15 @@ export default function BuyerDashboard() {
       setLoading(true);
       const token = localStorage.getItem('token');
 
-      // Optional check for buyer application profile without blocking the dashboard
-      const phone = user?.mobile || user?.phone || '';
+      const rawPhone = user?.mobile || user?.phone || '';
+      const phone = rawPhone.replace(/^\+91/, '').replace(/\s/g, '');
       if (phone) {
         try {
           const appRes = await fetch(`${API_BASE}/buyers/my-application?phone=${phone}`);
           if (appRes.ok) {
             const appData = await appRes.json();
-            // Keep the six-step registration visible until the buyer profile is approved.
-            setAppStatus(appData.application?.verificationStatus === 'APPROVED' ? 'FOUND' : 'NOT_FOUND');
+            // Store the actual verification status
+            setAppStatus(appData.application?.verificationStatus || 'NOT_FOUND');
           } else {
             setAppStatus('NOT_FOUND');
           }
@@ -215,8 +215,8 @@ export default function BuyerDashboard() {
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        alert('Image is too large. Please upload an image under 2MB.');
+      if (file.size > 500 * 1024) {
+        alert('Image is too large. Please upload an image under 500KB.');
         e.target.value = '';
         return;
       }
@@ -256,8 +256,13 @@ export default function BuyerDashboard() {
               <p className="text-sm text-gray-500 mt-1">Please complete your business verification profile. This information helps farmers trust your requirements.</p>
             </div>
             <div className="bg-white rounded-xl relative z-10">
-              <BuyerRegister embedded={true} onSuccess={() => setAppStatus('FOUND')} />
+              <BuyerRegister embedded={true} onSuccess={() => setAppStatus('PENDING')} />
             </div>
+          </section>
+        ) : appStatus !== 'APPROVED' && appStatus !== 'LOADING' ? (
+          <section className="bg-amber-50 rounded-3xl border border-amber-200 shadow-sm p-6 sm:p-8 relative overflow-hidden text-center">
+            <h2 className="text-xl font-extrabold text-amber-900">Registration Status: {appStatus.replace(/_/g, ' ')}</h2>
+            <p className="text-sm text-amber-700 mt-2">Your buyer profile is currently under review by the Saathi Admin. You can publish crop requirements once approved.</p>
           </section>
         ) : null}
 
@@ -268,7 +273,7 @@ export default function BuyerDashboard() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 relative z-10">
           <div>
             <h2 className="text-2xl font-extrabold text-gray-900">
-              {editingRequestId ? '✏️ Edit & Re-Apply for Verification' : 'Register Crop Requirement for Publish'}
+              {editingRequestId ? '✏️ Edit & Re-Apply for Verification' : 'Publish Crop'}
             </h2>
             <p className="text-sm text-gray-500 mt-1">
               Submit your procurement demand. It will go directly to the <strong>Saathi Admin Panel for verification</strong>. Once approved, it will be published to verified farmers.
@@ -357,7 +362,7 @@ export default function BuyerDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Upload Crop Reference Image (Optional)</label>
+                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Upload Crop Reference Image (Optional, Max 500KB)</label>
                 <div className="flex items-start gap-4">
                   <div className="flex-1">
                     <input
@@ -366,7 +371,7 @@ export default function BuyerDashboard() {
                       onChange={handleImageUpload}
                       className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 cursor-pointer"
                     />
-                    <p className="text-[11px] text-gray-400 mt-1.5">Max size: 2MB. A default image will be used if skipped.</p>
+                    <p className="text-[11px] text-gray-400 mt-1.5">Max size: 500KB. A default image will be used if skipped.</p>
                   </div>
                   {newRequest.cropImage && (
                     <div className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border border-gray-200 shadow-sm relative group">
@@ -387,7 +392,13 @@ export default function BuyerDashboard() {
             <div className="flex items-center gap-3 pt-2">
               <button
                 type="submit"
-                className="px-6 py-3 bg-red-700 hover:bg-red-800 text-white font-bold rounded-xl text-sm transition shadow-md flex items-center gap-2"
+                disabled={appStatus !== 'APPROVED'}
+                className={`px-6 py-3 font-bold rounded-xl text-sm transition shadow-md flex items-center gap-2 ${
+                  appStatus !== 'APPROVED'
+                    ? 'bg-gray-400 cursor-not-allowed text-gray-200'
+                    : 'bg-red-700 hover:bg-red-800 text-white'
+                }`}
+                title={appStatus !== 'APPROVED' ? 'Please complete your profile verification first' : ''}
               >
                 <span>🚀</span>
                 <span>{editingRequestId ? 'Resubmit to Admin for Verification' : 'Submit for Admin Verification'}</span>
