@@ -103,9 +103,15 @@ export default function BuyerDashboard() {
 
       const rawPhone = user?.mobile || user?.phone || '';
       const phone = rawPhone.replace(/^\+91/, '').replace(/\s/g, '');
-      if (phone) {
+      const email = user?.email || '';
+      
+      if (phone || email) {
         try {
-          const appRes = await fetch(`${API_BASE}/buyers/my-application?phone=${phone}`);
+          const queryParams = new URLSearchParams();
+          if (phone) queryParams.append('phone', phone);
+          if (email) queryParams.append('email', email);
+          
+          const appRes = await fetch(`${API_BASE}/buyers/my-application?${queryParams.toString()}`);
           if (appRes.ok) {
             const appData = await appRes.json();
             // Store the actual verification status

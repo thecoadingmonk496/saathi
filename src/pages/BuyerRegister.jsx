@@ -136,15 +136,20 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
   useEffect(() => {
     const checkExistingApp = async () => {
       const phoneToCheck = user?.phone || user?.mobile;
-      if (!phoneToCheck) {
+      const emailToCheck = user?.email;
+      if (!phoneToCheck && !emailToCheck) {
         setCheckingExisting(false);
         return;
       }
       try {
-        const response = await fetch(apiUrl(`/api/buyers/my-application?phone=${phoneToCheck}`));
+        const queryParams = new URLSearchParams();
+        if (phoneToCheck) queryParams.append('phone', phoneToCheck);
+        if (emailToCheck) queryParams.append('email', emailToCheck);
+        
+        const response = await fetch(apiUrl(`/api/buyers/my-application?${queryParams.toString()}`));
         const data = await response.json();
         if (response.ok && data.success && data.application) {
-          navigate(`/buyer-status?phone=${phoneToCheck}`, { replace: true });
+          navigate(`/buyer-status?${queryParams.toString()}`, { replace: true });
         } else {
           setCheckingExisting(false);
         }

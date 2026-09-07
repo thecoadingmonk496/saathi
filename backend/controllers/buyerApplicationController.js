@@ -259,19 +259,30 @@ async function applyBuyer(req, res) {
   }
 }
 
-// @desc    Get my application by phone
-// @route   GET /api/buyers/my-application?phone=...
-// @access  Public (by phone lookup)
+// @desc    Get my application by phone or email
+// @route   GET /api/buyers/my-application?phone=...&email=...
+// @access  Public (by phone/email lookup)
 async function getMyApplication(req, res) {
   try {
     const phone = clean(req.query.phone || '');
-    if (!isValidIndianMobile(phone)) {
-      return res.status(400).json({ success: false, message: 'Please provide a valid mobile number' });
+    const email = clean(req.query.email || '');
+
+    if (!phone && !email) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid mobile number or email' });
     }
 
-    const application = await BuyerApplication.findOne({ phone });
+    const query = [];
+    if (isValidIndianMobile(phone)) query.push({ phone });
+    if (isValidEmail(email)) query.push({ email });
+
+    if (query.length === 0) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid mobile number or email' });
+    }
+
+    const application = await BuyerApplication.findOne({ $or: query }).sort({ submittedAt: -1 });
+
     if (!application) {
-      return res.status(404).json({ success: false, message: 'No buyer application found for this mobile number' });
+      return res.status(404).json({ success: false, message: 'No buyer application found' });
     }
 
     // Return safe application data (no private documents for non-admin)

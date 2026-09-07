@@ -51,14 +51,20 @@ export default function BuyerStatus() {
   const [error, setError] = useState('');
   const [checked, setChecked] = useState(false);
 
+  const email = searchParams.get('email') || user?.email || '';
+
   useEffect(() => {
-    if (phone && phone.length === 10 && !checked) {
-      handleCheckStatus(phone);
+    if ((phone && phone.length === 10) || email) {
+      if (!checked) handleCheckStatus(phone, email);
     }
   }, []);
 
-  const handleCheckStatus = async (phoneToCheck = phone) => {
-    if (!/^[6-9]\d{9}$/.test(phoneToCheck)) {
+  const handleCheckStatus = async (phoneToCheck = phone, emailToCheck = email) => {
+    if (!phoneToCheck && !emailToCheck) {
+      setError('Please enter a valid 10-digit mobile number or log in');
+      return;
+    }
+    if (phoneToCheck && !/^[6-9]\d{9}$/.test(phoneToCheck)) {
       setError('Please enter a valid 10-digit mobile number');
       return;
     }
@@ -67,13 +73,17 @@ export default function BuyerStatus() {
     setChecked(true);
 
     try {
-      const response = await fetch(apiUrl(`/api/buyers/my-application?phone=${phoneToCheck}`));
+      const queryParams = new URLSearchParams();
+      if (phoneToCheck) queryParams.append('phone', phoneToCheck);
+      if (emailToCheck) queryParams.append('email', emailToCheck);
+
+      const response = await fetch(apiUrl(`/api/buyers/my-application?${queryParams.toString()}`));
       const data = await response.json();
       if (response.ok && data.success) {
         setApplication(data.application);
       } else {
         setApplication(null);
-        setError(data.message || 'No application found for this mobile number');
+        setError(data.message || 'No application found');
       }
     } catch (err) {
       setError('Unable to connect to the server. Please try again.');
