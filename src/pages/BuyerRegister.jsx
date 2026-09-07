@@ -109,14 +109,21 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed.form) setForm(prev => ({ ...prev, ...parsed.form }));
+        if (parsed.form) {
+          const draftForm = { ...parsed.form };
+          if (user?.firstName) draftForm.firstName = user.firstName;
+          if (user?.lastName) draftForm.lastName = user.lastName;
+          if (user?.phone || user?.mobile) draftForm.phone = user.phone || user.mobile;
+          if (user?.email) draftForm.email = user.email;
+          setForm(prev => ({ ...prev, ...draftForm }));
+        }
         if (parsed.step !== undefined) setStep(parsed.step);
         if (parsed.selectedCommodities) setSelectedCommodities(parsed.selectedCommodities);
       } catch (e) {
         console.error('Failed to parse saved draft:', e);
       }
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     sessionStorage.setItem('buyerRegisterDraft', JSON.stringify({
