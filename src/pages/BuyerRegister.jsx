@@ -131,6 +131,40 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState(null);
+  const [checkingExisting, setCheckingExisting] = useState(true);
+
+  useEffect(() => {
+    const checkExistingApp = async () => {
+      const phoneToCheck = user?.phone || user?.mobile;
+      if (!phoneToCheck) {
+        setCheckingExisting(false);
+        return;
+      }
+      try {
+        const response = await fetch(apiUrl(`/api/buyers/my-application?phone=${phoneToCheck}`));
+        const data = await response.json();
+        if (response.ok && data.success && data.application) {
+          navigate(`/buyer-status?phone=${phoneToCheck}`, { replace: true });
+        } else {
+          setCheckingExisting(false);
+        }
+      } catch (err) {
+        setCheckingExisting(false);
+      }
+    };
+    checkExistingApp();
+  }, [user, navigate]);
+
+  if (checkingExisting) {
+    return (
+      <div className="min-h-screen bg-[var(--saathi-primary)] flex items-center justify-center p-4">
+        <div className="text-white text-center">
+          <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="font-bold">Checking registration status...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;

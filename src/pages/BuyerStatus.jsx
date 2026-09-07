@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
@@ -42,14 +43,22 @@ const STATUS_MAP = {
 
 export default function BuyerStatus() {
   const navigate = useNavigate();
-  const [phone, setPhone] = useState('');
+  const [searchParams] = useSearchParams();
+  const { user } = useUser();
+  const [phone, setPhone] = useState(searchParams.get('phone') || user?.phone || user?.mobile || '');
   const [application, setApplication] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [checked, setChecked] = useState(false);
 
-  const handleCheckStatus = async () => {
-    if (!/^[6-9]\d{9}$/.test(phone)) {
+  useEffect(() => {
+    if (phone && phone.length === 10 && !checked) {
+      handleCheckStatus(phone);
+    }
+  }, []);
+
+  const handleCheckStatus = async (phoneToCheck = phone) => {
+    if (!/^[6-9]\d{9}$/.test(phoneToCheck)) {
       setError('Please enter a valid 10-digit mobile number');
       return;
     }
@@ -58,7 +67,7 @@ export default function BuyerStatus() {
     setChecked(true);
 
     try {
-      const response = await fetch(apiUrl(`/api/buyers/my-application?phone=${phone}`));
+      const response = await fetch(apiUrl(`/api/buyers/my-application?phone=${phoneToCheck}`));
       const data = await response.json();
       if (response.ok && data.success) {
         setApplication(data.application);
