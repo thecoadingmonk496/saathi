@@ -520,6 +520,7 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
                     onChange={handleChange}
                     placeholder="First name"
                     error={errors.firstName}
+                    disabled={!!user?.firstName}
                   />
                   <FormField
                     label="Last Name *"
@@ -528,6 +529,7 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
                     onChange={handleChange}
                     placeholder="Last name"
                     error={errors.lastName}
+                    disabled={!!user?.lastName}
                   />
                 </div>
                 <div className="grid gap-5 sm:grid-cols-2">
@@ -540,19 +542,20 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
                     placeholder="10-digit mobile number"
                     error={errors.phone}
                     maxLength={10}
+                    disabled={!!(user?.phone || user?.mobile)}
                   />
-                    <FormField
-                      label="Email Address *"
-                      name="email"
-                      type="email"
-                      value={form.email}
-                      onChange={handleChange}
-                      placeholder="Enter your email"
-                      error={errors.email}
-                      required
-                    />
-                    
-                  </div>
+                  <FormField
+                    label="Email Address *"
+                    name="email"
+                    type="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    placeholder="Enter your email"
+                    error={errors.email}
+                    required
+                    disabled={!!user?.email}
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-semibold text-[var(--saathi-text-secondary)] mb-1.5">
                     Profile Photo <span className="text-slate-400">(Optional)</span>
@@ -896,7 +899,7 @@ function SectionTitle({ title, subtitle }) {
   );
 }
 
-function FormField({ label, name, type = 'text', value, onChange, placeholder, error, maxLength, required }) {
+function FormField({ label, name, type = 'text', value, onChange, placeholder, error, maxLength, required, disabled }) {
   let displayLabel = label;
   if (typeof label === 'string' && label.trim().endsWith('*')) {
     displayLabel = (
@@ -917,7 +920,8 @@ function FormField({ label, name, type = 'text', value, onChange, placeholder, e
         placeholder={placeholder}
         maxLength={maxLength}
         required={required}
-        className={`w-full h-11 rounded-lg border px-3 text-sm text-[var(--saathi-text)] outline-none transition focus:ring-2 ${
+        disabled={disabled}
+        className={`w-full h-11 rounded-lg border px-3 text-sm text-[var(--saathi-text)] outline-none transition focus:ring-2 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed ${
           error
             ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
             : 'border-[var(--saathi-border)] focus:border-[#2E7D32] focus:ring-emerald-100'
