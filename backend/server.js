@@ -23,6 +23,7 @@ const retailerRoutes = require('./routes/retailer');
 const consumerRoutes = require('./routes/consumer');
 const buyerDiscoveryRoutes = require('./routes/buyerDiscovery');
 const reviewRoutes = require('./routes/reviews');
+const paymentRoutes = require('./routes/payment');
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/api/consumers', consumerRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/buyer-discovery', buyerDiscoveryRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/payment', paymentRoutes);
 
 
 
