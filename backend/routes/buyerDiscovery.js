@@ -449,7 +449,7 @@ router.post('/deals/:id/quality-submission', requireAuth, requireRole('FARMER'),
     // Call service boundary
     const aiResult = await cropQualityService.analyzePhotos(imageUrls);
     
-    deal.status = aiResult.passed ? 'BUYER_PAYMENT_PENDING' : 'AI_FLAGGED';
+    deal.status = aiResult.passed ? 'ADMIN_MOISTURE_REVIEW' : 'AI_FLAGGED';
     deal.moisturePercent = 11.8;
 
     deal.qualitySubmissions.push({

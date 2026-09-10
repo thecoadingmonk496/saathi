@@ -152,6 +152,30 @@ router.patch('/deals/:id/verify', verifyAdminToken, async (req, res) => {
   }
 });
 
+// Admin taps "Approve Moisture & Photos"
+router.patch('/deals/:id/verify-moisture', verifyAdminToken, async (req, res) => {
+  try {
+    const deal = await Deal.findById(req.params.id);
+    if (!deal) return res.status(404).json({ success: false, message: 'Deal not found' });
+
+    if (deal.status !== 'ADMIN_MOISTURE_REVIEW') {
+      return res.status(400).json({ success: false, message: 'Deal is not in moisture review state' });
+    }
+
+    if (req.body.status === 'REJECTED') {
+      deal.status = 'AI_FLAGGED'; // Send back to farmer to re-upload photos
+    } else {
+      deal.status = 'BUYER_PAYMENT_PENDING'; // Proceed to buyer payment
+    }
+
+    await deal.save();
+    res.status(200).json({ success: true, message: 'Moisture and photos verified successfully.', data: deal });
+  } catch (error) {
+    console.error('Error verifying moisture:', error.message);
+    res.status(500).json({ success: false, message: 'Server error while verifying moisture' });
+  }
+});
+
 // Admin taps "Unverified"
 router.patch('/deals/:id/unverify', verifyAdminToken, async (req, res) => {
   try {

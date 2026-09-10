@@ -15,8 +15,8 @@ const STEPS = [
 
 const STATUS_MAP = {
   ACCEPTED: 1, 
-  PHOTO_PENDING: 2, AI_FLAGGED: 2,
-  BUYER_PAYMENT_PENDING: 3, AI_PASSED: 3,
+  PHOTO_PENDING: 2, AI_FLAGGED: 2, ADMIN_MOISTURE_REVIEW: 2,
+  BUYER_PAYMENT_PENDING: 3, AI_PASSED: 3, AGENT_PAYMENT_PENDING: 3,
   HUMAN_REVIEW: 4,
   VERIFIED: 4,
   RECEIPT_SUBMITTED: 5,
@@ -253,7 +253,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
     }
   };
 
-  const hasUploadedPhotos = (deal.qualitySubmissions && deal.qualitySubmissions.length > 0) || deal.moisturePercent || deal.status === 'HUMAN_REVIEW' || deal.status === 'BUYER_PAYMENT_PENDING' || deal.status === 'AI_PASSED';
+  const hasUploadedPhotos = (deal.qualitySubmissions && deal.qualitySubmissions.length > 0) || deal.moisturePercent || deal.status === 'HUMAN_REVIEW' || deal.status === 'BUYER_PAYMENT_PENDING' || deal.status === 'AI_PASSED' || deal.status === 'ADMIN_MOISTURE_REVIEW';
   const isFeePaid = Boolean(deal.agentFeePaid) && Boolean(deal.escrowDepositPaid);
 
   let currentIdx = 0;
@@ -265,7 +265,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
     currentIdx = 4;
   } else if (isFeePaid || deal.status === 'HUMAN_REVIEW') {
     currentIdx = 3; // Agent Assigned (Fee Paid)
-  } else if (hasUploadedPhotos || deal.status === 'BUYER_PAYMENT_PENDING' || deal.status === 'PHOTO_PENDING' || deal.status === 'AGENT_PAYMENT_PENDING' || deal.status === 'AI_PASSED') {
+  } else if (hasUploadedPhotos || deal.status === 'BUYER_PAYMENT_PENDING' || deal.status === 'PHOTO_PENDING' || deal.status === 'AGENT_PAYMENT_PENDING' || deal.status === 'AI_PASSED' || deal.status === 'ADMIN_MOISTURE_REVIEW') {
     currentIdx = 2; // Moisture
   } else if (deal.escrowStatus === 'FUNDED' || deal.status === 'ESCROW_PENDING' || deal.status === 'ACCEPTED') {
     currentIdx = 1; // Escrow
@@ -442,6 +442,17 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                 >
                   {loading ? 'Uploading & Analyzing…' : 'Upload 5+ Photos'}
                 </button>
+              </div>
+            )}
+
+            {deal.status === 'ADMIN_MOISTURE_REVIEW' && (
+              <div className="bg-amber-50 rounded-xl border border-amber-200 p-5">
+                <h5 className="font-bold text-amber-900 mb-2">
+                  ⏳ Waiting for Admin Approval
+                </h5>
+                <p className="text-sm text-amber-800">
+                  The photos have been uploaded and passed AI screening. Please wait for the admin to verify the moisture content and approve the photos before proceeding to payment.
+                </p>
               </div>
             )}
 

@@ -367,6 +367,41 @@ export default function Admin() {
     }
   };
 
+  const handleVerifyMoisture = async (dealId, status) => {
+    const token = localStorage.getItem('adminToken');
+    if (!token) { handleLogout(); return; }
+
+    setActionLoadingId(dealId);
+    setError('');
+    setSuccessMsg('');
+
+    try {
+      const res = await fetch(apiUrl(`/api/admin/deals/${dealId}/verify-moisture`), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccessMsg(status === 'APPROVED' ? '✓ Moisture check approved! Buyer can now pay the fee.' : '✕ Moisture check rejected.');
+        setDealInspections((prev) =>
+          prev.map((d) => (d._id === dealId ? { ...d, status: status === 'APPROVED' ? 'BUYER_PAYMENT_PENDING' : 'AI_FLAGGED' } : d))
+        );
+        setTimeout(() => setSuccessMsg(''), 6000);
+      } else {
+        setError(data.message || 'Failed to verify moisture.');
+      }
+    } catch (err) {
+      setError('Network error while verifying moisture.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+
   const handleUnverifyDeal = async (dealId, cropName) => {
     const token = localStorage.getItem('adminToken');
     if (!token) { handleLogout(); return; }
@@ -1315,6 +1350,25 @@ export default function Admin() {
                           )}
 
                           <div className="flex items-center gap-2 justify-end flex-wrap mt-5">
+                            {deal.status === 'ADMIN_MOISTURE_REVIEW' && (
+                              <>
+                                <button
+                                  onClick={() => handleVerifyMoisture(deal._id, 'APPROVED')}
+                                  disabled={actionLoadingId === deal._id}
+                                  className="px-4 py-2 bg-emerald-500 text-slate-950 font-black rounded-lg text-xs hover:bg-emerald-600"
+                                >
+                                  Approve Moisture & Photos
+                                </button>
+                                <button
+                                  onClick={() => handleVerifyMoisture(deal._id, 'REJECTED')}
+                                  disabled={actionLoadingId === deal._id}
+                                  className="px-4 py-2 bg-red-500 text-white font-black rounded-lg text-xs hover:bg-red-600"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+
                             {deal.status === 'HUMAN_REVIEW' && (
                               <>
                                 <button

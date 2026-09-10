@@ -86,6 +86,8 @@ const dealSchema = new mongoose.Schema(
         'AI_REVIEW',
         'AI_FLAGGED',
         'AI_PASSED',
+        'ADMIN_MOISTURE_REVIEW',
+        'BUYER_PAYMENT_PENDING',
         'AGENT_PAYMENT_PENDING',
         'HUMAN_REVIEW',
         'VERIFIED',
