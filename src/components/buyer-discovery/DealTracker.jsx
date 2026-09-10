@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import useRazorpay from "react-razorpay";
+import { useRazorpay } from "react-razorpay";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')).replace(/\/$/, '') + '/api';
 
@@ -26,7 +26,7 @@ const STATUS_MAP = {
 export default function DealTracker({ deal, userRole, onRefresh }) {
   const [loading, setLoading] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
-  const [Razorpay] = useRazorpay();
+  const { Razorpay } = useRazorpay();
   const fileInputRef = useRef(null);
   const [bankAccount, setBankAccount] = useState(deal.farmerBankAccount || '');
   const [escrowModal, setEscrowModal] = useState(false);
