@@ -657,10 +657,15 @@ export default function FarmerDashboard() {
                         || ['AGENT_PAYMENT_PENDING', 'HUMAN_REVIEW', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'DISPUTED'].includes(deal.status);
                       const agentAssigned = deal.agentFeePaid
                         || ['HUMAN_REVIEW', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'DISPUTED'].includes(deal.status);
+                      const isVerified = deal.status === 'VERIFIED' || deal.status === 'ADMIN_PRE_SHIPMENT_VERIFIED' || deal.status === 'RECEIPT_SUBMITTED' || deal.status === 'BUYER_DELIVERY_UPLOADED' || deal.status === 'COMPLETED';
                       const dealCompleted = deal.status === 'COMPLETED';
-                      const needsPhotos = !photosSubmitted && (deal.status === 'ACCEPTED' || deal.status === 'PHOTO_PENDING' || deal.status === 'AI_FLAGGED');
                       const inInspection = deal.status === 'HUMAN_REVIEW' || deal.status === 'AGENT_PAYMENT_PENDING';
-                      const isVerified = deal.status === 'VERIFIED' || deal.status === 'COMPLETED';
+                      
+                      // Payment/Moisture waiting states
+                      const isWaitingMoistureOrPayment = deal.status === 'ADMIN_MOISTURE_REVIEW' || deal.status === 'BUYER_PAYMENT_PENDING' || deal.status === 'AI_PASSED';
+
+                      const needsPhotos = !photosSubmitted && (deal.status === 'ACCEPTED' || deal.status === 'PHOTO_PENDING' || deal.status === 'AI_FLAGGED');
+                      
                       const totalValue = Number(deal.quantity) * Number(deal.agreedPrice);
 
                       return (
@@ -710,12 +715,24 @@ export default function FarmerDashboard() {
                             {/* Middle Section (Progress) */}
                             <div className="p-6 flex-1 flex flex-col justify-center border-b xl:border-b-0 xl:border-r border-gray-100 relative bg-white">
                               <div className="flex items-center gap-2 mb-1">
-                                <div className="w-5 h-5 rounded-full bg-green-600 text-white flex items-center justify-center text-xs font-bold">✓</div>
-                                <h4 className="font-bold text-gray-900 text-sm">{isVerified ? "Verification Completed" : "Verification Progress"}</h4>
+                                {isVerified ? (
+                                  <div className="w-5 h-5 rounded-full bg-green-600 text-white flex items-center justify-center text-xs font-bold">✓</div>
+                                ) : inInspection || isWaitingMoistureOrPayment ? (
+                                  <div className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-bold">⌛</div>
+                                ) : (
+                                  <div className="w-5 h-5 rounded-full bg-[#14452F] text-white flex items-center justify-center text-xs font-bold">📷</div>
+                                )}
+                                <h4 className="font-bold text-gray-900 text-sm">
+                                  {isVerified ? "Verification Completed" : inInspection || isWaitingMoistureOrPayment ? "Verification In Progress" : "Verification Required"}
+                                </h4>
                               </div>
                               <p className="text-xs text-gray-500 mb-6 pl-7">
                                 {isVerified 
                                   ? "Your produce has been verified. You can now view the buyer's contact details."
+                                  : isWaitingMoistureOrPayment
+                                  ? "Photos uploaded successfully. Waiting for AI/Admin moisture check and buyer escrow."
+                                  : inInspection
+                                  ? "Waiting for physical inspection by Saathi Field Agent."
                                   : "Upload 5+ clear photos of your produce to begin verification."
                                 }
                               </p>
@@ -772,12 +789,12 @@ export default function FarmerDashboard() {
                               </div>
                               
                               {isVerified ? (
-                                <button onClick={() => setSelectedBuyerContact(deal)} className="w-full py-2.5 px-4 bg-white border border-green-600 text-green-700 text-sm font-bold rounded-lg hover:bg-green-50 transition shadow-sm">
-                                  View Buyer Contact →
+                                <button onClick={() => setSelectedDeal(deal)} className="w-full py-2.5 px-4 bg-white border border-green-600 text-green-700 text-sm font-bold rounded-lg hover:bg-green-50 transition shadow-sm">
+                                  Track Deal Progress →
                                 </button>
-                              ) : inInspection ? (
+                              ) : inInspection || isWaitingMoistureOrPayment ? (
                                 <button onClick={() => setSelectedDeal(deal)} className="w-full py-2.5 px-4 bg-amber-50 border border-amber-300 text-amber-800 text-sm font-bold rounded-lg hover:bg-amber-100 transition shadow-sm">
-                                  Awaiting Admin Verification
+                                  Track Deal Progress →
                                 </button>
                               ) : (
                                 <button onClick={() => setSelectedDeal(deal)} className="w-full py-2.5 px-4 bg-[#14452F] text-white text-sm font-bold rounded-lg hover:bg-[#0f3423] transition flex items-center justify-center gap-2 shadow-sm">

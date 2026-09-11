@@ -16,6 +16,7 @@ const {
 
 const BuyerRequest = require('../models/BuyerRequest');
 const BuyerApplication = require('../models/BuyerApplication');
+const Deal = require('../models/Deal');
 
 const router = express.Router();
 
@@ -25,6 +26,62 @@ router.post('/login', adminLogin);
 // Protected routes (Requires valid Admin JWT token)
 router.get('/users', verifyAdminToken, getAllUsers);
 router.delete('/users/:id', verifyAdminToken, deleteUser);
+
+// Dashboard Summary (Aggregated data)
+const User = require('../models/User');
+router.get('/dashboard-summary', verifyAdminToken, async (req, res) => {
+  try {
+    // 1. Fetch Users
+    const usersPromise = User.find().select('-password').sort({ createdAt: -1 });
+
+    // 2. Fetch Buyer Requests
+    const requestsPromise = BuyerRequest.find()
+      .populate('buyerId', 'firstName lastName phone email village district state')
+      .sort({ createdAt: -1 })
+      .then(async (requests) => {
+        return Promise.all(
+          requests.map(async (r) => {
+            const phone = r.buyerId?.phone;
+            const email = r.buyerId?.email;
+            let app = null;
+            if (phone) app = await BuyerApplication.findOne({ phone }).sort({ createdAt: -1 });
+            if (!app && email) app = await BuyerApplication.findOne({ email }).sort({ createdAt: -1 });
+            return { ...r.toObject(), buyerApplication: app || null };
+          })
+        );
+      });
+
+    // 3. Fetch Buyer Applications
+    const applicationsPromise = BuyerApplication.find().sort({ createdAt: -1 });
+
+    // 4. Fetch Deal Inspections
+    const dealsPromise = Deal.find()
+      .populate('farmerId', 'firstName lastName phone email village block district state')
+      .populate('buyerId', 'firstName lastName phone email village block district state')
+      .populate('buyerRequestId', 'crop quantity unit offeredPrice location description')
+      .sort({ updatedAt: -1 });
+
+    const [users, buyerRequests, buyerApplications, dealInspections] = await Promise.all([
+      usersPromise,
+      requestsPromise,
+      applicationsPromise,
+      dealsPromise
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        users,
+        buyerRequests,
+        buyerApplications,
+        dealInspections
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard summary:', error.message);
+    res.status(500).json({ success: false, message: 'Server error while fetching dashboard summary' });
+  }
+});
 
 // Buyer application admin routes (KYC / Onboarding)
 router.get('/buyer-applications', verifyAdminToken, getAllApplications);
@@ -84,8 +141,6 @@ router.patch('/buyer-requests/:id/approve', verifyAdminToken, async (req, res) =
     res.status(500).json({ success: false, message: 'Server error while approving request' });
   }
 });
-
-const Deal = require('../models/Deal');
 
 router.patch('/buyer-requests/:id/reject', verifyAdminToken, async (req, res) => {
   try {
@@ -221,9 +276,9 @@ router.patch('/deals/:id/complete', verifyAdminToken, async (req, res) => {
   }
 });
 
-router.post('/deals/:id/final-verification', verifyAdminToken, async (req, res) => {
+router.patch('/deals/:id/final-verification', verifyAdminToken, async (req, res) => {
   try {
-    const { status, notes } = req.body;
+    const { status, notes, utrNumber, transactionReceiptUrl } = req.body;
     const deal = await Deal.findById(req.params.id);
     if (!deal) return res.status(404).json({ message: 'Deal not found' });
     
@@ -231,13 +286,16 @@ router.post('/deals/:id/final-verification', verifyAdminToken, async (req, res) 
       deal.status = 'COMPLETED';
       deal.escrowStatus = 'RELEASED';
       deal.completedAt = Date.now();
-      deal.transactionReceiptUrl = 'mock_receipt_url_' + Date.now();
+      deal.utrNumber = utrNumber;
+      deal.transactionReceiptUrl = transactionReceiptUrl;
+      deal.receiptUploadedBy = req.admin?._id;
+      deal.receiptUploadedAt = Date.now();
     } else {
       deal.status = 'CANCELLED';
       deal.escrowStatus = 'REFUNDED';
     }
     await deal.save();
-    res.json(deal);
+    res.json({ success: true, data: deal });
   } catch (error) { res.status(500).json({ message: error.message }); }
 });
 

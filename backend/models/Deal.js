@@ -118,6 +118,10 @@ const dealSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    farmerAgentFeePaid: {
+      type: Boolean,
+      default: false,
+    },
     agentFeeAmount: {
       type: Number,
       default: 250,

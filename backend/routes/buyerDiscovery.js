@@ -351,7 +351,7 @@ router.get('/deals', requireAuth, async (req, res) => {
     // Enforce Privacy: Remove contact details unless ACCEPTED, VERIFIED or beyond
     deals = deals.map(deal => {
       const dealObj = deal.toObject();
-      if (!['ACCEPTED', 'VERIFIED', 'COMPLETED', 'DISPUTED'].includes(deal.status)) {
+      if (!['ACCEPTED', 'VERIFIED', 'ADMIN_PRE_SHIPMENT_VERIFIED', 'BUYER_DELIVERY_UPLOADED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'DISPUTED'].includes(deal.status)) {
         // Strip sensitive info
         if (dealObj.buyerId) {
           delete dealObj.buyerId.phone;
@@ -386,7 +386,7 @@ router.get('/deals/:id', requireAuth, async (req, res) => {
     }
 
     const dealObj = deal.toObject();
-    if (!['VERIFIED', 'COMPLETED', 'DISPUTED'].includes(deal.status)) {
+    if (!['VERIFIED', 'ADMIN_PRE_SHIPMENT_VERIFIED', 'BUYER_DELIVERY_UPLOADED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'DISPUTED'].includes(deal.status)) {
       if (dealObj.buyerId) { delete dealObj.buyerId.phone; delete dealObj.buyerId.email; }
       if (dealObj.farmerId) { delete dealObj.farmerId.phone; delete dealObj.farmerId.email; }
     }
@@ -485,13 +485,35 @@ router.post('/deals/:id/pay-buyer-escrow', requireAuth, requireRole('BUYER'), as
     deal.escrowDepositPaid = true;
     deal.escrowDepositAmount = amount;
     deal.agentRequestedAt = new Date();
-    deal.status = 'HUMAN_REVIEW'; // Sent to Admin Verification Center for on-ground physical check
+    deal.status = 'AGENT_PAYMENT_PENDING'; // Wait for Farmer to pay their verification fee
 
     await deal.save();
     res.json({
       success: true,
       data: deal,
       message: 'Payment received! Escrow deposit secured and on-ground agent will come in contact with you soon.'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// User clicks "Pay Field Agent Verification Fee" in UI (FARMER)
+router.post('/deals/:id/pay-farmer-fee', requireAuth, requireRole('FARMER'), async (req, res) => {
+  try {
+    const deal = await Deal.findById(req.params.id);
+    if (!deal || deal.farmerId.toString() !== req.user._id.toString()) {
+      return res.status(404).json({ success: false, message: 'Deal not found or unauthorized' });
+    }
+
+    deal.farmerAgentFeePaid = true;
+    deal.status = 'HUMAN_REVIEW'; // Now Sent to Admin Verification Center for on-ground physical check
+
+    await deal.save();
+    res.json({
+      success: true,
+      data: deal,
+      message: 'Payment received! Field agent verification is now in progress.'
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

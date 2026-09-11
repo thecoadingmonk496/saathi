@@ -18,6 +18,8 @@ export default function Admin() {
   const [requestFilter, setRequestFilter] = useState('ALL');
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [adminUtr, setAdminUtr] = useState('');
+  const [adminReceipt, setAdminReceipt] = useState('');
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -56,44 +58,24 @@ export default function Admin() {
     setError('');
 
     try {
-      // 1. Fetch Users
-      const usersRes = await fetch(apiUrl('/api/admin/users'), {
-        headers: { Authorization: `Bearer ${activeToken}` },
-      });
-      const usersData = await usersRes.json();
-      if (usersRes.ok && usersData.success) {
-        setUsers(usersData.data || []);
-      } else if (usersRes.status === 401 || usersRes.status === 403) {
+      const headers = { Authorization: `Bearer ${activeToken}` };
+      
+      const res = await fetch(apiUrl('/api/admin/dashboard-summary'), { headers });
+      
+      if (res.status === 401 || res.status === 403) {
         handleLogout();
         return;
       }
 
-      // 2. Fetch Buyer Requests (Procurement Publications) with populated buyerApplication
-      const reqRes = await fetch(apiUrl('/api/admin/buyer-requests'), {
-        headers: { Authorization: `Bearer ${activeToken}` },
-      });
-      const reqData = await reqRes.json();
-      if (reqRes.ok && reqData.success) {
-        setBuyerRequests(reqData.data || []);
+      const json = await res.json();
+      
+      if (res.ok && json.success) {
+        setUsers(json.data.users || []);
+        setBuyerRequests(json.data.buyerRequests || []);
+        setBuyerApplications(json.data.buyerApplications || []);
+        setDealInspections(json.data.dealInspections || []);
       }
-
-      // 3. Fetch Buyer KYC Applications
-      const appRes = await fetch(apiUrl('/api/admin/buyer-applications'), {
-        headers: { Authorization: `Bearer ${activeToken}` },
-      });
-      const appData = await appRes.json();
-      if (appRes.ok && appData.success) {
-        setBuyerApplications(appData.data || []);
-      }
-
-      // 4. Fetch Crop Deal Inspections
-      const dealsRes = await fetch(apiUrl('/api/admin/deals/inspections'), {
-        headers: { Authorization: `Bearer ${activeToken}` },
-      });
-      const dealsData = await dealsRes.json();
-      if (dealsRes.ok && dealsData.success) {
-        setDealInspections(dealsData.data || []);
-      }
+      
     } catch (err) {
       setError('Unable to communicate with the backend. Please ensure the server is active.');
     } finally {
@@ -401,6 +383,40 @@ export default function Admin() {
     }
   };
 
+  const handleVerifyPreShipment = async (dealId, status) => {
+    const token = localStorage.getItem('adminToken');
+    if (!token) { handleLogout(); return; }
+
+    setActionLoadingId(dealId);
+    setError('');
+    setSuccessMsg('');
+
+    try {
+      const res = await fetch(apiUrl(`/api/admin/deals/${dealId}/verify`), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status, notes: status === 'APPROVED' ? 'Physically inspected and verified by Saathi Admin.' : 'Rejected physical inspection.' }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccessMsg(status === 'APPROVED' ? '✓ Physical inspection approved! Details unlocked.' : '✕ Physical inspection rejected. Deal cancelled.');
+        setDealInspections((prev) =>
+          prev.map((d) => (d._id === dealId ? { ...d, status: status === 'APPROVED' ? 'ADMIN_PRE_SHIPMENT_VERIFIED' : 'CANCELLED' } : d))
+        );
+        setTimeout(() => setSuccessMsg(''), 6000);
+      } else {
+        setError(data.message || 'Failed to process physical inspection.');
+      }
+    } catch (err) {
+      setError('Network error while processing physical inspection.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
 
   const handleUnverifyDeal = async (dealId, cropName) => {
     const token = localStorage.getItem('adminToken');
@@ -439,9 +455,14 @@ export default function Admin() {
     }
   };
 
-  const handleCompleteDeal = async (dealId, cropName) => {
+  const handleVerifyFinalDelivery = async (dealId, status) => {
     const token = localStorage.getItem('adminToken');
     if (!token) { handleLogout(); return; }
+
+    if (status === 'APPROVED' && (!adminUtr || !adminReceipt)) {
+      setError('Please provide UTR Number and Receipt before approving the delivery.');
+      return;
+    }
 
     setActionLoadingId(dealId);
     setError('');
@@ -451,18 +472,22 @@ export default function Admin() {
       const res = await fetch(apiUrl(`/api/admin/deals/${dealId}/final-verification`), {
         method: 'PATCH',
         headers: {
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({ status, utrNumber: adminUtr, transactionReceiptUrl: adminReceipt }),
       });
       const data = await res.json();
-      if (res.ok && data.success) {
-        setSuccessMsg(`🎉 Deal for "${cropName}" marked as COMPLETED! Recorded on farmer dashboard.`);
+      if (res.ok) {
+        setSuccessMsg(status === 'APPROVED' ? `🎉 Deal marked as COMPLETED! Receipt uploaded.` : '✕ Delivery rejected. Buyer refunded.');
         setDealInspections((prev) =>
-          prev.map((d) => (d._id === dealId ? { ...d, status: 'COMPLETED' } : d))
+          prev.map((d) => (d._id === dealId ? { ...d, status: status === 'APPROVED' ? 'COMPLETED' : 'CANCELLED' } : d))
         );
+        setAdminUtr('');
+        setAdminReceipt('');
         setTimeout(() => setSuccessMsg(''), 6000);
       } else {
-        setError(data.message || 'Failed to complete deal.');
+        setError(data.message || 'Failed to process delivery verification.');
       }
     } catch (err) {
       setError('Network error while completing deal.');
@@ -1389,22 +1414,46 @@ export default function Admin() {
                             )}
 
                             {deal.status === 'BUYER_DELIVERY_UPLOADED' && (
-                              <>
-                                <button
-                                  onClick={() => handleVerifyFinalDelivery(deal._id, 'APPROVED')}
-                                  disabled={actionLoadingId === deal._id}
-                                  className="px-4 py-2 bg-emerald-500 text-slate-950 font-black rounded-lg text-xs hover:bg-emerald-600"
-                                >
-                                  Approve Delivery (Release Escrow)
-                                </button>
-                                <button
-                                  onClick={() => handleVerifyFinalDelivery(deal._id, 'REJECTED')}
-                                  disabled={actionLoadingId === deal._id}
-                                  className="px-4 py-2 bg-red-500 text-white font-black rounded-lg text-xs hover:bg-red-600"
-                                >
-                                  Reject (Refund Buyer)
-                                </button>
-                              </>
+                              <div className="mt-4 p-4 border border-blue-200 bg-blue-50 rounded-xl space-y-3">
+                                <h6 className="text-sm font-bold text-blue-900">Finalize Deal & Release Escrow</h6>
+                                <p className="text-xs text-blue-800 mb-2">Transfer the escrow funds to the farmer's bank account, then upload the receipt below.</p>
+                                <input
+                                  type="text"
+                                  placeholder="Bank Transfer UTR Number"
+                                  value={adminUtr}
+                                  onChange={(e) => setAdminUtr(e.target.value)}
+                                  className="w-full px-3 py-2 border rounded-lg text-xs font-mono"
+                                />
+                                <input
+                                  type="file"
+                                  accept="image/*,.pdf"
+                                  onChange={(e) => {
+                                    const file = e.target.files[0];
+                                    if(file) {
+                                      const r = new FileReader();
+                                      r.onload = () => setAdminReceipt(r.result);
+                                      r.readAsDataURL(file);
+                                    }
+                                  }}
+                                  className="w-full px-3 py-2 border rounded-lg text-xs bg-white"
+                                />
+                                <div className="flex gap-2 pt-2">
+                                  <button
+                                    onClick={() => handleVerifyFinalDelivery(deal._id, 'APPROVED')}
+                                    disabled={actionLoadingId === deal._id || !adminUtr || !adminReceipt}
+                                    className="px-4 py-2 bg-emerald-500 text-white font-black rounded-lg text-xs hover:bg-emerald-600 disabled:opacity-50"
+                                  >
+                                    Approve Delivery & Upload Receipt
+                                  </button>
+                                  <button
+                                    onClick={() => handleVerifyFinalDelivery(deal._id, 'REJECTED')}
+                                    disabled={actionLoadingId === deal._id}
+                                    className="px-4 py-2 bg-red-500 text-white font-black rounded-lg text-xs hover:bg-red-600 disabled:opacity-50"
+                                  >
+                                    Reject (Refund Buyer)
+                                  </button>
+                                </div>
+                              </div>
                             )}
 
                             {deal.status !== 'COMPLETED' && (

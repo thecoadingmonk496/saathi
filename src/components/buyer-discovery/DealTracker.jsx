@@ -136,11 +136,11 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
     try {
         const token = localStorage.getItem('token');
         
-        // 1. Create order on backend
+        // 1. Create order on backend (Hardcoded to 1 INR for Razorpay test limit bypass)
         const orderRes = await fetch(`${API_BASE}/payment/create-order`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ amount: totalAmount, dealId: deal._id })
+            body: JSON.stringify({ amount: 1, dealId: deal._id }) 
         });
         const orderData = await orderRes.json();
         
@@ -210,6 +210,84 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
     }
   };
 
+  const handlePayFarmerFee = async () => {
+    try {
+        setPaymentProcessing(true);
+        const token = localStorage.getItem('token');
+        
+        // 1. Create order on backend (amount 200 INR)
+        const orderRes = await fetch(`${API_BASE}/payment/create-order`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ amount: 200, dealId: deal._id }) 
+        });
+        const orderData = await orderRes.json();
+        
+        if (!orderData.success) {
+            alert("Error initializing payment");
+            setPaymentProcessing(false);
+            return;
+        }
+
+        const options = {
+            key: import.meta.env.VITE_RAZORPAY_KEY_ID, 
+            amount: orderData.order.amount,
+            currency: orderData.order.currency,
+            name: "Saathi",
+            description: "Field Agent Verification Fee",
+            order_id: orderData.order.id,
+            handler: async function (response) {
+                try {
+                    // 2. Verify payment on backend
+                    const verifyRes = await fetch(`${API_BASE}/payment/verify-payment`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ ...response, dealId: deal._id })
+                    });
+                    const verifyData = await verifyRes.json();
+                    
+                    if (verifyData.success) {
+                        // 3. Update Deal DB status
+                        const res = await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/pay-farmer-fee`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        });
+                        const data = await res.json();
+                        if(data.success) {
+                            alert("Verification Fee Paid Successfully! Field Agent assigned.");
+                            onRefresh();
+                        } else {
+                            alert(data.message || "Payment successful but failed to update deal status.");
+                        }
+                    } else {
+                        alert("Payment verification failed.");
+                    }
+                } catch (err) {
+                    alert("Error verifying payment.");
+                } finally {
+                    setPaymentProcessing(false);
+                }
+            },
+            prefill: {
+                name: "Farmer",
+                email: "farmer@example.com",
+            },
+            theme: { color: "#16a34a" } // green-600
+        };
+
+        const rzp = new Razorpay(options);
+        rzp.on("payment.failed", function (response) {
+            alert(response.error.description);
+            setPaymentProcessing(false);
+        });
+        rzp.open();
+    } catch (err) {
+        console.error("Payment flow error:", err);
+        alert("Payment Error: " + err.message);
+        setPaymentProcessing(false);
+    }
+  };
+
   const [utrNumber, setUtrNumber] = useState(deal.utrNumber || '');
   const [receiptPreview, setReceiptPreview] = useState(deal.transactionReceiptUrl || '');
   const [submittingReceipt, setSubmittingReceipt] = useState(false);
@@ -253,7 +331,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
     }
   };
 
-  const hasUploadedPhotos = (deal.qualitySubmissions && deal.qualitySubmissions.length > 0) || deal.moisturePercent || deal.status === 'HUMAN_REVIEW' || deal.status === 'BUYER_PAYMENT_PENDING' || deal.status === 'AI_PASSED' || deal.status === 'ADMIN_MOISTURE_REVIEW';
+  const hasUploadedPhotos = (deal.qualitySubmissions && deal.qualitySubmissions.length > 0) || deal.status === 'HUMAN_REVIEW' || deal.status === 'BUYER_PAYMENT_PENDING' || deal.status === 'AI_PASSED' || deal.status === 'ADMIN_MOISTURE_REVIEW';
   const isFeePaid = Boolean(deal.agentFeePaid) && Boolean(deal.escrowDepositPaid);
 
   let currentIdx = 0;
@@ -401,8 +479,8 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
 
           {userRole === 'BUYER' && deal.status === 'ESCROW_PENDING' && (
             <div className="mb-4 p-4 border rounded-xl bg-orange-50 border-orange-200">
-              <p className="text-sm font-bold text-gray-800 mb-2">Fund the Escrow Account to proceed (₹{deal.agreedPrice})</p>
-              <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-sm" onClick={() => setEscrowModal(true)}>Pay Escrow</button>
+              <p className="text-sm font-bold text-gray-800 mb-2">Pay the fixed deal amount to proceed (₹{deal.agreedPrice})</p>
+              <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-sm" onClick={() => setEscrowModal(true)}>Pay Fixed Amount</button>
             </div>
           )}
 
@@ -475,7 +553,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                   <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm space-y-3">
                     <div className="flex flex-col gap-2 pb-3 border-b border-gray-100">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-bold text-gray-500">Escrow Deposit (Crop Value)</p>
+                        <p className="text-sm font-bold text-gray-500">Fixed Deal Amount</p>
                         <span className="text-sm font-bold text-gray-900">₹{(deal.quantity * deal.agreedPrice).toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -491,7 +569,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                     </div>
 
                     <p className="text-xs text-gray-600 leading-relaxed">
-                      Deposit the finalized crop amount into the secure escrow account and pay the agent fee. <strong>An on-ground agent will then be assigned</strong> for physical inspection.
+                      Pay the fixed deal amount and the agent fee. <strong>An on-ground agent will then be assigned</strong> for physical inspection.
                     </p>
 
                     <button
@@ -514,15 +592,55 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                     </div>
                     <div>
                       <h6 className="text-sm font-extrabold text-gray-900">Buyer is completing their process</h6>
-                      <p className="text-xs text-gray-500 mt-0.5">Waiting for the buyer to deposit the finalized escrow amount and agent fee. You will be notified once the agent is assigned.</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Waiting for the buyer to pay the fixed deal amount and agent fee. You will be notified once the agent is assigned.</p>
                     </div>
                   </div>
                 )}
               </div>
             )}
 
+            {/* Step 2.5: Farmer Pays Verification Fee */}
+            {deal.status === 'AGENT_PAYMENT_PENDING' && (
+              <div className="bg-amber-50 rounded-2xl border border-amber-200 p-5 space-y-4 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-900">
+                    Pending Field Agent Fee
+                  </span>
+                </div>
+                
+                {userRole === 'FARMER' ? (
+                  <div className="bg-white p-5 rounded-xl border border-amber-200 shadow-sm space-y-4">
+                    <h5 className="font-bold text-gray-900 flex items-center gap-2">
+                      <span>👤</span> Pay Field Agent Verification Fee
+                    </h5>
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                      The buyer has successfully deposited the fixed deal amount into escrow. To proceed with the physical verification, you need to pay the field agent verification fee.
+                    </p>
+                    
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                      <span className="text-sm font-semibold text-gray-600">Verification Fee</span>
+                      <span className="font-black text-gray-900 text-lg">₹200</span>
+                    </div>
+
+                    <button
+                      onClick={handlePayFarmerFee}
+                      disabled={paymentProcessing}
+                      className="w-full py-3.5 bg-[#16a34a] hover:bg-green-700 text-white font-black text-sm uppercase tracking-wider rounded-xl transition flex justify-center items-center gap-2 shadow-md shadow-green-600/20"
+                    >
+                      {paymentProcessing ? 'Processing...' : 'Pay ₹200 via Razorpay'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-white p-4 rounded-xl border border-amber-200 text-sm font-medium text-amber-900">
+                    Waiting for the Farmer to pay their field agent verification fee. Once paid, the physical inspection process will begin.
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Step 3: ONLY shown after ₹250 is Paid (isFeePaid === true) */}
-            {isFeePaid && deal.status !== 'VERIFIED' && deal.status !== 'COMPLETED' && deal.status !== 'UNVERIFIED' && (
+            {isFeePaid && deal.status !== 'AGENT_PAYMENT_PENDING' && deal.status !== 'VERIFIED' && deal.status !== 'ADMIN_PRE_SHIPMENT_VERIFIED' && deal.status !== 'COMPLETED' && deal.status !== 'UNVERIFIED' && (
               <div className="bg-amber-50 rounded-2xl border border-amber-200 p-5 space-y-3">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
@@ -533,7 +651,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
 
                 <div className="bg-white p-4 rounded-xl border border-amber-200 shadow-xs space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-gray-500">Escrow Deposit</span>
+                    <span className="font-semibold text-gray-500">Fixed Deal Amount</span>
                     <span className="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                       ₹{(deal.escrowDepositAmount || (deal.quantity * deal.agreedPrice)).toLocaleString('en-IN')} PAID ✓
                     </span>
@@ -551,7 +669,11 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                 </div>
 
                 <div className="p-3.5 bg-amber-100/70 text-amber-950 rounded-xl text-xs font-semibold leading-relaxed border border-amber-300">
-                  🛵 <strong>Our agent will come in contact with you!</strong> The inspection request has been submitted for admin verification with your address and contact details. Once the physical check is verified, deal contact details will be fully unlocked.
+                  {userRole?.toLowerCase() === 'buyer' ? (
+                    <>🛵 <strong>Saathi Field Agent Assigned!</strong> The field agent is contacting the farmer to physically verify the crop quality. Once verified, the farmer's contact details will be fully unlocked for you.</>
+                  ) : (
+                    <>🛵 <strong>Our agent will come in contact with you!</strong> The inspection request has been submitted for admin verification with your address and contact details. Once the physical check is verified, deal contact details will be fully unlocked.</>
+                  )}
                 </div>
               </div>
             )}
@@ -574,8 +696,8 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
               </div>
             )}
 
-            {/* Step 5: Verified from Agent & UTR Submission */}
-            {(deal.status === 'VERIFIED' || deal.status === 'RECEIPT_SUBMITTED') && (
+            {/* Step 5: Verified from Agent (Receipt submission moved to admin) */}
+            {(deal.status === 'VERIFIED' || deal.status === 'ADMIN_PRE_SHIPMENT_VERIFIED' || deal.status === 'RECEIPT_SUBMITTED' || deal.status === 'BUYER_DELIVERY_UPLOADED') && (
               <div className="space-y-4">
                 {/* 1. Verified from Agent Message */}
                 <div className="p-4 bg-emerald-100/90 text-emerald-950 rounded-2xl border border-emerald-300 flex items-start gap-3 shadow-xs">
@@ -583,136 +705,65 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                   <div>
                     <h5 className="font-extrabold text-emerald-950 text-sm">Verified from Agent</h5>
                     <p className="text-xs text-emerald-800 mt-0.5 leading-relaxed">
-                      Crop quality physically inspected and verified on-ground by SAATHI field agent. All buyer details have been unlocked below.
+                      Crop quality physically inspected and verified on-ground by SAATHI field agent. All {userRole?.toLowerCase() === 'buyer' ? 'farmer' : 'buyer'} details have been unlocked below.
                     </p>
                   </div>
                 </div>
 
-                {/* 2. Small Bar: Buyer Details Showed to Farmer */}
+                {/* 2. Small Bar: Contact Details Showed to Counterparty */}
                 <div className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-sm space-y-2">
                   <div className="flex items-center justify-between pb-2 border-b border-gray-100">
                     <span className="text-sm font-black uppercase text-emerald-700 tracking-wider flex items-center gap-1.5">
-                      <span>🏢</span> Buyer Details & Contact Information
+                      {userRole?.toLowerCase() === 'buyer' ? <span>👨‍🌾</span> : <span>🏢</span>} 
+                      {userRole?.toLowerCase() === 'buyer' ? 'Farmer Details & Contact Information' : 'Buyer Details & Contact Information'}
                     </span>
                     <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      Verified Buyer ✓
+                      Verified {userRole?.toLowerCase() === 'buyer' ? 'Farmer' : 'Buyer'} ✓
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     <div>
-                      <p className="text-xs font-bold text-gray-400 uppercase">Buyer Name</p>
+                      <p className="text-xs font-bold text-gray-400 uppercase">{userRole?.toLowerCase() === 'buyer' ? 'Farmer' : 'Buyer'} Name</p>
                       <p className="font-bold text-gray-900 text-sm mt-0.5">
-                        {deal.buyerId?.firstName} {deal.buyerId?.lastName}
+                        {userRole?.toLowerCase() === 'buyer' 
+                          ? `${deal.farmerId?.firstName || ''} ${deal.farmerId?.lastName || ''}` 
+                          : `${deal.buyerId?.firstName || ''} ${deal.buyerId?.lastName || ''}`}
                       </p>
                     </div>
 
                     <div>
-                      <p className="text-xs font-bold text-gray-400 uppercase">Buyer Phone / Number</p>
+                      <p className="text-xs font-bold text-gray-400 uppercase">{userRole?.toLowerCase() === 'buyer' ? 'Farmer' : 'Buyer'} Phone / Number</p>
                       <p className="font-mono font-bold text-emerald-700 mt-0.5 select-all text-sm">
-                        📞 {deal.buyerId?.phone || 'Not provided'}
+                        📞 {userRole?.toLowerCase() === 'buyer' 
+                            ? (deal.farmerId?.phone || 'Not provided')
+                            : (deal.buyerId?.phone || 'Not provided')}
                       </p>
                     </div>
 
                     <div className="sm:col-span-2">
-                      <p className="text-xs font-bold text-gray-400 uppercase">Buyer Address / Delivery Destination</p>
+                      <p className="text-xs font-bold text-gray-400 uppercase">
+                        {userRole?.toLowerCase() === 'buyer' ? 'Farmer Address / Pickup Location' : 'Buyer Address / Delivery Destination'}
+                      </p>
                       <p className="text-gray-800 font-semibold mt-0.5">
-                        📍 {deal.buyerId?.village ? `Village: ${deal.buyerId.village}, ` : ''}
-                        {deal.buyerId?.district ? `District: ${deal.buyerId.district}, ` : ''}
-                        {deal.buyerId?.state || ''}
-                        {deal.buyerRequestId?.location ? ` (Mandi: ${deal.buyerRequestId.location})` : ''}
+                        {userRole?.toLowerCase() === 'buyer' ? (
+                          <>
+                            📍 {deal.farmerId?.village ? `Village: ${deal.farmerId.village}, ` : ''}
+                            {deal.farmerId?.district ? `District: ${deal.farmerId.district}, ` : ''}
+                            {deal.farmerId?.state || ''}
+                          </>
+                        ) : (
+                          <>
+                            📍 {deal.buyerId?.village ? `Village: ${deal.buyerId.village}, ` : ''}
+                            {deal.buyerId?.district ? `District: ${deal.buyerId.district}, ` : ''}
+                            {deal.buyerId?.state || ''}
+                            {deal.buyerRequestId?.location ? ` (Mandi: ${deal.buyerRequestId.location})` : ''}
+                          </>
+                        )}
                       </p>
                     </div>
                   </div>
                 </div>
-
-                {/* 3. Transaction Done by Buyer & UTR Upload Section */}
-                {deal.status === 'RECEIPT_SUBMITTED' ? (
-                  <div className="bg-amber-50 rounded-2xl border border-amber-200 p-5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black uppercase text-amber-900 tracking-wide flex items-center gap-1.5">
-                        <span>📄</span> Transaction Proof & UTR Submitted
-                      </span>
-                      <span className="text-xs font-bold bg-amber-200 text-amber-900 px-2.5 py-0.5 rounded-full">
-                        Pending Admin Sign-Off
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-amber-900 leading-relaxed">
-                      Your crop sale transaction proof and UTR have been sent to Saathi Admin for final verification. Once approved from the admin panel, the deal will be marked Completed!
-                    </p>
-
-                    <div className="bg-white p-3.5 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                      <div>
-                        <span className="text-gray-400">Entered UTR:</span>{' '}
-                        <span className="font-mono font-black text-gray-900 text-sm">{deal.utrNumber || 'N/A'}</span>
-                      </div>
-                      {deal.transactionReceiptUrl && (
-                        <a
-                          href={deal.transactionReceiptUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs font-bold text-red-700 hover:underline flex items-center gap-1"
-                        >
-                          <span>🧾</span>
-                          <span>View Uploaded Proof →</span>
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
-                    <div>
-                      <h5 className="font-bold text-gray-900 text-sm flex items-center gap-1.5">
-                        <span>🧾</span> Upload Payment Receipt & Enter UTR Number
-                      </h5>
-                      <p className="text-xs text-gray-500 mt-1">
-                        After selling your crop to the buyer and receiving payment, upload the transaction receipt photo and enter the UTR number.
-                      </p>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-sm font-bold text-gray-600 block mb-1">
-                          1. Upload Transaction Receipt Photo (Max 500KB)
-                        </label>
-                        <input
-                          type="file"
-                          accept="image/*,.pdf"
-                          onChange={handleReceiptFileChange}
-                          className="text-xs text-gray-700 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 cursor-pointer"
-                        />
-                        {receiptPreview && (
-                          <div className="mt-2">
-                            <img src={receiptPreview} alt="Receipt preview" className="w-24 h-24 object-cover rounded-xl border border-gray-300 shadow-xs" />
-                          </div>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="text-sm font-bold text-gray-600 block mb-1">
-                          2. Type UTR / Transaction Reference Number
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. 12-digit UTR Number (123456789012)"
-                          value={utrNumber}
-                          onChange={(e) => setUtrNumber(e.target.value)}
-                          className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-xs font-mono font-bold text-gray-900 focus:outline-none focus:border-red-600"
-                        />
-                      </div>
-
-                      <button
-                        onClick={handleSubmitReceiptAndUtr}
-                        disabled={submittingReceipt || (!receiptPreview && !utrNumber.trim())}
-                        className="w-full py-3 bg-red-700 hover:bg-red-800 text-white font-bold rounded-xl shadow transition disabled:opacity-50 text-xs flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        <span>📤</span>
-                        <span>{submittingReceipt ? 'Submitting Receipt…' : 'Submit Transaction Proof & UTR'}</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
@@ -723,33 +774,33 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                   🎉
                 </div>
                 <h5 className="font-extrabold text-emerald-950 text-lg">Deal Completed</h5>
-                <p className="text-xs text-emerald-700">
-                  The crop sale transaction has been fully verified and signed off by Saathi Admin!
+                <p className="text-sm text-emerald-800">
+                  The crop sale transaction has been fully verified! The escrow funds have been successfully transferred to the farmer's bank account.
                 </p>
 
                 {deal.utrNumber && (
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white rounded-xl border border-emerald-200 text-xs text-gray-700 font-mono">
-                    <span className="font-bold text-gray-400">UTR:</span>
-                    <span className="font-black text-gray-900">{deal.utrNumber}</span>
-                  </div>
-                )}
-
-                {deal.transactionReceiptUrl && (
-                  <div className="pt-2">
-                    <a
-                      href={deal.transactionReceiptUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-block px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition"
-                    >
-                      View Transaction Receipt →
-                    </a>
+                  <div className="mt-4 p-4 bg-white rounded-xl border border-emerald-200 text-left space-y-2 max-w-sm mx-auto shadow-sm">
+                    <h6 className="text-xs font-black uppercase text-gray-500 tracking-wider flex items-center gap-1.5">
+                      <span>🏦</span> Admin Escrow Transfer Details
+                    </h6>
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-xs font-semibold text-gray-500">UTR / Ref No.</span>
+                      <span className="font-mono font-black text-gray-900 text-sm">{deal.utrNumber}</span>
+                    </div>
+                    {deal.transactionReceiptUrl && (
+                      <div className="pt-2">
+                        <a href={deal.transactionReceiptUrl} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition">
+                          <span>🧾</span>
+                          <span>View Bank Transfer Receipt</span>
+                        </a>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )}
 
-            {!['ACCEPTED', 'ESCROW_PENDING', 'PHOTO_PENDING', 'BUYER_DELIVERY_UPLOADED', 'ADMIN_PRE_SHIPMENT_VERIFIED', 'AI_FLAGGED', 'AGENT_PAYMENT_PENDING', 'AI_PASSED', 'HUMAN_REVIEW', 'UNVERIFIED', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED'].includes(deal.status) && (
+            {!['ACCEPTED', 'ESCROW_PENDING', 'PHOTO_PENDING', 'BUYER_DELIVERY_UPLOADED', 'ADMIN_PRE_SHIPMENT_VERIFIED', 'AI_FLAGGED', 'AGENT_PAYMENT_PENDING', 'AI_PASSED', 'HUMAN_REVIEW', 'UNVERIFIED', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'BUYER_PAYMENT_PENDING', 'ADMIN_MOISTURE_REVIEW'].includes(deal.status) && (
               <div className="bg-gray-50 rounded-xl border border-gray-200 p-5 text-center">
                 <p className="text-sm text-gray-500">Processing… Current status: <span className="font-bold">{deal.status}</span></p>
               </div>
@@ -763,7 +814,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
       {escrowModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-sm">
-            <h3 className="font-extrabold text-gray-900 text-lg mb-4">Pay Escrow</h3>
+            <h3 className="font-extrabold text-gray-900 text-lg mb-4">Pay Fixed Deal Amount</h3>
             <p className="text-sm mb-4">Amount: ₹{deal.agreedPrice}</p>
             <button onClick={handlePayEscrow} disabled={paymentProcessing} className="w-full py-3 bg-emerald-600 text-white font-black rounded-xl">
               {paymentProcessing ? 'Processing...' : `Pay ₹${deal.agreedPrice}`}
