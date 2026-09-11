@@ -1173,7 +1173,7 @@ export default function Admin() {
                             <div>
                               <p className="text-sm font-bold text-blue-400 uppercase tracking-wide">Agent Connection Fee</p>
                               <p className="text-xs font-semibold text-slate-200">
-                                {deal.agentFeePaid ? '₹250 Paid by Farmer' : '₹250 Payment Pending'}
+                                {deal.agentFeePaid ? '₹250 Paid by Buyer' : '₹250 Payment Pending'}
                               </p>
                             </div>
                           </div>

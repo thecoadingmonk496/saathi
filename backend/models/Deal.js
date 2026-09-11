@@ -58,6 +58,7 @@ const dealSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'FarmerOffer',
       required: true,
+      unique: true,
     },
     crop: {
       type: String,

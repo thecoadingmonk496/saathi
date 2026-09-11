@@ -905,14 +905,14 @@ export default function BuyerDashboard() {
                           <Avatar name={deal.farmerId?.firstName} size="sm" />
                           <div>
                             <p className="text-sm font-bold text-gray-900">{deal.farmerId?.firstName} {deal.farmerId?.lastName}</p>
-                            <p className="text-xs text-gray-500">{deal.crop}</p>
+                            <p className="text-xs text-gray-500">{deal.crop || deal.buyerRequestId?.crop}</p>
                           </div>
                         </div>
-                        <span className="text-lg font-extrabold text-gray-900">{deal.quantity} <span className="text-xs font-bold text-gray-400">Qtl</span></span>
+                        <span className="text-lg font-extrabold text-gray-900">{deal.quantity || deal.buyerRequestId?.quantity} <span className="text-xs font-bold text-gray-400">Qtl</span></span>
                       </div>
                       <div className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2 mb-3">
                         <span className="text-gray-500 font-medium">Agreed Price</span>
-                        <span className="font-bold text-gray-900">₹{Number(deal.agreedPrice).toLocaleString('en-IN')}/Qtl</span>
+                        <span className="font-bold text-gray-900">₹{Number(deal.agreedPrice || deal.buyerRequestId?.offeredPrice || 0).toLocaleString('en-IN')}/Qtl</span>
                       </div>
                       <MiniDealSteps status={deal.status} />
                     </div>

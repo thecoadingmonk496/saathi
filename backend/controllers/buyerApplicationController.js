@@ -267,6 +267,12 @@ async function getMyApplication(req, res) {
     const phone = clean(req.query.phone || '');
     const email = clean(req.query.email || '');
 
+    if (req.user && req.user.role !== 'ADMIN') {
+      if ((phone && phone !== req.user.phone) || (email && email !== req.user.email)) {
+        return res.status(403).json({ success: false, message: 'Unauthorized access to application.' });
+      }
+    }
+
     if (!phone && !email) {
       return res.status(400).json({ success: false, message: 'Please provide a valid mobile number or email' });
     }
@@ -298,27 +304,24 @@ async function getMyApplication(req, res) {
 
 // @desc    Update buyer application (for ACTION_REQUIRED resubmission)
 // @route   PATCH /api/buyers/my-application/:id
-// @access  Public (by phone + application id)
+// @access  Protected
 async function updateMyApplication(req, res) {
   try {
     const { id } = req.params;
     const body = req.body || {};
-    const phone = clean(body.phone || '');
-
-    if (!isValidIndianMobile(phone)) {
-      return res.status(400).json({ success: false, message: 'Please provide a valid mobile number' });
-    }
 
     const application = await BuyerApplication.findById(id);
     if (!application) {
       return res.status(404).json({ success: false, message: 'Application not found' });
     }
 
-    if (application.phone !== phone) {
-      return res.status(403).json({ success: false, message: 'Unauthorized access to this application' });
+    if (req.user && req.user.role !== 'ADMIN') {
+      if (application.phone !== req.user.phone) {
+        return res.status(403).json({ success: false, message: 'Unauthorized access to application.' });
+      }
     }
 
-    // Only allow updates when ACTION_REQUIRED or PENDING
+    // Must be in ACTION_REQUIRED status
     if (!['ACTION_REQUIRED', 'PENDING'].includes(application.verificationStatus)) {
       return res.status(400).json({ success: false, message: 'This application cannot be updated in its current status' });
     }

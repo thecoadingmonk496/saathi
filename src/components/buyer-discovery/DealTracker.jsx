@@ -136,11 +136,11 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
     try {
         const token = localStorage.getItem('token');
         
-        // 1. Create order on backend (Hardcoded to 1 INR for Razorpay test limit bypass)
+        // 1. Create order on backend (Charging actual amount in paise)
         const orderRes = await fetch(`${API_BASE}/payment/create-order`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ amount: 1, dealId: deal._id }) 
+            body: JSON.stringify({ amount: totalAmount * 100, dealId: deal._id }) 
         });
         const orderData = await orderRes.json();
         
@@ -288,50 +288,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
     }
   };
 
-  const [utrNumber, setUtrNumber] = useState(deal.utrNumber || '');
-  const [receiptPreview, setReceiptPreview] = useState(deal.transactionReceiptUrl || '');
-  const [submittingReceipt, setSubmittingReceipt] = useState(false);
-
-  const handleReceiptFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (file.size > 500 * 1024) { alert('Receipt image is too large. Please upload a file under 500KB.'); e.target.value = ''; return; }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setReceiptPreview(reader.result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleSubmitReceiptAndUtr = async () => {
-    if (!receiptPreview && !utrNumber.trim()) {
-      alert('Please upload receipt photo and enter UTR number.');
-      return;
-    }
-    setSubmittingReceipt(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/receipt`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ receiptUrl: receiptPreview, utrNumber: utrNumber.trim() }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert(data.message || 'Transaction receipt & UTR submitted! Sent to admin for final completion.');
-        onRefresh();
-      } else {
-        alert(data.message || 'Error submitting receipt');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Network error while submitting receipt.');
-    } finally {
-      setSubmittingReceipt(false);
-    }
-  };
-
-  const hasUploadedPhotos = (deal.qualitySubmissions && deal.qualitySubmissions.length > 0) || deal.status === 'HUMAN_REVIEW' || deal.status === 'BUYER_PAYMENT_PENDING' || deal.status === 'AI_PASSED' || deal.status === 'ADMIN_MOISTURE_REVIEW';
+  const hasUploadedPhotos = ((deal.qualitySubmissions && deal.qualitySubmissions.length > 0) && deal.status !== 'AI_FLAGGED') || deal.status === 'HUMAN_REVIEW' || deal.status === 'BUYER_PAYMENT_PENDING' || deal.status === 'AI_PASSED' || deal.status === 'ADMIN_MOISTURE_REVIEW';
   const isFeePaid = Boolean(deal.agentFeePaid) && Boolean(deal.escrowDepositPaid);
 
   let currentIdx = 0;

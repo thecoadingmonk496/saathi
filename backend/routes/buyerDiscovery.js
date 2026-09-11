@@ -22,9 +22,17 @@ const requireRole = (role) => (req, res, next) => {
 // BUYER REQUESTS
 // ==========================================
 
+const BuyerApplication = require('../models/BuyerApplication');
+
 // Create a new request (Buyer only)
 router.post('/requests', requireAuth, requireRole('BUYER'), async (req, res) => {
   try {
+    // Enforce Backend KYC
+    const kyc = await BuyerApplication.findOne({ phone: req.user.phone, verificationStatus: 'APPROVED' });
+    if (!kyc) {
+      return res.status(403).json({ success: false, message: 'KYC approval is required to create a request.' });
+    }
+
     const { crop, quantity, unit, offeredPrice, location, description, cropImage } = req.body;
     const newRequest = await BuyerRequest.create({
       buyerId: req.user._id,
@@ -34,6 +42,7 @@ router.post('/requests', requireAuth, requireRole('BUYER'), async (req, res) => 
       offeredPrice,
       location,
       description,
+      cropImage, // Save the image
       status: 'PENDING_REVIEW',
     });
     res.status(201).json({ success: true, data: newRequest, message: 'Requirement submitted for Saathi verification.' });
@@ -49,6 +58,11 @@ router.post('/requests/:id/reapply', requireAuth, requireRole('BUYER'), async (r
     const request = await BuyerRequest.findOne({ _id: req.params.id, buyerId: req.user._id });
     if (!request) {
       return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+    
+    // Prevent reapply exploit (only rejected requests can be reapplied)
+    if (request.status !== 'REJECTED') {
+      return res.status(400).json({ success: false, message: 'Only rejected requests can be reapplied.' });
     }
     request.crop = crop || request.crop;
     request.quantity = quantity || request.quantity;
@@ -115,8 +129,8 @@ router.get('/requests/published', requireAuth, requireRole('FARMER'), async (req
   }
 });
 
-// Mock SAATHI Admin Review endpoint (for demo completeness without full admin panel)
-router.post('/requests/:id/approve', requireAuth, async (req, res) => {
+// SAATHI Admin Review endpoint
+router.post('/requests/:id/approve', requireAuth, requireRole('ADMIN'), async (req, res) => {
   try {
     const request = await BuyerRequest.findByIdAndUpdate(
       req.params.id, 
@@ -174,6 +188,11 @@ router.post('/offers/:id/counter', requireAuth, async (req, res) => {
     if (!isBuyer && !isFarmer) {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
+    
+    // Prevent reopening of dead offers
+    if (offer.status === 'ACCEPTED' || offer.status === 'REJECTED') {
+      return res.status(400).json({ success: false, message: 'Cannot counter a closed offer.' });
+    }
 
     const { price, message } = req.body;
     
@@ -212,6 +231,24 @@ router.post('/offers/:id/accept', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Farmer can only accept Buyer counters.' });
     }
 
+    // Prevent reopening
+    if (offer.status === 'ACCEPTED' || offer.status === 'REJECTED') {
+      return res.status(400).json({ success: false, message: 'Offer is already closed.' });
+    }
+
+    // Prevent overselling
+    const acceptedOffers = await FarmerOffer.find({ buyerRequestId: offer.buyerRequestId._id, status: 'ACCEPTED' });
+    const fulfilledQuantity = acceptedOffers.reduce((sum, o) => sum + Number(o.quantity || 0), 0);
+    if (fulfilledQuantity + Number(offer.quantity || 0) > Number(offer.buyerRequestId.quantity || Infinity)) {
+      return res.status(400).json({ success: false, message: 'Accepting this offer would exceed the requested quantity.' });
+    }
+
+    // Prevent duplicate deals
+    const existingDeal = await Deal.findOne({ farmerOfferId: offer._id });
+    if (existingDeal) {
+      return res.status(400).json({ success: false, message: 'Deal already exists for this offer.' });
+    }
+
     offer.status = 'ACCEPTED';
     offer.respondedAt = new Date();
     await offer.save();
@@ -246,6 +283,10 @@ router.post('/offers/:id/reject', requireAuth, async (req, res) => {
     
     if (!isBuyer && !isFarmer) return res.status(403).json({ success: false, message: 'Unauthorized' });
 
+    if (offer.status === 'ACCEPTED' || offer.status === 'REJECTED') {
+      return res.status(400).json({ success: false, message: 'Offer is already closed.' });
+    }
+
     offer.status = 'REJECTED';
     offer.respondedAt = new Date();
     await offer.save();
@@ -262,6 +303,11 @@ router.post('/offers/:id/ignore', requireAuth, requireRole('BUYER'), async (req,
     if (!offer || offer.buyerRequestId.buyerId.toString() !== req.user._id.toString()) {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
+
+    if (offer.status === 'ACCEPTED' || offer.status === 'REJECTED') {
+      return res.status(400).json({ success: false, message: 'Offer is already closed.' });
+    }
+
     offer.status = 'IGNORED';
     offer.respondedAt = new Date();
     await offer.save();
@@ -390,6 +436,11 @@ router.get('/deals/:id', requireAuth, async (req, res) => {
       if (dealObj.buyerId) { delete dealObj.buyerId.phone; delete dealObj.buyerId.email; }
       if (dealObj.farmerId) { delete dealObj.farmerId.phone; delete dealObj.farmerId.email; }
     }
+    
+    // Protect Privacy: Only admins should see the farmer's bank account
+    if (req.user.role !== 'ADMIN') {
+      delete dealObj.escrowBankAccount;
+    }
 
     res.json({ success: true, data: dealObj });
   } catch (error) {
@@ -478,6 +529,10 @@ router.post('/deals/:id/pay-buyer-escrow', requireAuth, requireRole('BUYER'), as
       return res.status(404).json({ success: false, message: 'Deal not found or unauthorized' });
     }
 
+    if (deal.status !== 'ADMIN_MOISTURE_REVIEW') {
+      return res.status(400).json({ success: false, message: 'Deal is not ready for escrow deposit.' });
+    }
+
     const amount = req.body.amount || (deal.quantity * deal.agreedPrice);
 
     deal.agentFeePaid = true;
@@ -506,6 +561,10 @@ router.post('/deals/:id/pay-farmer-fee', requireAuth, requireRole('FARMER'), asy
       return res.status(404).json({ success: false, message: 'Deal not found or unauthorized' });
     }
 
+    if (deal.status !== 'AGENT_PAYMENT_PENDING') {
+      return res.status(400).json({ success: false, message: 'Deal is not ready for farmer fee payment.' });
+    }
+
     deal.farmerAgentFeePaid = true;
     deal.status = 'HUMAN_REVIEW'; // Now Sent to Admin Verification Center for on-ground physical check
 
@@ -521,7 +580,7 @@ router.post('/deals/:id/pay-farmer-fee', requireAuth, requireRole('FARMER'), asy
 });
 
 // Mock Human Verification (Admin/Agent)
-router.post('/deals/:id/human-review', requireAuth, async (req, res) => {
+router.post('/deals/:id/human-review', requireAuth, requireRole('ADMIN'), async (req, res) => {
   try {
     const { status, notes } = req.body; // status = 'APPROVED' or 'REJECTED'
     const deal = await Deal.findById(req.params.id);
@@ -615,35 +674,18 @@ router.post('/deals/:id/report', requireAuth, async (req, res) => {
   }
 });
 
-// ESCROW ROUTES
-router.post('/deals/:id/farmer-bank', requireAuth, requireRole('FARMER'), async (req, res) => {
-  try {
-    const { farmerBankAccount } = req.body;
-    const deal = await Deal.findOne({ _id: req.params.id, farmerId: req.user._id });
-    if (!deal) return res.status(404).json({ message: 'Deal not found' });
-    deal.farmerBankAccount = farmerBankAccount;
-    if (deal.status === 'ACCEPTED') deal.status = 'ESCROW_PENDING';
-    await deal.save();
-    res.json(deal);
-  } catch (error) { res.status(500).json({ message: error.message }); }
-});
-
-router.post('/deals/:id/pay-escrow', requireAuth, requireRole('BUYER'), async (req, res) => {
-  try {
-    const deal = await Deal.findOne({ _id: req.params.id, buyerId: req.user._id });
-    if (!deal) return res.status(404).json({ message: 'Deal not found' });
-    deal.escrowStatus = 'FUNDED';
-    deal.status = 'ACCEPTED'; // Reset to accepted so farmer can now upload photos
-    await deal.save();
-    res.json(deal);
-  } catch (error) { res.status(500).json({ message: error.message }); }
-});
+// Delete unused legacy ESCROW ROUTES here
 
 router.post('/deals/:id/buyer-delivery-photos', requireAuth, requireRole('BUYER'), async (req, res) => {
   try {
     const { imageUrls } = req.body;
     const deal = await Deal.findOne({ _id: req.params.id, buyerId: req.user._id });
     if (!deal) return res.status(404).json({ message: 'Deal not found' });
+    
+    if (!['VERIFIED', 'ADMIN_PRE_SHIPMENT_VERIFIED'].includes(deal.status)) {
+      return res.status(400).json({ message: 'Deal is not verified for delivery yet.' });
+    }
+    
     deal.deliverySubmissions = imageUrls;
     deal.status = 'BUYER_DELIVERY_UPLOADED';
     await deal.save();

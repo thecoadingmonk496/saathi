@@ -183,6 +183,10 @@ router.patch('/deals/:id/verify', verifyAdminToken, async (req, res) => {
     const deal = await Deal.findById(req.params.id);
     if (!deal) return res.status(404).json({ success: false, message: 'Deal not found' });
 
+    if (deal.status !== 'HUMAN_REVIEW') {
+      return res.status(400).json({ success: false, message: 'Deal is not ready for physical verification.' });
+    }
+
     if (req.body.status === 'REJECTED') {
       deal.status = 'CANCELLED';
       deal.escrowStatus = 'REFUNDED';
@@ -193,8 +197,8 @@ router.patch('/deals/:id/verify', verifyAdminToken, async (req, res) => {
 
     if (deal.qualitySubmissions && deal.qualitySubmissions.length > 0) {
       const lastSub = deal.qualitySubmissions[deal.qualitySubmissions.length - 1];
-      lastSub.humanStatus = 'APPROVED';
-      lastSub.humanNotes = notes || 'Physical crop check verified on-ground by Saathi field agent.';
+      lastSub.humanStatus = req.body.status === 'REJECTED' ? 'REJECTED' : 'APPROVED';
+      lastSub.humanNotes = notes || (req.body.status === 'REJECTED' ? 'Failed on-ground physical quality parameters.' : 'Physical crop check verified on-ground by Saathi field agent.');
       lastSub.reviewedAt = new Date();
       lastSub.verifiedAt = new Date();
     }
@@ -261,6 +265,10 @@ router.patch('/deals/:id/complete', verifyAdminToken, async (req, res) => {
     const deal = await Deal.findById(req.params.id);
     if (!deal) return res.status(404).json({ success: false, message: 'Deal not found' });
 
+    if (!['RECEIPT_SUBMITTED', 'BUYER_DELIVERY_UPLOADED'].includes(deal.status)) {
+      return res.status(400).json({ success: false, message: 'Deal is not ready for completion.' });
+    }
+
     deal.status = 'COMPLETED';
     deal.completedAt = new Date();
     await deal.save();
@@ -281,6 +289,10 @@ router.patch('/deals/:id/final-verification', verifyAdminToken, async (req, res)
     const { status, notes, utrNumber, transactionReceiptUrl } = req.body;
     const deal = await Deal.findById(req.params.id);
     if (!deal) return res.status(404).json({ message: 'Deal not found' });
+    
+    if (deal.status !== 'BUYER_DELIVERY_UPLOADED') {
+      return res.status(400).json({ message: 'Deal is not ready for final verification.' });
+    }
     
     if (status === 'APPROVED') {
       deal.status = 'COMPLETED';
