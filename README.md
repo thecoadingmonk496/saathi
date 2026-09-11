@@ -32,6 +32,17 @@ The interface uses a shared agricultural field background, clear card-based info
 
 ---
 
+## Buyer Discovery Workflow
+
+The platform features an end-to-end negotiation and tracking system for farmers and buyers:
+1. **Request Creation & Admin Approval:** Buyers create a crop requirement request. Once the SAATHI Admin approves it, the request is published to the marketplace.
+2. **Negotiation:** Farmers can make counter-offers to these requests. Buyers and farmers can negotiate back and forth until an offer is accepted, creating a formal Deal.
+3. **Escrow & Verification:** The Buyer deposits an Escrow payment (via Razorpay integration), and the Farmer uploads digital proofs (photos and videos).
+4. **Physical Inspection:** A SAATHI agent visits the farmer to physically verify the crop. Once verified by the Admin, contact details (names, phones, addresses) are securely unlocked for both parties.
+5. **Delivery & Payout:** The farmer ships the goods. The buyer uploads delivery proof upon receipt. The Admin finalizes the transaction by releasing the Escrow payout directly to the Farmer's bank account.
+
+---
+
 ## Technology Used
 
 ### Frontend
