@@ -153,7 +153,12 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
         if (phoneToCheck) queryParams.append('phone', phoneToCheck);
         if (emailToCheck) queryParams.append('email', emailToCheck);
         
-        const response = await fetch(apiUrl(`/api/buyers/my-application?${queryParams.toString()}`));
+        const token = localStorage.getItem('token');
+        const response = await fetch(apiUrl(`/api/buyers/my-application?${queryParams.toString()}`), {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         const data = await response.json();
         if (response.ok && data.success && data.application) {
           navigate(`/buyer-status?${queryParams.toString()}`, { replace: true });
