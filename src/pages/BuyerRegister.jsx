@@ -142,7 +142,10 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
 
   useEffect(() => {
     const checkExistingApp = async () => {
-      const phoneToCheck = user?.phone || user?.mobile;
+      let phoneToCheck = user?.phone || user?.mobile || '';
+      if (phoneToCheck) {
+        phoneToCheck = phoneToCheck.replace(/^\+91/, '').replace(/\s/g, '');
+      }
       const emailToCheck = user?.email;
       if (!phoneToCheck && !emailToCheck) {
         setCheckingExisting(false);
