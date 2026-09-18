@@ -31,42 +31,30 @@ router.delete('/users/:id', verifyAdminToken, deleteUser);
 const User = require('../models/User');
 router.get('/dashboard-summary', verifyAdminToken, async (req, res) => {
   try {
-    // 1. Fetch Users
-    const usersPromise = User.find().select('-password').sort({ createdAt: -1 });
-
-    // 2. Fetch Buyer Requests
-    const requestsPromise = BuyerRequest.find()
-      .populate('buyerId', 'firstName lastName phone email village district state')
-      .sort({ createdAt: -1 })
-      .then(async (requests) => {
-        return Promise.all(
-          requests.map(async (r) => {
-            const phone = r.buyerId?.phone;
-            const email = r.buyerId?.email;
-            let app = null;
-            if (phone) app = await BuyerApplication.findOne({ phone }).sort({ createdAt: -1 });
-            if (!app && email) app = await BuyerApplication.findOne({ email }).sort({ createdAt: -1 });
-            return { ...r.toObject(), buyerApplication: app || null };
-          })
-        );
-      });
-
-    // 3. Fetch Buyer Applications
-    const applicationsPromise = BuyerApplication.find().sort({ createdAt: -1 });
-
-    // 4. Fetch Deal Inspections
-    const dealsPromise = Deal.find()
-      .populate('farmerId', 'firstName lastName phone email village block district state')
-      .populate('buyerId', 'firstName lastName phone email village block district state')
-      .populate('buyerRequestId', 'crop quantity unit offeredPrice location description')
-      .sort({ updatedAt: -1 });
-
-    const [users, buyerRequests, buyerApplications, dealInspections] = await Promise.all([
-      usersPromise,
-      requestsPromise,
-      applicationsPromise,
-      dealsPromise
+    const [users, rawBuyerRequests, buyerApplications, dealInspections] = await Promise.all([
+      User.find().select('-password').sort({ createdAt: -1 }),
+      BuyerRequest.find().populate('buyerId', 'firstName lastName phone email village district state').sort({ createdAt: -1 }),
+      BuyerApplication.find().sort({ createdAt: -1 }),
+      Deal.find()
+        .populate('farmerId', 'firstName lastName phone email village block district state')
+        .populate('buyerId', 'firstName lastName phone email village block district state')
+        .populate('buyerRequestId', 'crop quantity unit offeredPrice location description')
+        .sort({ updatedAt: -1 })
     ]);
+
+    // Perform the join in-memory to avoid N+1 database queries
+    const buyerRequests = rawBuyerRequests.map(r => {
+      const phone = r.buyerId?.phone;
+      const email = r.buyerId?.email;
+      let app = null;
+      if (phone) {
+        app = buyerApplications.find(a => a.phone === phone);
+      }
+      if (!app && email) {
+        app = buyerApplications.find(a => a.email === email);
+      }
+      return { ...r.toObject(), buyerApplication: app || null };
+    });
 
     res.status(200).json({
       success: true,
@@ -94,27 +82,28 @@ router.patch('/buyer-applications/:id/request-information', verifyAdminToken, re
 // Buyer publication / procurement requests admin routes
 router.get('/buyer-requests', verifyAdminToken, async (req, res) => {
   try {
-    const requests = await BuyerRequest.find()
-      .populate('buyerId', 'firstName lastName phone email village district state')
-      .sort({ createdAt: -1 });
+    const [requests, buyerApplications] = await Promise.all([
+      BuyerRequest.find()
+        .populate('buyerId', 'firstName lastName phone email village district state')
+        .sort({ createdAt: -1 }),
+      BuyerApplication.find().sort({ createdAt: -1 })
+    ]);
 
-    const populated = await Promise.all(
-      requests.map(async (r) => {
-        const phone = r.buyerId?.phone;
-        const email = r.buyerId?.email;
-        let app = null;
-        if (phone) {
-          app = await BuyerApplication.findOne({ phone }).sort({ createdAt: -1 });
-        }
-        if (!app && email) {
-          app = await BuyerApplication.findOne({ email }).sort({ createdAt: -1 });
-        }
-        return {
-          ...r.toObject(),
-          buyerApplication: app || null,
-        };
-      })
-    );
+    const populated = requests.map(r => {
+      const phone = r.buyerId?.phone;
+      const email = r.buyerId?.email;
+      let app = null;
+      if (phone) {
+        app = buyerApplications.find(a => a.phone === phone);
+      }
+      if (!app && email) {
+        app = buyerApplications.find(a => a.email === email);
+      }
+      return {
+        ...r.toObject(),
+        buyerApplication: app || null,
+      };
+    });
 
     res.status(200).json({ success: true, count: populated.length, data: populated });
   } catch (error) {
