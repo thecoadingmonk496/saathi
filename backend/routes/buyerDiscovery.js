@@ -529,6 +529,10 @@ router.post('/deals/:id/pay-buyer-escrow', requireAuth, requireRole('BUYER'), as
       return res.status(404).json({ success: false, message: 'Deal not found or unauthorized' });
     }
 
+    if (deal.status === 'AGENT_PAYMENT_PENDING' || deal.status === 'HUMAN_REVIEW') {
+      return res.json({ success: true, data: deal, message: 'Payment already processed.' });
+    }
+
     if (deal.status !== 'BUYER_PAYMENT_PENDING') {
       return res.status(400).json({ success: false, message: 'Deal is not ready for escrow deposit.' });
     }
@@ -559,6 +563,10 @@ router.post('/deals/:id/pay-farmer-fee', requireAuth, requireRole('FARMER'), asy
     const deal = await Deal.findById(req.params.id);
     if (!deal || deal.farmerId.toString() !== req.user._id.toString()) {
       return res.status(404).json({ success: false, message: 'Deal not found or unauthorized' });
+    }
+
+    if (deal.status === 'HUMAN_REVIEW') {
+      return res.json({ success: true, data: deal, message: 'Payment already processed. Field agent assigned.' });
     }
 
     if (deal.status !== 'AGENT_PAYMENT_PENDING') {
