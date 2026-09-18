@@ -23,11 +23,41 @@ export default function Admin() {
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [loadedImages, setLoadedImages] = useState({}); // Stores lazily loaded images for deals
   
   // 9-Stage KYC Inspection Modal State
   const [selectedKycApp, setSelectedKycApp] = useState(null);
   const [relatedRequest, setRelatedRequest] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
+
+  const fetchDealImages = async (dealId) => {
+    setLoadedImages(prev => ({ ...prev, [dealId]: { ...prev[dealId], isLoading: true } }));
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(apiUrl(`/api/admin/deals/${dealId}`), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.data) {
+        const fullDeal = data.data;
+        const latestSub = fullDeal.qualitySubmissions && fullDeal.qualitySubmissions.length > 0
+          ? fullDeal.qualitySubmissions[fullDeal.qualitySubmissions.length - 1]
+          : null;
+        setLoadedImages(prev => ({
+          ...prev,
+          [dealId]: {
+            isLoading: false,
+            images: latestSub?.imageUrls || [],
+            receiptUrl: fullDeal.transactionReceiptUrl || ''
+          }
+        }));
+      } else {
+        setLoadedImages(prev => ({ ...prev, [dealId]: { isLoading: false, error: 'Failed to load images' } }));
+      }
+    } catch (err) {
+      setLoadedImages(prev => ({ ...prev, [dealId]: { isLoading: false, error: 'Network error loading images' } }));
+    }
+  };
   
   const navigate = useNavigate();
   const adminEmail = localStorage.getItem('adminEmail') || 'ts7529614@gmail.com';
@@ -1099,10 +1129,15 @@ export default function Admin() {
                   const isVerified = deal.status === 'VERIFIED' || deal.status === 'ADMIN_PRE_SHIPMENT_VERIFIED';
                   const isUnverified = deal.status === 'UNVERIFIED';
 
-                  const latestSub = deal.qualitySubmissions && deal.qualitySubmissions.length > 0
-                    ? deal.qualitySubmissions[deal.qualitySubmissions.length - 1]
-                    : null;
-                  const images = latestSub?.imageUrls || [];
+                  const imagesState = loadedImages[deal._id];
+                  const isLoadingImages = imagesState?.isLoading;
+                  const imagesError = imagesState?.error;
+                  const images = imagesState?.images || [];
+                  const receiptUrl = imagesState?.receiptUrl || '';
+                  const hasImages = images.length > 0;
+                  const hasReceipt = receiptUrl !== '';
+                  const shouldShowImagesSection = (deal.qualitySubmissions && deal.qualitySubmissions.length > 0);
+                  const shouldShowReceiptSection = (deal.transactionReceiptUrl || deal.utrNumber || deal.status === 'RECEIPT_SUBMITTED' || deal.status === 'COMPLETED');
 
                   return (
                     <div
@@ -1256,37 +1291,57 @@ export default function Admin() {
                       </div>
 
                       {/* Uploaded Crop Photos */}
-                      {images.length > 0 && (
+                      {shouldShowImagesSection && (
                         <div className="py-4 border-b border-slate-800/80">
                           <div className="flex items-center justify-between mb-2.5">
                             <span className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
-                              <span>📷</span> Uploaded Crop Photos ({images.length})
+                              <span>📷</span> Uploaded Crop Photos
                             </span>
-                            <span className="text-sm text-slate-500">Click any photo to zoom in full screen</span>
+                            {hasImages && <span className="text-sm text-slate-500">Click any photo to zoom in full screen</span>}
                           </div>
-                          <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2.5">
-                            {images.map((img, idx) => (
-                              <div
-                                key={idx}
-                                onClick={() => setPreviewImage(img)}
-                                className="aspect-square rounded-xl overflow-hidden border border-slate-700 hover:border-amber-400 transition cursor-zoom-in group relative bg-slate-950"
-                              >
-                                <img
-                                  src={img}
-                                  alt={`Crop ${idx + 1}`}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
-                                />
-                                <span className="absolute bottom-1 right-1 text-[9px] bg-black/70 text-white px-1.5 py-0.5 rounded">
-                                  #{idx + 1}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
+                          
+                          {!imagesState && (
+                            <button
+                              onClick={() => fetchDealImages(deal._id)}
+                              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition"
+                            >
+                              Load Inspection Photos & Documents
+                            </button>
+                          )}
+                          
+                          {isLoadingImages && (
+                            <div className="text-sm text-slate-400 italic">Downloading heavy image files...</div>
+                          )}
+                          
+                          {imagesError && (
+                            <div className="text-sm text-red-400">{imagesError}</div>
+                          )}
+
+                          {hasImages && (
+                            <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2.5">
+                              {images.map((img, idx) => (
+                                <div
+                                  key={idx}
+                                  onClick={() => setPreviewImage(img)}
+                                  className="aspect-square rounded-xl overflow-hidden border border-slate-700 hover:border-amber-400 transition cursor-zoom-in group relative bg-slate-950"
+                                >
+                                  <img
+                                    src={img}
+                                    alt={`Crop ${idx + 1}`}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
+                                  />
+                                  <span className="absolute bottom-1 right-1 text-[9px] bg-black/70 text-white px-1.5 py-0.5 rounded">
+                                    #{idx + 1}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
 
                       {/* Uploaded Transaction Receipt & UTR (Submitted by Farmer) */}
-                      {(deal.transactionReceiptUrl || deal.utrNumber || deal.status === 'RECEIPT_SUBMITTED' || deal.status === 'COMPLETED') && (
+                      {shouldShowReceiptSection && (
                         <div className="py-4 border-b border-slate-800/80 bg-slate-950/60 p-4 rounded-2xl my-3 border border-slate-800">
                           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                             <span className="text-xs font-black uppercase text-emerald-400 tracking-wider flex items-center gap-1.5">
@@ -1301,14 +1356,29 @@ export default function Admin() {
                             </span>
                           </div>
 
+                          {!imagesState && (
+                            <div className="mb-4">
+                              <button
+                                onClick={() => fetchDealImages(deal._id)}
+                                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition"
+                              >
+                                Load Inspection Photos & Documents
+                              </button>
+                            </div>
+                          )}
+
+                          {isLoadingImages && (
+                            <div className="text-sm text-slate-400 italic mb-4">Downloading heavy image files...</div>
+                          )}
+
                           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                            {deal.transactionReceiptUrl && (
+                            {hasReceipt && (
                               <div
-                                onClick={() => setPreviewImage(deal.transactionReceiptUrl)}
+                                onClick={() => setPreviewImage(receiptUrl)}
                                 className="w-24 h-24 rounded-xl overflow-hidden border border-slate-700 hover:border-emerald-400 transition cursor-zoom-in group relative bg-slate-900 shrink-0"
                               >
                                 <img
-                                  src={deal.transactionReceiptUrl}
+                                  src={receiptUrl}
                                   alt="Transaction Receipt"
                                   className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
                                 />

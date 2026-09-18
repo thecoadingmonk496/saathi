@@ -31,17 +31,28 @@ router.delete('/users/:id', verifyAdminToken, deleteUser);
 const User = require('../models/User');
 router.get('/dashboard-summary', verifyAdminToken, async (req, res) => {
   try {
-    const [users, rawBuyerRequests, buyerApplications, dealInspections] = await Promise.all([
-      User.find().select('-password').sort({ createdAt: -1 }),
-      BuyerRequest.find().populate('buyerId', 'firstName lastName phone email village district state').sort({ createdAt: -1 }),
-      BuyerApplication.find().sort({ createdAt: -1 }),
-      Deal.find()
+    console.time('dashboard:users');
+    const users = await User.find().select('-password -profileImage -documents').sort({ createdAt: -1 });
+    console.timeEnd('dashboard:users');
+
+    console.time('dashboard:buyerRequests');
+    const rawBuyerRequests = await BuyerRequest.find().populate('buyerId', 'firstName lastName phone email village district state').sort({ createdAt: -1 });
+    console.timeEnd('dashboard:buyerRequests');
+
+    console.time('dashboard:buyerApplications');
+    const buyerApplications = await BuyerApplication.find().select('-profilePhoto -documents').sort({ createdAt: -1 });
+    console.timeEnd('dashboard:buyerApplications');
+
+    console.time('dashboard:dealInspections');
+    const dealInspections = await Deal.find()
+        .select('-deliverySubmissions -qualitySubmissions.imageUrls -transactionReceiptUrl')
         .populate('farmerId', 'firstName lastName phone email village block district state')
         .populate('buyerId', 'firstName lastName phone email village block district state')
         .populate('buyerRequestId', 'crop quantity unit offeredPrice location description')
-        .sort({ updatedAt: -1 })
-    ]);
+        .sort({ updatedAt: -1 });
+    console.timeEnd('dashboard:dealInspections');
 
+    console.time('dashboard:mapping');
     // Perform the join in-memory to avoid N+1 database queries
     const buyerRequests = rawBuyerRequests.map(r => {
       const phone = r.buyerId?.phone;
@@ -55,6 +66,7 @@ router.get('/dashboard-summary', verifyAdminToken, async (req, res) => {
       }
       return { ...r.toObject(), buyerApplication: app || null };
     });
+    console.timeEnd('dashboard:mapping');
 
     res.status(200).json({
       success: true,
@@ -71,6 +83,23 @@ router.get('/dashboard-summary', verifyAdminToken, async (req, res) => {
   }
 });
 
+// GET full deal by ID (used for fetching heavy fields like base64 images lazily)
+router.get('/deals/:id', verifyAdminToken, async (req, res) => {
+  try {
+    const deal = await Deal.findById(req.params.id)
+        .populate('farmerId', 'firstName lastName phone email village block district state')
+        .populate('buyerId', 'firstName lastName phone email village block district state')
+        .populate('buyerRequestId', 'crop quantity unit offeredPrice location description');
+    if (!deal) {
+      return res.status(404).json({ success: false, message: 'Deal not found' });
+    }
+    res.json({ success: true, data: deal });
+  } catch (error) {
+    console.error('Admin Get Deal Error:', error);
+    res.status(500).json({ success: false, message: 'Server error fetching deal' });
+  }
+});
+
 // Buyer application admin routes (KYC / Onboarding)
 router.get('/buyer-applications', verifyAdminToken, getAllApplications);
 router.get('/buyer-applications/:id', verifyAdminToken, getApplicationById);
@@ -82,12 +111,10 @@ router.patch('/buyer-applications/:id/request-information', verifyAdminToken, re
 // Buyer publication / procurement requests admin routes
 router.get('/buyer-requests', verifyAdminToken, async (req, res) => {
   try {
-    const [requests, buyerApplications] = await Promise.all([
-      BuyerRequest.find()
+    const requests = await BuyerRequest.find()
         .populate('buyerId', 'firstName lastName phone email village district state')
-        .sort({ createdAt: -1 }),
-      BuyerApplication.find().sort({ createdAt: -1 })
-    ]);
+        .sort({ createdAt: -1 });
+    const buyerApplications = await BuyerApplication.find().select('-profilePhoto -documents').sort({ createdAt: -1 });
 
     const populated = requests.map(r => {
       const phone = r.buyerId?.phone;
