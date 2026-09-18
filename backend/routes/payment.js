@@ -5,11 +5,13 @@ const BuyerApplication = require('../models/BuyerApplication'); // Assuming we u
 
 const router = express.Router();
 
-// Initialize Razorpay
-const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+// Helper to get Razorpay instance lazily
+const getRazorpay = () => {
+    return new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+};
 
 // 1. Create an Order
 router.post('/create-order', async (req, res) => {
@@ -22,7 +24,7 @@ router.post('/create-order', async (req, res) => {
             receipt: `receipt_${dealId}`, 
         };
 
-        const order = await razorpay.orders.create(options);
+        const order = await getRazorpay().orders.create(options);
         res.json({ success: true, order });
     } catch (error) {
         console.error("Razorpay Create Order Error:", error);
