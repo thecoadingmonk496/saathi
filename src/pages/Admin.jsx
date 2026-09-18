@@ -9,14 +9,14 @@ const apiUrl = (path) => `${API_BASE_URL}${path}`;
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState('buyer-requests');
-  const [users, setUsers] = useState([]);
-  const [buyerRequests, setBuyerRequests] = useState([]);
-  const [buyerApplications, setBuyerApplications] = useState([]);
-  const [dealInspections, setDealInspections] = useState([]);
+  const [users, setUsers] = useState(() => { try { return JSON.parse(localStorage.getItem('adminDashboardData'))?.users || []; } catch(e) { return []; } });
+  const [buyerRequests, setBuyerRequests] = useState(() => { try { return JSON.parse(localStorage.getItem('adminDashboardData'))?.buyerRequests || []; } catch(e) { return []; } });
+  const [buyerApplications, setBuyerApplications] = useState(() => { try { return JSON.parse(localStorage.getItem('adminDashboardData'))?.buyerApplications || []; } catch(e) { return []; } });
+  const [dealInspections, setDealInspections] = useState(() => { try { return JSON.parse(localStorage.getItem('adminDashboardData'))?.dealInspections || []; } catch(e) { return []; } });
   const [inspectionFilter, setInspectionFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [requestFilter, setRequestFilter] = useState('ALL');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !localStorage.getItem('adminDashboardData'));
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [adminUtr, setAdminUtr] = useState('');
   const [adminReceipt, setAdminReceipt] = useState('');
@@ -54,7 +54,9 @@ export default function Admin() {
       return;
     }
 
-    setLoading(true);
+    if (!localStorage.getItem('adminDashboardData')) {
+      setLoading(true);
+    }
     setError('');
 
     try {
@@ -74,6 +76,13 @@ export default function Admin() {
         setBuyerRequests(json.data.buyerRequests || []);
         setBuyerApplications(json.data.buyerApplications || []);
         setDealInspections(json.data.dealInspections || []);
+
+        localStorage.setItem('adminDashboardData', JSON.stringify({
+          users: json.data.users || [],
+          buyerRequests: json.data.buyerRequests || [],
+          buyerApplications: json.data.buyerApplications || [],
+          dealInspections: json.data.dealInspections || []
+        }));
       }
       
     } catch (err) {
