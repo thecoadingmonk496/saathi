@@ -479,7 +479,35 @@ async function approveApplication(req, res) {
 
     await application.save();
 
-    return res.status(200).json({ success: true, message: 'Buyer approved successfully.' });
+    // Map the application buyerType to a User Role
+    const typeUpper = (application.buyerType || '').toUpperCase();
+    let newRole = 'BUYER';
+    if (typeUpper.includes('WHOLESALER')) newRole = 'WHOLESALER';
+    else if (typeUpper.includes('RETAILER')) newRole = 'RETAILER';
+    else if (typeUpper.includes('DISTRIBUTOR')) newRole = 'DISTRIBUTOR';
+    else if (typeUpper.includes('CONSUMER')) newRole = 'CONSUMER';
+
+    // Find the associated user and update their role
+    const User = require('../models/User');
+    const query = [];
+    if (application.phone) query.push({ phone: application.phone });
+    if (application.email) query.push({ email: application.email });
+
+    if (query.length > 0) {
+      await User.findOneAndUpdate(
+        { $or: query },
+        { 
+          $set: { 
+            role: newRole,
+            businessName: application.business?.name || application.businessName || '',
+            businessType: application.business?.type || application.businessType || '',
+            gstNumber: application.gstNumber || ''
+          }
+        }
+      );
+    }
+
+    return res.status(200).json({ success: true, message: 'Buyer approved successfully. User role updated.' });
   } catch (error) {
     console.error('[BuyerApplication] Approve error:', error.message);
     return res.status(500).json({ success: false, message: 'Unable to approve application' });
