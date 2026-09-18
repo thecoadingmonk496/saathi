@@ -59,12 +59,16 @@ export default function BuyerStatus() {
     }
   }, []);
 
-  const handleCheckStatus = async (phoneToCheck = phone, emailToCheck = email) => {
-    if (!phoneToCheck && !emailToCheck) {
+  const handleCheckStatus = async (phoneArg, emailArg) => {
+    // If called from onClick, phoneArg is an event object. Ignore it and use state.
+    const p = (typeof phoneArg === 'string') ? phoneArg : phone;
+    const e = (typeof emailArg === 'string') ? emailArg : email;
+    
+    if (!p && !e) {
       setError('Please enter a valid 10-digit mobile number or log in');
       return;
     }
-    if (phoneToCheck && !/^[6-9]\d{9}$/.test(phoneToCheck)) {
+    if (p && !/^[6-9]\d{9}$/.test(p)) {
       setError('Please enter a valid 10-digit mobile number');
       return;
     }
@@ -74,10 +78,15 @@ export default function BuyerStatus() {
 
     try {
       const queryParams = new URLSearchParams();
-      if (phoneToCheck) queryParams.append('phone', phoneToCheck);
-      if (emailToCheck) queryParams.append('email', emailToCheck);
+      if (p) queryParams.append('phone', p);
+      if (e) queryParams.append('email', e);
 
-      const response = await fetch(apiUrl(`/api/buyers/my-application?${queryParams.toString()}`));
+      const token = localStorage.getItem('token');
+      const response = await fetch(apiUrl(`/api/buyers/my-application?${queryParams.toString()}`), {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await response.json();
       if (response.ok && data.success) {
         setApplication(data.application);
