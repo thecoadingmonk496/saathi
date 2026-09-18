@@ -59,6 +59,9 @@ app.use('/api/consumers', consumerRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/buyer-discovery', buyerDiscoveryRoutes);
 
+const paymentRoutes = require('../backend/routes/payment');
+app.use('/api/payment', paymentRoutes);
+
 // Direct alias routes for backward compatibility
 app.post('/api/send-otp', sendOtp);
 app.post('/api/verify-otp', verifyOtp);
