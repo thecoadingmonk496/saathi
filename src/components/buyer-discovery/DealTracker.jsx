@@ -5,7 +5,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'h
 
 const STEPS = [
   { key: 'ACCEPTED', label: 'Accepted', icon: '✅' },
-  { key: 'ESCROW_PENDING', label: 'Escrow', icon: '💰' },
+  { key: 'ESCROW_PENDING', label: 'Bank Details', icon: '💰' },
   { key: 'QC_PENDING', label: 'Moisture 11.8%', icon: '💧' },
   { key: 'AGENT_ASSIGNED', label: 'Agent Assigned', icon: '🕵️' },
   { key: 'VERIFIED', label: 'Pre-Shipment Verified', icon: '📦' },
@@ -87,14 +87,14 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
       });
       const data = await res.json();
       if (data.success) {
-        alert('Escrow bank details saved successfully.');
+        alert('Bank details saved successfully.');
         onRefresh();
       } else {
-        alert(data.message || 'Error saving escrow details');
+        alert(data.message || 'Error saving bank details');
       }
     } catch (err) {
       console.error(err);
-      alert('Network error while saving escrow details.');
+      alert('Network error while saving bank details.');
     } finally {
       setSubmittingEscrow(false);
     }
@@ -132,15 +132,15 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
 
   const handlePayAgentFee = async () => {
     setPaymentProcessing(true);
-    const totalAmount = (deal.quantity * deal.agreedPrice) + 250;
+    const totalAmount = (deal.quantity * deal.agreedPrice);
     try {
         const token = localStorage.getItem('token');
         
-        // 1. Create order on backend (Charging actual amount in paise)
+        // 1. Create order on backend (Backend handles conversion to paise)
         const orderRes = await fetch(`${API_BASE}/payment/create-order`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ amount: totalAmount * 100, dealId: deal._id }) 
+            body: JSON.stringify({ amount: totalAmount, dealId: deal._id }) 
         });
         const orderData = await orderRes.json();
         
@@ -215,11 +215,11 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
         setPaymentProcessing(true);
         const token = localStorage.getItem('token');
         
-        // 1. Create order on backend (amount 200 INR)
+        // 1. Create order on backend (amount 250 INR)
         const orderRes = await fetch(`${API_BASE}/payment/create-order`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ amount: 200, dealId: deal._id }) 
+            body: JSON.stringify({ amount: 250, dealId: deal._id }) 
         });
         const orderData = await orderRes.json();
         
@@ -417,7 +417,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
             {/* Step 1: Escrow Bank Details */}
             {userRole === 'FARMER' && deal.status === 'ACCEPTED' && (
               <div className="bg-orange-50 rounded-xl border border-orange-200 p-5 mb-6">
-                <h5 className="font-bold text-gray-900 mb-4">Enter Bank Account for Escrow</h5>
+                <h5 className="font-bold text-gray-900 mb-4">Enter your Bank Account Number</h5>
                 <form onSubmit={handleSubmitEscrow} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <input type="text" name="accountNumber" placeholder="Bank Account Number" value={escrowForm.accountNumber} onChange={handleEscrowChange} required className="px-4 py-2 border rounded-lg focus:outline-red-700 w-full" />
@@ -513,20 +513,16 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                         <p className="text-sm font-bold text-gray-500">Fixed Deal Amount</p>
                         <span className="text-sm font-bold text-gray-900">₹{(deal.quantity * deal.agreedPrice).toLocaleString('en-IN')}</span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-bold text-gray-500">Field Agent Fee</p>
-                        <span className="text-sm font-bold text-gray-900">₹250</span>
-                      </div>
                       <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                         <h6 className="text-base font-extrabold text-gray-900">Total Payable Amount</h6>
                         <span className="text-xl font-black text-red-700 bg-red-50 px-3 py-1 rounded-xl border border-red-200">
-                          ₹{((deal.quantity * deal.agreedPrice) + 250).toLocaleString('en-IN')}
+                          ₹{(deal.quantity * deal.agreedPrice).toLocaleString('en-IN')}
                         </span>
                       </div>
                     </div>
 
                     <p className="text-xs text-gray-600 leading-relaxed">
-                      Pay the fixed deal amount and the agent fee. <strong>An on-ground agent will then be assigned</strong> for physical inspection.
+                      Pay the fixed deal amount into escrow. <strong>An on-ground agent will then be assigned</strong> for physical inspection once the farmer pays their verification fee.
                     </p>
 
                     <button
@@ -534,7 +530,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                       disabled={paymentProcessing}
                       className="w-full py-3.5 bg-red-700 hover:bg-red-800 text-white font-black rounded-xl shadow-lg shadow-red-700/20 transition text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
-                      <span>{paymentProcessing ? 'Processing...' : `Pay ₹${((deal.quantity * deal.agreedPrice) + 250).toLocaleString('en-IN')} Now`}</span>
+                      <span>{paymentProcessing ? 'Processing...' : `Pay ₹${(deal.quantity * deal.agreedPrice).toLocaleString('en-IN')} Now`}</span>
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                       </svg>
@@ -549,7 +545,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                     </div>
                     <div>
                       <h6 className="text-sm font-extrabold text-gray-900">Buyer is completing their process</h6>
-                      <p className="text-xs text-gray-500 mt-0.5">Waiting for the buyer to pay the fixed deal amount and agent fee. You will be notified once the agent is assigned.</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Waiting for the buyer to pay the fixed deal amount into escrow. You will be notified once complete.</p>
                     </div>
                   </div>
                 )}
@@ -577,7 +573,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                     
                     <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
                       <span className="text-sm font-semibold text-gray-600">Verification Fee</span>
-                      <span className="font-black text-gray-900 text-lg">₹200</span>
+                      <span className="font-black text-gray-900 text-lg">₹250</span>
                     </div>
 
                     <button
@@ -585,7 +581,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                       disabled={paymentProcessing}
                       className="w-full py-3.5 bg-[#16a34a] hover:bg-green-700 text-white font-black text-sm uppercase tracking-wider rounded-xl transition flex justify-center items-center gap-2 shadow-md shadow-green-600/20"
                     >
-                      {paymentProcessing ? 'Processing...' : 'Pay ₹200 via Razorpay'}
+                      {paymentProcessing ? 'Processing...' : 'Pay ₹250 via Razorpay'}
                     </button>
                   </div>
                 ) : (

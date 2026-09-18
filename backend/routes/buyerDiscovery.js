@@ -529,7 +529,7 @@ router.post('/deals/:id/pay-buyer-escrow', requireAuth, requireRole('BUYER'), as
       return res.status(404).json({ success: false, message: 'Deal not found or unauthorized' });
     }
 
-    if (deal.status !== 'ADMIN_MOISTURE_REVIEW') {
+    if (deal.status !== 'BUYER_PAYMENT_PENDING') {
       return res.status(400).json({ success: false, message: 'Deal is not ready for escrow deposit.' });
     }
 

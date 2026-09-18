@@ -164,7 +164,7 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
         });
         const data = await response.json();
         if (response.ok && data.success && data.application) {
-          navigate(`/buyer-status?${queryParams.toString()}`, { replace: true });
+          navigate('/buyers', { replace: true });
         } else {
           setCheckingExisting(false);
         }

@@ -32,7 +32,6 @@ import ConsumerDiscovery from './pages/ConsumerDiscovery';
 import ConsumerOrders from './pages/ConsumerOrders';
 import BuyerOrders from './pages/BuyerOrders';
 import BuyerRegister from './pages/BuyerRegister';
-import BuyerStatus from './pages/BuyerStatus';
 import BuyerUpdate from './pages/BuyerUpdate';
 
 function ProtectedPage({ children }) {
@@ -80,7 +79,6 @@ export default function App() {
 
             {/* Buyer Onboarding & Self-Service */}
             <Route path="/buyer-register" element={<BuyerRegister />} />
-            <Route path="/buyer-status" element={<BuyerStatus />} />
             <Route path="/buyer-update/:id" element={<BuyerUpdate />} />
 
             {/* Protected Order & Account Routes */}

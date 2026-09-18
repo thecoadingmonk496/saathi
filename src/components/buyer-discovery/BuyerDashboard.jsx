@@ -111,7 +111,9 @@ export default function BuyerDashboard() {
           if (phone) queryParams.append('phone', phone);
           if (email) queryParams.append('email', email);
           
-          const appRes = await fetch(`${API_BASE}/buyers/my-application?${queryParams.toString()}`);
+          const appRes = await fetch(`${API_BASE}/buyers/my-application?${queryParams.toString()}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
           if (appRes.ok) {
             const appData = await appRes.json();
             // Store the actual verification status
