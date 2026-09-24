@@ -9,13 +9,19 @@ const cropQualityService = require('../services/cropQualityService');
 
 const User = require('../models/User');
 
+const buyerRoles = ['BUYER', 'WHOLESALER', 'DISTRIBUTOR', 'RETAILER', 'CONSUMER'];
+
 // Middleware for role checking
 const requireRole = (role) => (req, res, next) => {
-  if (req.user && req.user.role === role) {
-    next();
-  } else {
-    res.status(403).json({ success: false, message: `Access denied. Requires ${role} role.` });
+  if (req.user) {
+    if (role === 'BUYER' && buyerRoles.includes(req.user.role)) {
+      return next();
+    }
+    if (req.user.role === role) {
+      return next();
+    }
   }
+  res.status(403).json({ success: false, message: `Access denied. Requires ${role} role.` });
 };
 
 // ==========================================
@@ -85,7 +91,7 @@ router.post('/requests/:id/reapply', requireAuth, requireRole('BUYER'), async (r
 router.get('/requests/all-published', requireAuth, async (req, res) => {
   try {
     const publishedFilter = { status: 'PUBLISHED' };
-    if (req.user.role === 'BUYER') {
+    if (buyerRoles.includes(req.user.role)) {
       publishedFilter.buyerId = { $ne: req.user._id };
     }
 
@@ -182,7 +188,7 @@ router.post('/offers/:id/counter', requireAuth, async (req, res) => {
     const offer = await FarmerOffer.findById(req.params.id).populate('buyerRequestId');
     if (!offer) return res.status(404).json({ success: false, message: 'Offer not found' });
     
-    const isBuyer = req.user.role === 'BUYER' && offer.buyerRequestId.buyerId.toString() === req.user._id.toString();
+    const isBuyer = buyerRoles.includes(req.user.role) && offer.buyerRequestId.buyerId.toString() === req.user._id.toString();
     const isFarmer = req.user.role === 'FARMER' && offer.farmerId.toString() === req.user._id.toString();
     
     if (!isBuyer && !isFarmer) {
@@ -219,7 +225,7 @@ router.post('/offers/:id/accept', requireAuth, async (req, res) => {
     const offer = await FarmerOffer.findById(req.params.id).populate('buyerRequestId');
     if (!offer) return res.status(404).json({ success: false, message: 'Offer not found' });
     
-    const isBuyer = req.user.role === 'BUYER' && offer.buyerRequestId.buyerId.toString() === req.user._id.toString();
+    const isBuyer = buyerRoles.includes(req.user.role) && offer.buyerRequestId.buyerId.toString() === req.user._id.toString();
     const isFarmer = req.user.role === 'FARMER' && offer.farmerId.toString() === req.user._id.toString();
     
     if (!isBuyer && !isFarmer) return res.status(403).json({ success: false, message: 'Unauthorized' });
@@ -278,7 +284,7 @@ router.post('/offers/:id/reject', requireAuth, async (req, res) => {
     const offer = await FarmerOffer.findById(req.params.id).populate('buyerRequestId');
     if (!offer) return res.status(404).json({ success: false, message: 'Offer not found' });
 
-    const isBuyer = req.user.role === 'BUYER' && offer.buyerRequestId.buyerId.toString() === req.user._id.toString();
+    const isBuyer = buyerRoles.includes(req.user.role) && offer.buyerRequestId.buyerId.toString() === req.user._id.toString();
     const isFarmer = req.user.role === 'FARMER' && offer.farmerId.toString() === req.user._id.toString();
     
     if (!isBuyer && !isFarmer) return res.status(403).json({ success: false, message: 'Unauthorized' });
@@ -354,7 +360,7 @@ router.get('/requests/:id/offers', requireAuth, requireRole('BUYER'), async (req
 // Get user's deals
 router.get('/deals', requireAuth, async (req, res) => {
   try {
-    const isBuyer = req.user.role === 'BUYER';
+    const isBuyer = buyerRoles.includes(req.user.role);
     const query = isBuyer ? { buyerId: req.user._id } : { farmerId: req.user._id };
 
     // Auto-heal: Ensure any ACCEPTED offer has its Deal record in MongoDB
