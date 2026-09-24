@@ -545,8 +545,7 @@ router.post('/deals/:id/pay-buyer-escrow', requireAuth, requireRole('BUYER'), as
 
     const amount = req.body.amount || (deal.quantity * deal.agreedPrice);
 
-    deal.agentFeePaid = true;
-    deal.agentFeeAmount = 250;
+    // Agent fee is paid by the Farmer only, Buyer just pays the Escrow deposit.
     deal.escrowDepositPaid = true;
     deal.escrowDepositAmount = amount;
     deal.agentRequestedAt = new Date();
@@ -580,6 +579,8 @@ router.post('/deals/:id/pay-farmer-fee', requireAuth, requireRole('FARMER'), asy
     }
 
     deal.farmerAgentFeePaid = true;
+    deal.agentFeePaid = true; // Recorded as paid on Farmer's side
+    deal.agentFeeAmount = 250;
     deal.status = 'HUMAN_REVIEW'; // Now Sent to Admin Verification Center for on-ground physical check
 
     await deal.save();
