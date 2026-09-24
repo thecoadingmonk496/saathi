@@ -17,8 +17,155 @@ const {
 const BuyerRequest = require('../models/BuyerRequest');
 const BuyerApplication = require('../models/BuyerApplication');
 const Deal = require('../models/Deal');
+const AdminWallet = require('../models/AdminWallet');
+const WalletTransaction = require('../models/WalletTransaction');
 
 const router = express.Router();
+
+// Helper: Get or create admin wallet
+async function getWallet() {
+  let wallet = await AdminWallet.findOne();
+  if (!wallet) wallet = await AdminWallet.create({ balance: 0, totalReceived: 0, totalForwarded: 0 });
+  return wallet;
+}
+
+// Helper: Generate Saathi receipt HTML as base64 string
+function generateReceiptHtml(data) {
+  const {
+    receiptNumber, farmerName, farmerBank, farmerIfsc, farmerUpi, farmerUpiPhone,
+    crop, quantity, unit, agreedPrice, agentFee, totalAmount, paidAt, dealId
+  } = data;
+
+  const dateStr = new Date(paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+  const timeStr = new Date(paidAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Saathi Payment Receipt</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f8f9fa; color: #333; }
+  .receipt { max-width: 650px; margin: 0 auto; background: white; border: 2px solid #16a34a; border-radius: 8px; overflow: hidden; }
+  .header { background: #16a34a; color: white; padding: 20px 25px; display: flex; justify-content: space-between; align-items: center; }
+  .header-left h1 { margin: 0; font-size: 24px; font-weight: 900; letter-spacing: 1px; }
+  .header-left p { margin: 4px 0 0; font-size: 12px; opacity: 0.85; }
+  .flag { font-size: 32px; }
+  .receipt-meta { padding: 15px 25px; background: #f0fdf4; border-bottom: 1px solid #d1fae5; display: flex; justify-content: space-between; }
+  .receipt-meta div { font-size: 12px; }
+  .receipt-meta strong { color: #16a34a; font-size: 14px; display: block; }
+  .section { padding: 18px 25px; border-bottom: 1px solid #e5e7eb; }
+  .section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; margin: 0 0 12px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field label { font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
+  .field p { margin: 2px 0 0; font-weight: 700; color: #111; font-size: 13px; }
+  .table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .table th { background: #f3f4f6; text-align: left; padding: 8px 10px; font-size: 11px; text-transform: uppercase; color: #6b7280; }
+  .table td { padding: 10px 10px; border-bottom: 1px solid #f3f4f6; }
+  .table tr:last-child td { border: none; }
+  .totals { margin-top: 10px; }
+  .totals-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+  .totals-row.grand { font-size: 16px; font-weight: 900; color: #16a34a; border-top: 2px solid #16a34a; padding-top: 10px; margin-top: 5px; }
+  .bank-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 14px; margin-top: 10px; }
+  .bank-box h4 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase; color: #16a34a; letter-spacing: 1px; }
+  .bank-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; }
+  .bank-grid div label { color: #6b7280; font-size: 10px; }
+  .bank-grid div p { font-weight: 700; color: #111; margin: 2px 0 0; }
+  .stamp { text-align: center; padding: 18px; }
+  .stamp-circle { display: inline-block; border: 3px solid #16a34a; border-radius: 50%; width: 80px; height: 80px; line-height: 80px; font-weight: 900; font-size: 12px; color: #16a34a; text-align: center; transform: rotate(-15deg); }
+  .footer { background: #f9fafb; padding: 12px 25px; font-size: 10px; color: #9ca3af; text-align: center; border-top: 1px solid #e5e7eb; }
+  .status-badge { display: inline-block; background: #dcfce7; color: #16a34a; font-weight: 900; font-size: 12px; padding: 4px 12px; border-radius: 20px; border: 1px solid #86efac; }
+</style>
+</head>
+<body>
+<div class="receipt">
+  <div class="header">
+    <div class="header-left">
+      <h1>🌾 SAATHI</h1>
+      <p>Agri-Network Payment Receipt</p>
+      <p>Digital Agriculture Mission (DAM) • India</p>
+    </div>
+    <div class="flag">🇮🇳</div>
+  </div>
+
+  <div class="receipt-meta">
+    <div>
+      <label>Receipt Number</label>
+      <strong>${receiptNumber}</strong>
+    </div>
+    <div>
+      <label>Date &amp; Time</label>
+      <strong>${dateStr}, ${timeStr}</strong>
+    </div>
+    <div>
+      <label>Status</label>
+      <span class="status-badge">✓ PAID</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Payment Information</h3>
+    <div class="grid-2">
+      <div class="field"><label>Paid To (Farmer)</label><p>${farmerName}</p></div>
+      <div class="field"><label>Deal Reference</label><p>#${String(dealId).slice(-8).toUpperCase()}</p></div>
+      <div class="field"><label>Company (Payer)</label><p>Saathi Agri-Network Pvt. Ltd.</p></div>
+      <div class="field"><label>Crop / Produce</label><p>${crop}</p></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Transaction Details</h3>
+    <table class="table">
+      <thead>
+        <tr><th>Description</th><th>Price/Unit</th><th>Quantity</th><th>Total (INR)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>${crop} — Crop Procurement</td>
+          <td>₹${Number(agreedPrice).toLocaleString('en-IN')}</td>
+          <td>${quantity} ${unit || 'Qtl'}</td>
+          <td>₹${Number(agreedPrice * quantity).toLocaleString('en-IN')}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="totals">
+      <div class="totals-row"><span>Subtotal</span><span>₹${Number(agreedPrice * quantity).toLocaleString('en-IN')}</span></div>
+      <div class="totals-row"><span>Field Agent Fee (paid by Farmer)</span><span>– ₹${agentFee || 250}</span></div>
+      <div class="totals-row grand"><span>GRAND TOTAL PAID</span><span>₹${Number(totalAmount).toLocaleString('en-IN')}</span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Payment Information</h3>
+    <div class="bank-box">
+      <h4>🏦 Farmer Bank Account (Transfer Destination)</h4>
+      <div class="bank-grid">
+        <div><label>Account Number</label><p>${farmerBank || 'N/A'}</p></div>
+        <div><label>IFSC Code</label><p>${farmerIfsc || 'N/A'}</p></div>
+        <div><label>UPI ID</label><p>${farmerUpi || 'N/A'}</p></div>
+        <div><label>UPI Phone</label><p>${farmerUpiPhone || 'N/A'}</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" style="display:flex; justify-content: space-between; align-items:center">
+    <div>
+      <p style="font-size:11px; color:#6b7280; margin:0">This is a computer-generated receipt issued by Saathi Agri-Network.</p>
+      <p style="font-size:11px; color:#6b7280; margin:4px 0 0">No signature required. Valid for audit and tax purposes.</p>
+    </div>
+    <div class="stamp-circle">PAID</div>
+  </div>
+
+  <div class="footer">
+    Saathi Agri-Network Pvt. Ltd. • Certified Under Digital Agriculture Mission (DAM) • 256-Bit SSL Secured
+  </div>
+</div>
+</body>
+</html>`;
+
+  return `data:text/html;base64,${Buffer.from(html).toString('base64')}`;
+}
 
 // Public route to authenticate admin
 router.post('/login', adminLogin);
@@ -327,4 +474,142 @@ router.patch('/deals/:id/final-verification', verifyAdminToken, async (req, res)
   } catch (error) { res.status(500).json({ message: error.message }); }
 });
 
-module.exports = router;
+// ── Admin Wallet Routes ──
+
+// GET: Wallet balance summary
+router.get('/wallet', verifyAdminToken, async (req, res) => {
+  try {
+    const wallet = await getWallet();
+    res.json({ success: true, data: wallet });
+  } catch (error) {
+    console.error('Error fetching wallet:', error.message);
+    res.status(500).json({ success: false, message: 'Server error fetching wallet' });
+  }
+});
+
+// GET: All wallet transactions
+router.get('/wallet/transactions', verifyAdminToken, async (req, res) => {
+  try {
+    const { type, limit = 100, offset = 0 } = req.query;
+    const query = type && type !== 'ALL' ? { type } : {};
+    const transactions = await WalletTransaction.find(query)
+      .populate('fromUserId', 'firstName lastName phone role')
+      .populate('toUserId', 'firstName lastName phone role')
+      .populate('dealId', 'crop quantity agreedPrice status')
+      .sort({ createdAt: -1 })
+      .skip(Number(offset))
+      .limit(Number(limit));
+    const total = await WalletTransaction.countDocuments(query);
+    res.json({ success: true, count: transactions.length, total, data: transactions });
+  } catch (error) {
+    console.error('Error fetching wallet transactions:', error.message);
+    res.status(500).json({ success: false, message: 'Server error fetching transactions' });
+  }
+});
+
+// POST: Pay farmer — deduct from admin wallet and generate receipt
+router.post('/deals/:id/pay-farmer', verifyAdminToken, async (req, res) => {
+  try {
+    const deal = await Deal.findById(req.params.id)
+      .populate('farmerId', 'firstName lastName phone email village district state')
+      .populate('buyerRequestId', 'crop quantity unit offeredPrice location');
+
+    if (!deal) return res.status(404).json({ success: false, message: 'Deal not found' });
+
+    if (!['RECEIPT_SUBMITTED', 'BUYER_DELIVERY_UPLOADED', 'VERIFIED', 'ADMIN_PRE_SHIPMENT_VERIFIED'].includes(deal.status)) {
+      return res.status(400).json({ success: false, message: 'Deal is not at a stage where farmer payment can be made.' });
+    }
+
+    if (!deal.escrowBankAccount || !deal.escrowBankAccount.accountNumber) {
+      return res.status(400).json({ success: false, message: 'Farmer has not submitted bank details yet.' });
+    }
+
+    // Calculate payout: agreedPrice × quantity (the ₹250 agent fee stays with admin)
+    const payoutAmount = Number(deal.agreedPrice) * Number(deal.quantity);
+    const wallet = await getWallet();
+
+    if (wallet.balance < payoutAmount) {
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient wallet balance. Wallet: ₹${wallet.balance.toLocaleString('en-IN')}, Required: ₹${payoutAmount.toLocaleString('en-IN')}`
+      });
+    }
+
+    // Generate receipt
+    const receiptNumber = `STH-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 9000 + 1000)}`;
+    const paidAt = new Date();
+    const farmerName = `${deal.farmerId?.firstName || ''} ${deal.farmerId?.lastName || ''}`.trim();
+
+    const receiptHtml = generateReceiptHtml({
+      receiptNumber,
+      farmerName,
+      farmerBank: deal.escrowBankAccount?.accountNumber,
+      farmerIfsc: deal.escrowBankAccount?.ifscCode,
+      farmerUpi: deal.escrowBankAccount?.upiId,
+      farmerUpiPhone: deal.escrowBankAccount?.upiPhone,
+      crop: deal.crop,
+      quantity: deal.quantity,
+      unit: deal.buyerRequestId?.unit || 'Qtl',
+      agreedPrice: deal.agreedPrice,
+      agentFee: 250,
+      totalAmount: payoutAmount,
+      paidAt,
+      dealId: deal._id,
+    });
+
+    // Debit from wallet
+    wallet.balance -= payoutAmount;
+    wallet.totalForwarded += payoutAmount;
+    await wallet.save();
+
+    // Record in wallet transaction history
+    const walletTx = await WalletTransaction.create({
+      type: 'FORWARDED',
+      amount: payoutAmount,
+      dealId: deal._id,
+      toUserId: deal.farmerId._id,
+      description: `Payout to farmer ${farmerName} for Deal #${deal._id} (${deal.crop})`,
+      payerRole: 'FARMER',
+      balanceAfter: wallet.balance,
+      receiptData: {
+        receiptNumber,
+        farmerName,
+        farmerBank: deal.escrowBankAccount?.accountNumber,
+        farmerIfsc: deal.escrowBankAccount?.ifscCode,
+        farmerUpi: deal.escrowBankAccount?.upiId,
+        crop: deal.crop,
+        quantity: deal.quantity,
+        agreedPrice: deal.agreedPrice,
+        totalAmount: payoutAmount,
+        paidAt,
+        generatedReceiptUrl: receiptHtml,
+      }
+    });
+
+    // Update deal: attach receipt and mark COMPLETED
+    deal.transactionReceiptUrl = receiptHtml;
+    deal.utrNumber = receiptNumber;
+    deal.receiptUploadedAt = paidAt;
+    deal.status = 'COMPLETED';
+    deal.completedAt = paidAt;
+    deal.escrowStatus = 'RELEASED';
+    await deal.save();
+
+    res.json({
+      success: true,
+      message: `✅ ₹${payoutAmount.toLocaleString('en-IN')} paid to ${farmerName}. Receipt generated!`,
+      data: {
+        deal,
+        walletBalance: wallet.balance,
+        receiptNumber,
+        receiptUrl: receiptHtml,
+        transactionId: walletTx._id,
+      }
+    });
+  } catch (error) {
+    console.error('Pay farmer error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error processing farmer payment' });
+  }
+});
+
+module.exports = router;

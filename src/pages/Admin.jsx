@@ -24,6 +24,13 @@ export default function Admin() {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [loadedImages, setLoadedImages] = useState({}); // Stores lazily loaded images for deals
+
+  // Wallet state
+  const [walletData, setWalletData] = useState({ balance: 0, totalReceived: 0, totalForwarded: 0 });
+  const [walletTransactions, setWalletTransactions] = useState([]);
+  const [walletTxFilter, setWalletTxFilter] = useState('ALL');
+  const [payingFarmerId, setPayingFarmerId] = useState(null);
+  const [lastGeneratedReceipt, setLastGeneratedReceipt] = useState(null);
   
   // 9-Stage KYC Inspection Modal State
   const [selectedKycApp, setSelectedKycApp] = useState(null);
@@ -58,6 +65,21 @@ export default function Admin() {
       setLoadedImages(prev => ({ ...prev, [dealId]: { isLoading: false, error: 'Network error loading images' } }));
     }
   };
+
+  const fetchWalletData = async (token) => {
+    try {
+      const t = token || localStorage.getItem('adminToken');
+      const [walletRes, txRes] = await Promise.all([
+        fetch(apiUrl('/api/admin/wallet'), { headers: { Authorization: `Bearer ${t}` } }),
+        fetch(apiUrl('/api/admin/wallet/transactions?limit=200'), { headers: { Authorization: `Bearer ${t}` } }),
+      ]);
+      const [walletJson, txJson] = await Promise.all([walletRes.json(), txRes.json()]);
+      if (walletJson.success) setWalletData(walletJson.data);
+      if (txJson.success) setWalletTransactions(txJson.data || []);
+    } catch (err) {
+      console.error('Failed to fetch wallet data:', err.message);
+    }
+  };
   
   const navigate = useNavigate();
   const adminEmail = localStorage.getItem('adminEmail') || 'ts7529614@gmail.com';
@@ -69,6 +91,7 @@ export default function Admin() {
       return;
     }
     fetchAllData(token);
+    fetchWalletData(token);
   }, [navigate]);
 
   const handleLogout = () => {
@@ -535,6 +558,48 @@ export default function Admin() {
     }
   };
 
+  /* ── Pay Farmer (Admin Wallet) ── */
+  const handlePayFarmer = async (dealId, cropName) => {
+    const token = localStorage.getItem('adminToken');
+    if (!token) { handleLogout(); return; }
+
+    const confirmed = window.confirm(`Pay farmer for deal: "${cropName}"?\n\nThis will deduct the agreed amount from the Saathi Admin Wallet and generate a receipt.`);
+    if (!confirmed) return;
+
+    setPayingFarmerId(dealId);
+    setError('');
+    setSuccessMsg('');
+
+    try {
+      const res = await fetch(apiUrl(`/api/admin/deals/${dealId}/pay-farmer`), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccessMsg(data.message || '✅ Farmer paid successfully! Receipt generated.');
+        setDealInspections((prev) =>
+          prev.map((d) => (d._id === dealId ? { ...d, status: 'COMPLETED' } : d))
+        );
+        if (data.data?.walletBalance !== undefined) {
+          setWalletData(prev => ({ ...prev, balance: data.data.walletBalance }));
+        }
+        if (data.data?.receiptUrl) {
+          setLastGeneratedReceipt({ receiptUrl: data.data.receiptUrl, receiptNumber: data.data.receiptNumber, cropName });
+        }
+        // Refresh wallet transactions
+        fetchWalletData(token);
+        setTimeout(() => setSuccessMsg(''), 8000);
+      } else {
+        setError(data.message || 'Failed to process farmer payment.');
+      }
+    } catch (err) {
+      setError('Network error while processing payment.');
+    } finally {
+      setPayingFarmerId(null);
+    }
+  };
+
   // Counts
   const pendingRequestsCount = buyerRequests.filter((r) => r.status === 'PENDING_REVIEW').length;
   const pendingAppsCount = buyerApplications.filter((a) => a.verificationStatus === 'PENDING' || a.verificationStatus === 'UNDER_REVIEW').length;
@@ -720,9 +785,23 @@ export default function Admin() {
             <span>👥 Registered Users ({users.length})</span>
           </button>
 
+          <button
+            onClick={() => { setActiveTab('wallet'); fetchWalletData(); }}
+            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shrink-0 ${
+              activeTab === 'wallet'
+                ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/40'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+            }`}
+          >
+            <span>💰 Saathi Wallet</span>
+            <span className="px-2 py-0.5 rounded-full text-xs font-black bg-yellow-500/20 text-yellow-300 border border-yellow-500/40">
+              ₹{Number(walletData.balance || 0).toLocaleString('en-IN')}
+            </span>
+          </button>
+
           <div className="flex-1" />
           <button
-            onClick={() => fetchAllData()}
+            onClick={() => { fetchAllData(); fetchWalletData(); }}
             disabled={loading}
             className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-xl border border-slate-800 transition flex items-center gap-1.5"
           >
@@ -1858,6 +1937,189 @@ export default function Admin() {
             </div>
           </div>
         )}
+
+        {/* ── Last Generated Receipt Popup ── */}
+        {lastGeneratedReceipt && (
+          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-yellow-500/30 rounded-2xl max-w-2xl w-full p-6 shadow-2xl">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-black text-yellow-300">✅ Receipt Generated!</h2>
+                  <p className="text-xs text-slate-400 mt-1">Receipt #{lastGeneratedReceipt.receiptNumber} for {lastGeneratedReceipt.cropName}</p>
+                </div>
+                <button onClick={() => setLastGeneratedReceipt(null)} className="text-slate-400 hover:text-white text-xl font-bold">✕</button>
+              </div>
+              <div className="bg-white rounded-xl overflow-hidden" style={{ height: '420px' }}>
+                <iframe
+                  src={lastGeneratedReceipt.receiptUrl}
+                  title="Saathi Payment Receipt"
+                  className="w-full h-full border-0"
+                />
+              </div>
+              <div className="flex gap-3 mt-4">
+                <a
+                  href={lastGeneratedReceipt.receiptUrl}
+                  download={`Saathi-Receipt-${lastGeneratedReceipt.receiptNumber}.html`}
+                  className="flex-1 py-2.5 bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-black rounded-xl text-sm text-center transition"
+                >
+                  ⬇ Download Receipt
+                </a>
+                <button
+                  onClick={() => setLastGeneratedReceipt(null)}
+                  className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-sm transition"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Tab: Saathi Admin Wallet ── */}
+        {activeTab === 'wallet' && (
+          <div className="space-y-6">
+
+            {/* Wallet Balance Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border border-yellow-500/30 rounded-2xl p-5">
+                <div className="text-xs font-bold text-yellow-400 uppercase tracking-wider mb-1">💰 Current Wallet Balance</div>
+                <div className="text-3xl font-black text-yellow-300">₹{Number(walletData.balance || 0).toLocaleString('en-IN')}</div>
+                <div className="text-xs text-slate-400 mt-1">Available for farmer payouts</div>
+              </div>
+              <div className="bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border border-emerald-500/30 rounded-2xl p-5">
+                <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">📥 Total Received</div>
+                <div className="text-3xl font-black text-emerald-300">₹{Number(walletData.totalReceived || 0).toLocaleString('en-IN')}</div>
+                <div className="text-xs text-slate-400 mt-1">From buyer escrow + farmer agent fees</div>
+              </div>
+              <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/30 rounded-2xl p-5">
+                <div className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-1">📤 Total Forwarded</div>
+                <div className="text-3xl font-black text-blue-300">₹{Number(walletData.totalForwarded || 0).toLocaleString('en-IN')}</div>
+                <div className="text-xs text-slate-400 mt-1">Paid out to farmers</div>
+              </div>
+            </div>
+
+            {/* Pending Payouts Section */}
+            {(() => {
+              const pendingPayouts = dealInspections.filter(d =>
+                ['RECEIPT_SUBMITTED', 'BUYER_DELIVERY_UPLOADED', 'VERIFIED', 'ADMIN_PRE_SHIPMENT_VERIFIED'].includes(d.status) &&
+                d.escrowDepositPaid
+              );
+              return pendingPayouts.length > 0 ? (
+                <div className="bg-slate-900/70 border border-orange-500/30 rounded-2xl p-5">
+                  <h3 className="text-sm font-black text-orange-300 mb-4">🔔 Pending Farmer Payouts ({pendingPayouts.length})</h3>
+                  <div className="space-y-3">
+                    {pendingPayouts.map(deal => {
+                      const payoutAmt = Number(deal.agreedPrice || 0) * Number(deal.quantity || 0);
+                      const farmerName = `${deal.farmerId?.firstName || ''} ${deal.farmerId?.lastName || ''}`.trim();
+                      return (
+                        <div key={deal._id} className="flex items-center justify-between bg-slate-800/60 border border-slate-700 rounded-xl p-4 gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-black text-white text-sm">{deal.crop}</div>
+                            <div className="text-xs text-slate-400 mt-0.5">
+                              Farmer: <span className="text-slate-300 font-semibold">{farmerName || 'N/A'}</span>
+                              {' · '}{deal.quantity} Qtl @ ₹{Number(deal.agreedPrice || 0).toLocaleString('en-IN')}
+                            </div>
+                            <div className="text-xs text-slate-500 mt-0.5">Deal #{String(deal._id).slice(-8).toUpperCase()} · Status: <span className="text-orange-300 font-bold">{deal.status}</span></div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="text-lg font-black text-yellow-300">₹{payoutAmt.toLocaleString('en-IN')}</div>
+                            <div className="text-xs text-slate-400">Payout amount</div>
+                          </div>
+                          <button
+                            onClick={() => handlePayFarmer(deal._id, deal.crop)}
+                            disabled={payingFarmerId === deal._id}
+                            className="shrink-0 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black rounded-xl text-xs transition"
+                          >
+                            {payingFarmerId === deal._id ? '⏳ Processing...' : '💸 Pay Farmer'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 text-center text-slate-400 text-sm">
+                  ✅ No pending farmer payouts at this time.
+                </div>
+              );
+            })()}
+
+            {/* Transaction History */}
+            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-black text-white">📋 Transaction History</h3>
+                <div className="flex gap-2">
+                  {['ALL', 'RECEIVED', 'FORWARDED'].map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setWalletTxFilter(f)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                        walletTxFilter === f
+                          ? f === 'RECEIVED' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                            : f === 'FORWARDED' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+                            : 'bg-slate-700 text-white border border-slate-600'
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                      }`}
+                    >
+                      {f === 'ALL' ? 'All' : f === 'RECEIVED' ? '📥 Payment Received' : '📤 Payment Forwarded'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {walletTransactions.filter(tx => walletTxFilter === 'ALL' || tx.type === walletTxFilter).length === 0 ? (
+                <div className="text-center text-slate-500 text-sm py-8">No transactions yet.</div>
+              ) : (
+                <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+                  {walletTransactions
+                    .filter(tx => walletTxFilter === 'ALL' || tx.type === walletTxFilter)
+                    .map(tx => {
+                      const isReceived = tx.type === 'RECEIVED';
+                      const date = new Date(tx.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                      const time = new Date(tx.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+                      const personName = isReceived
+                        ? `${tx.fromUserId?.firstName || ''} ${tx.fromUserId?.lastName || ''}`.trim()
+                        : `${tx.toUserId?.firstName || ''} ${tx.toUserId?.lastName || ''}`.trim();
+                      return (
+                        <div key={tx._id} className={`flex items-center justify-between rounded-xl p-3.5 border gap-3 ${
+                          isReceived ? 'bg-emerald-950/30 border-emerald-800/40' : 'bg-blue-950/30 border-blue-800/40'
+                        }`}>
+                          <div className="text-xl shrink-0">{isReceived ? '📥' : '📤'}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-black text-white truncate">{tx.description || '—'}</div>
+                            <div className="text-xs text-slate-400 mt-0.5">
+                              {isReceived ? 'From' : 'To'}: <span className="text-slate-300">{personName || 'N/A'}</span>
+                              {tx.payerRole && <span className="ml-1 px-1.5 py-0.5 rounded text-xs bg-slate-700 text-slate-300">{tx.payerRole}</span>}
+                            </div>
+                            <div className="text-xs text-slate-500 mt-0.5">{date} · {time}</div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className={`text-base font-black ${isReceived ? 'text-emerald-400' : 'text-blue-400'}`}>
+                              {isReceived ? '+' : '-'}₹{Number(tx.amount || 0).toLocaleString('en-IN')}
+                            </div>
+                            <div className="text-xs text-slate-500">Bal: ₹{Number(tx.balanceAfter || 0).toLocaleString('en-IN')}</div>
+                          </div>
+                          {!isReceived && tx.receiptData?.generatedReceiptUrl && (
+                            <button
+                              onClick={() => setLastGeneratedReceipt({
+                                receiptUrl: tx.receiptData.generatedReceiptUrl,
+                                receiptNumber: tx.receiptData.receiptNumber,
+                                cropName: tx.receiptData.crop
+                              })}
+                              className="shrink-0 px-2.5 py-1 bg-yellow-500/20 hover:bg-yellow-500/40 text-yellow-300 font-bold rounded-lg text-xs border border-yellow-500/30 transition"
+                            >
+                              🧾 Receipt
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
       </main>
     </div>
   );

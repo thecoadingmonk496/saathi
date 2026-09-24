@@ -6,6 +6,33 @@ const FarmerOffer = require('../models/FarmerOffer');
 const Deal = require('../models/Deal');
 const DealReport = require('../models/DealReport');
 const cropQualityService = require('../services/cropQualityService');
+const AdminWallet = require('../models/AdminWallet');
+const WalletTransaction = require('../models/WalletTransaction');
+
+// Helper: Get or create the single admin wallet doc
+async function getWallet() {
+  let wallet = await AdminWallet.findOne();
+  if (!wallet) wallet = await AdminWallet.create({ balance: 0, totalReceived: 0, totalForwarded: 0 });
+  return wallet;
+}
+
+// Helper: Credit admin wallet (payment received)
+async function creditWallet(amount, dealId, fromUserId, payerRole, description) {
+  const wallet = await getWallet();
+  wallet.balance += amount;
+  wallet.totalReceived += amount;
+  await wallet.save();
+  await WalletTransaction.create({
+    type: 'RECEIVED',
+    amount,
+    dealId,
+    fromUserId,
+    payerRole,
+    description,
+    balanceAfter: wallet.balance,
+  });
+  return wallet;
+}
 
 const User = require('../models/User');
 
@@ -552,6 +579,16 @@ router.post('/deals/:id/pay-buyer-escrow', requireAuth, requireRole('BUYER'), as
     deal.status = 'AGENT_PAYMENT_PENDING'; // Wait for Farmer to pay their verification fee
 
     await deal.save();
+
+    // Credit admin wallet
+    await creditWallet(
+      amount,
+      deal._id,
+      req.user._id,
+      'BUYER',
+      `Escrow deposit for Deal #${deal._id} (${deal.crop} - ₹${amount})`
+    );
+
     res.json({
       success: true,
       data: deal,
@@ -584,6 +621,16 @@ router.post('/deals/:id/pay-farmer-fee', requireAuth, requireRole('FARMER'), asy
     deal.status = 'HUMAN_REVIEW'; // Now Sent to Admin Verification Center for on-ground physical check
 
     await deal.save();
+
+    // Credit admin wallet with ₹250 agent fee from farmer
+    await creditWallet(
+      250,
+      deal._id,
+      req.user._id,
+      'FARMER',
+      `Field agent fee ₹250 for Deal #${deal._id} (${deal.crop})`
+    );
+
     res.json({
       success: true,
       data: deal,
