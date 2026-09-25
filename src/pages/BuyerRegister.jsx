@@ -131,6 +131,40 @@ export default function BuyerRegister({ embedded = false, onSuccess }) {
     }));
   }, [form, step, selectedCommodities]);
 
+  // Auto-fill location fields when the user reaches Step 3 and GPS is already available
+  useEffect(() => {
+    if (step !== 3) return;
+    // Only auto-fill if all location fields are still empty (don't overwrite user edits or saved draft)
+    const locationEmpty = !form.state && !form.district && !form.tehsilBlock && !form.villageCity && !form.pincode;
+    if (!locationEmpty) return;
+    if (!coordinates?.latitude) return;
+
+    const autoFillFromCoords = async () => {
+      try {
+        const { latitude, longitude } = coordinates;
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`
+        );
+        const data = await res.json();
+        if (data?.address) {
+          const addr = data.address;
+          setForm((prev) => ({
+            ...prev,
+            state:       addr.state || prev.state,
+            district:    addr.county || addr.state_district || addr.city_district || prev.district,
+            villageCity: addr.village || addr.town || addr.city || addr.suburb || prev.villageCity,
+            pincode:     addr.postcode || prev.pincode,
+            tehsilBlock: addr.suburb || addr.hamlet || addr.neighbourhood || prev.tehsilBlock,
+          }));
+        }
+      } catch (e) {
+        console.error('Auto location fill failed:', e);
+      }
+    };
+    autoFillFromCoords();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, coordinates]);
+
   const [otherCommodity, setOtherCommodity] = useState('');
   const [offers, setOffers] = useState({});
   const [documents, setDocuments] = useState({});

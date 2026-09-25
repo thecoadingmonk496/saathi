@@ -107,9 +107,9 @@ export default function Admin() {
   const [loadedImages, setLoadedImages] = useState({}); // Stores lazily loaded images for deals
   const [selectedIds, setSelectedIds] = useState([]);
 
-  // Wallet state
-  const [walletData, setWalletData] = useState({ balance: 0, totalReceived: 0, totalForwarded: 0 });
-  const [walletTransactions, setWalletTransactions] = useState([]);
+  // Wallet state — SWR: initialize from localStorage cache for instant load
+  const [walletData, setWalletData] = useState(() => { try { return JSON.parse(localStorage.getItem('adminWalletData'))?.walletData || { balance: 0, totalReceived: 0, totalForwarded: 0 }; } catch(e) { return { balance: 0, totalReceived: 0, totalForwarded: 0 }; } });
+  const [walletTransactions, setWalletTransactions] = useState(() => { try { return JSON.parse(localStorage.getItem('adminWalletData'))?.walletTransactions || []; } catch(e) { return []; } });
   const [walletTxFilter, setWalletTxFilter] = useState('ALL');
   const [payingFarmerId, setPayingFarmerId] = useState(null);
   const [lastGeneratedReceipt, setLastGeneratedReceipt] = useState(null);
@@ -161,6 +161,13 @@ export default function Admin() {
       const [walletJson, txJson] = await Promise.all([walletRes.json(), txRes.json()]);
       if (walletJson.success) setWalletData(walletJson.data);
       if (txJson.success) setWalletTransactions(txJson.data || []);
+      // Save to localStorage cache (SWR pattern)
+      if (walletJson.success || txJson.success) {
+        localStorage.setItem('adminWalletData', JSON.stringify({
+          walletData: walletJson.success ? walletJson.data : walletData,
+          walletTransactions: txJson.success ? (txJson.data || []) : walletTransactions,
+        }));
+      }
     } catch (err) {
       console.error('Failed to fetch wallet data:', err.message);
     }
@@ -1385,10 +1392,10 @@ export default function Admin() {
               <div className="py-20 text-center text-[#5F6B7A]">Loading inspection deals…</div>
             ) : filteredInspections.length === 0 ? (
               <div className="bg-white rounded-xl p-12 text-center text-[#5F6B7A]">
-                <div className="text-4xl mb-2 opacity-50">🌾</div>
+                <div className="text-4xl mb-2">🌾</div>
                 <p className="font-bold text-[#132B47]">No crop inspections found</p>
                 <p className="text-xs mt-1">
-                  When farmers upload photos and pay the ₹250 agent verification fee, deals will appear here for admin review.
+                  When farmers submit quality photos and schedule their free video call verification, deals will appear here for admin review.
                 </p>
               </div>
             ) : (
@@ -1489,18 +1496,14 @@ export default function Admin() {
                           <div className="flex items-center gap-2">
                             <span className="text-lg">💳</span>
                             <div>
-                              <p className={`text-[11px] font-bold uppercase tracking-wide ${deal.agentFeePaid ? 'text-blue-800' : 'text-[#5F6B7A]'}`}>Agent Connection Fee</p>
-                              <p className={`text-xs font-semibold ${deal.agentFeePaid ? 'text-blue-600' : 'text-gray-500'}`}>
-                                {deal.agentFeePaid ? '₹250 Paid by Buyer' : '₹250 Payment Pending'}
+                              <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Verification Status</p>
+                              <p className="text-xs font-semibold text-gray-700">
+                                {deal.videoCallSlot?.date ? `Free Video Call: ${deal.videoCallSlot.date} (${deal.videoCallSlot.timeSlot})` : 'Free Video Verification'}
                               </p>
                             </div>
                           </div>
-                          <span className={`px-2 py-0.5 rounded text-xs font-black uppercase ${
-                            deal.agentFeePaid
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-200 text-gray-500'
-                          }`}>
-                            {deal.agentFeePaid ? 'PAID ✓' : 'UNPAID'}
+                          <span className="px-2 py-0.5 rounded text-xs font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm">
+                            FREE ✓
                           </span>
                         </div>
                       </div>
@@ -1820,17 +1823,134 @@ export default function Admin() {
                             </div>
                           )}
 
-                          {deal.status !== 'COMPLETED' && (
-                            <InlineConfirmButton
-                              id={`${deal._id}-mark-unverified`}
-                              confirmingId={confirmingId}
-                              setConfirmingId={setConfirmingId}
-                              fastMode={fastMode}
-                              requireReason={true}
-                              reasonPlaceholder="Reason (optional)"
-                              baseText={<><span>✕</span><span>{actionLoadingId === deal._id ? 'Updating…' : 'Mark Unverified'}</span></>}
-                              confirmText="Mark Unverified"
-                              baseClassName="px-4 py-2.5 bg-[#C62828] hover:bg-red-800 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
+                          <div className="flex items-center gap-2 justify-end flex-wrap mt-5">
+                            {deal.status === 'ADMIN_MOISTURE_REVIEW' && (
+                              <>
+                                <button
+                                  onClick={() => handleVerifyMoisture(deal._id, 'APPROVED')}
+                                  disabled={actionLoadingId === deal._id}
+                                  className="px-4 py-2 bg-[#16845B] text-white font-black rounded-lg text-xs hover:bg-green-700 shadow-sm"
+                                >
+                                  Approve Moisture & Photos
+                                </button>
+                                <InlineConfirmButton
+                                  id={`${deal._id}-moisture-reject`}
+                                  confirmingId={confirmingId}
+                                  setConfirmingId={setConfirmingId}
+                                  fastMode={fastMode}
+                                  requireReason={true}
+                                  reasonPlaceholder="Rejection Reason"
+                                  baseText="Reject"
+                                  confirmText="Reject"
+                                  baseClassName="px-4 py-2 bg-[#C62828] text-white font-black rounded-lg text-xs hover:bg-red-800 shadow-sm"
+                                  disabled={actionLoadingId === deal._id}
+                                  onConfirm={() => handleVerifyMoisture(deal._id, 'REJECTED')}
+                                />
+                              </>
+                            )}
+
+                            {deal.status === 'HUMAN_REVIEW' && (
+                              <div className="w-full mt-4 p-4 border border-amber-200 bg-amber-50 rounded-xl space-y-3">
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                  <div>
+                                    <h6 className="text-sm font-bold text-amber-700 flex items-center gap-1.5">
+                                      <span>🎥</span> Free Video Call Verification
+                                    </h6>
+                                    {deal.videoCallSlot?.date ? (
+                                      <p className="text-xs text-[#5F6B7A] mt-1">
+                                        Slot: <span className="font-bold text-amber-800">{deal.videoCallSlot.date}</span> at <span className="font-bold text-amber-800">{deal.videoCallSlot.timeSlot}</span>
+                                        {' · '}Farmer Phone: <span className="font-mono text-emerald-700 font-bold">{deal.farmerId?.phone || 'N/A'}</span>
+                                      </p>
+                                    ) : (
+                                      <p className="text-xs text-[#99A5BA] mt-1">Video call slot scheduled. Perform WhatsApp call and verify crop quality.</p>
+                                    )}
+                                  </div>
+                                  <span className="px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-lg border border-amber-200 shadow-sm">
+                                    📱 WhatsApp Call Pending
+                                  </span>
+                                </div>
+
+                                <div className="flex gap-2 pt-1 flex-wrap">
+                                  <button
+                                    onClick={() => handleVerifyPreShipment(deal._id, 'APPROVED')}
+                                    disabled={actionLoadingId === deal._id}
+                                    className="px-4 py-2 bg-[#16845B] hover:bg-green-700 text-white font-black rounded-lg text-xs transition disabled:opacity-50 shadow-sm"
+                                  >
+                                    ✅ Mark Video Call Verified
+                                  </button>
+                                  <InlineConfirmButton
+                                    id={`${deal._id}-preshipment-reject`}
+                                    confirmingId={confirmingId}
+                                    setConfirmingId={setConfirmingId}
+                                    fastMode={fastMode}
+                                    requireReason={true}
+                                    reasonPlaceholder="Rejection Reason"
+                                    baseText="Reject"
+                                    confirmText="Reject"
+                                    baseClassName="px-4 py-2 bg-[#C62828] text-white font-black rounded-lg text-xs hover:bg-red-800 shadow-sm"
+                                    disabled={actionLoadingId === deal._id}
+                                    onConfirm={() => handleVerifyPreShipment(deal._id, 'REJECTED')}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {deal.status === 'BUYER_DELIVERY_UPLOADED' && (
+                              <div className="w-full mt-4 p-4 border border-emerald-200 bg-emerald-50 rounded-xl space-y-3">
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                  <div>
+                                    <h6 className="text-sm font-bold text-emerald-800">✅ Delivery Uploaded by Buyer</h6>
+                                    <p className="text-xs text-[#5F6B7A] mt-0.5">
+                                      Buyer has verified delivery. You can pay the farmer instantly using the Escrow Wallet.
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={() => setActiveTab('wallet')}
+                                    className="px-3 py-1.5 bg-white hover:bg-gray-100 text-[#132B47] rounded-lg text-xs font-semibold transition border border-gray-200 shadow-sm"
+                                  >
+                                    👛 Open Wallet Tab
+                                  </button>
+                                </div>
+                                <div className="flex gap-2 pt-1 flex-wrap">
+                                  <button
+                                    onClick={() => handlePayFarmer(deal._id, deal.crop)}
+                                    disabled={payingFarmerId === deal._id}
+                                    className="px-4 py-2 bg-[#16845B] hover:bg-green-700 text-white font-black rounded-lg text-xs transition disabled:opacity-50 shadow-sm"
+                                  >
+                                    {payingFarmerId === deal._id ? '⏳ Processing Payment...' : '💸 Pay Farmer via Escrow Wallet'}
+                                  </button>
+                                  <InlineConfirmButton
+                                    id={`${deal._id}-delivery-reject`}
+                                    confirmingId={confirmingId}
+                                    setConfirmingId={setConfirmingId}
+                                    fastMode={fastMode}
+                                    requireReason={true}
+                                    reasonPlaceholder="Rejection Reason"
+                                    baseText="Reject (Refund Buyer)"
+                                    confirmText="Reject (Refund Buyer)"
+                                    baseClassName="px-4 py-2 bg-[#C62828] text-white font-black rounded-lg text-xs hover:bg-red-800 shadow-sm"
+                                    disabled={actionLoadingId === deal._id}
+                                    onConfirm={() => handleVerifyFinalDelivery(deal._id, 'REJECTED')}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {deal.status !== 'COMPLETED' && (
+                              <InlineConfirmButton
+                                id={`${deal._id}-mark-unverified`}
+                                confirmingId={confirmingId}
+                                setConfirmingId={setConfirmingId}
+                                fastMode={fastMode}
+                                requireReason={true}
+                                reasonPlaceholder="Reason (optional)"
+                                baseText={<><span>✕</span><span>{actionLoadingId === deal._id ? 'Updating...' : 'Mark Unverified'}</span></>}
+                                confirmText="Mark Unverified"
+                                baseClassName="px-4 py-2.5 bg-[#C62828] hover:bg-red-800 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
+                                disabled={actionLoadingId === deal._id}
+                                onConfirm={(reason) => handleUnverifyDeal(deal._id, deal.crop, reason)}
+                              />
+                            )}
                               disabled={actionLoadingId === deal._id}
                               onConfirm={(reason) => handleUnverifyDeal(deal._id, deal.crop, reason)}
                             />
@@ -2207,8 +2327,7 @@ export default function Admin() {
             {/* Pending Payouts Section */}
             {(() => {
               const pendingPayouts = dealInspections.filter(d =>
-                ['RECEIPT_SUBMITTED', 'BUYER_DELIVERY_UPLOADED', 'VERIFIED', 'ADMIN_PRE_SHIPMENT_VERIFIED'].includes(d.status) &&
-                d.escrowDepositPaid
+                d.escrowDepositPaid && d.status !== 'COMPLETED' && d.status !== 'CANCELLED' && d.status !== 'DISPUTED'
               );
               return pendingPayouts.length > 0 ? (
                 <div className="bg-white rounded-xl p-5 shadow-sm">

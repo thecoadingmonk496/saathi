@@ -79,15 +79,20 @@ function MiniDealSteps({ status }) {
 /* ════════════════════════════════════════════════════════════ */
 export default function BuyerDashboard() {
   const { user } = useUser();
-  const [requests, setRequests] = useState([]);
-  const [allPublishedRequests, setAllPublishedRequests] = useState([]);
-  const [deals, setDeals] = useState([]);
+
+  // SWR cache key — scoped to this user so different buyers never share cache
+  const cacheKey = user?._id ? `buyer_discovery_${user._id}` : null;
+  const getCache = () => { try { return cacheKey ? JSON.parse(localStorage.getItem(cacheKey)) || {} : {}; } catch(e) { return {}; } };
+
+  const [requests, setRequests] = useState(() => getCache().requests || []);
+  const [allPublishedRequests, setAllPublishedRequests] = useState(() => getCache().allPublishedRequests || []);
+  const [deals, setDeals] = useState(() => getCache().deals || []);
   const [newRequest, setNewRequest] = useState({ crop: '', quantity: '', offeredPrice: '', location: '', description: '', cropImage: '' });
   const [editingRequestId, setEditingRequestId] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !cacheKey || !localStorage.getItem(cacheKey));
   const [activeTab, setActiveTab] = useState('requests');
   const [activeOffers, setActiveOffers] = useState(null);
-  const [appStatus, setAppStatus] = useState('LOADING');
+  const [appStatus, setAppStatus] = useState(() => getCache().appStatus || 'LOADING');
   const [showForm, setShowForm] = useState(true);
   const [selectedDeal, setSelectedDeal] = useState(null);
   const [selectedPublishedRequest, setSelectedPublishedRequest] = useState(null);
@@ -98,51 +103,63 @@ export default function BuyerDashboard() {
   /* ── data fetching ── */
   const fetchData = async () => {
     try {
-      setLoading(true);
+      // Only show spinner if no cache exists yet
+      if (!cacheKey || !localStorage.getItem(cacheKey)) setLoading(true);
       const token = localStorage.getItem('token');
 
       const rawPhone = user?.mobile || user?.phone || '';
       const phone = rawPhone.replace(/^\+91/, '').replace(/\s/g, '');
       const email = user?.email || '';
-      
-      if (phone || email) {
+
+      // Run all fetches in parallel for speed
+      const queryParams = new URLSearchParams();
+      if (phone) queryParams.append('phone', phone);
+      if (email) queryParams.append('email', email);
+
+      const [appRes, reqRes, allPubRes, dealRes] = await Promise.all([
+        (phone || email)
+          ? fetch(`${API_BASE}/buyers/my-application?${queryParams.toString()}`, { headers: { Authorization: `Bearer ${token}` } })
+          : Promise.resolve(null),
+        fetch(`${API_BASE}/buyer-discovery/requests/mine`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE}/buyer-discovery/requests/all-published`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE}/buyer-discovery/deals`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+
+      // KYC status
+      let newAppStatus = appStatus;
+      if (appRes) {
         try {
-          const queryParams = new URLSearchParams();
-          if (phone) queryParams.append('phone', phone);
-          if (email) queryParams.append('email', email);
-          
-          const appRes = await fetch(`${API_BASE}/buyers/my-application?${queryParams.toString()}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
           if (appRes.ok) {
             const appData = await appRes.json();
-            // Store the actual verification status
-            setAppStatus(appData.application?.verificationStatus || 'NOT_FOUND');
+            newAppStatus = appData.application?.verificationStatus || 'NOT_FOUND';
           } else {
-            setAppStatus('NOT_FOUND');
+            newAppStatus = 'NOT_FOUND';
           }
-        } catch (error) {
-          console.error('Failed to check buyer registration status:', error);
-          setAppStatus('NOT_FOUND');
-        }
+        } catch { newAppStatus = 'NOT_FOUND'; }
       } else {
-        setAppStatus('NOT_FOUND');
+        newAppStatus = 'NOT_FOUND';
       }
+      setAppStatus(newAppStatus);
 
-      // 1. Fetch buyer's own requests
-      const reqRes = await fetch(`${API_BASE}/buyer-discovery/requests/mine`, { headers: { Authorization: `Bearer ${token}` } });
-      const reqData = await reqRes.json();
-      if (reqData.success) setRequests(reqData.data);
+      const [reqData, allPubData, dealData] = await Promise.all([reqRes.json(), allPubRes.json(), dealRes.json()]);
 
-      // 2. Fetch all marketplace published requests for browse section
-      const allPubRes = await fetch(`${API_BASE}/buyer-discovery/requests/all-published`, { headers: { Authorization: `Bearer ${token}` } });
-      const allPubData = await allPubRes.json();
-      if (allPubData.success) setAllPublishedRequests(allPubData.data || []);
+      const newRequests = reqData.success ? reqData.data : requests;
+      const newAllPublished = allPubData.success ? (allPubData.data || []) : allPublishedRequests;
+      const newDeals = dealData.success ? dealData.data : deals;
 
-      // 3. Fetch buyer deals
-      const dealRes = await fetch(`${API_BASE}/buyer-discovery/deals`, { headers: { Authorization: `Bearer ${token}` } });
-      const dealData = await dealRes.json();
-      if (dealData.success) setDeals(dealData.data);
+      if (reqData.success) setRequests(newRequests);
+      if (allPubData.success) setAllPublishedRequests(newAllPublished);
+      if (dealData.success) setDeals(newDeals);
+
+      // Save fresh data to user-scoped cache
+      if (cacheKey) {
+        localStorage.setItem(cacheKey, JSON.stringify({
+          requests: newRequests,
+          allPublishedRequests: newAllPublished,
+          deals: newDeals,
+          appStatus: newAppStatus,
+        }));
+      }
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 

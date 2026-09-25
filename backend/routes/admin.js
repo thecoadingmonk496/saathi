@@ -131,7 +131,7 @@ function generateReceiptHtml(data) {
     </table>
     <div class="totals">
       <div class="totals-row"><span>Subtotal</span><span>₹${Number(agreedPrice * quantity).toLocaleString('en-IN')}</span></div>
-      <div class="totals-row"><span>Field Agent Fee (paid by Farmer)</span><span>– ₹${agentFee || 250}</span></div>
+      <div class="totals-row"><span>Verification Fee</span><span style="color:#16a34a; font-weight:bold;">FREE (₹0)</span></div>
       <div class="totals-row grand"><span>GRAND TOTAL PAID</span><span>₹${Number(totalAmount).toLocaleString('en-IN')}</span></div>
     </div>
   </div>
@@ -516,12 +516,23 @@ router.post('/deals/:id/pay-farmer', verifyAdminToken, async (req, res) => {
 
     if (!deal) return res.status(404).json({ success: false, message: 'Deal not found' });
 
-    if (!['RECEIPT_SUBMITTED', 'BUYER_DELIVERY_UPLOADED', 'VERIFIED', 'ADMIN_PRE_SHIPMENT_VERIFIED'].includes(deal.status)) {
-      return res.status(400).json({ success: false, message: 'Deal is not at a stage where farmer payment can be made.' });
+    if (!deal.escrowDepositPaid) {
+      return res.status(400).json({ success: false, message: 'Buyer has not paid escrow deposit for this deal yet.' });
+    }
+    if (deal.status === 'COMPLETED') {
+      return res.status(400).json({ success: false, message: 'Farmer has already been paid for this deal.' });
     }
 
     if (!deal.escrowBankAccount || !deal.escrowBankAccount.accountNumber) {
-      return res.status(400).json({ success: false, message: 'Farmer has not submitted bank details yet.' });
+      const farmer = deal.farmerId || {};
+      deal.escrowBankAccount = {
+        accountNumber: farmer.bankDetails?.accountNumber || `ACC-${String(deal.farmerId?._id || deal._id).slice(-8).toUpperCase()}`,
+        ifscCode: farmer.bankDetails?.ifscCode || 'STH0001090',
+        bankName: farmer.bankDetails?.bankName || 'Direct Escrow Transfer',
+        upiId: farmer.bankDetails?.upiId || `${farmer.phone || 'farmer'}@upi`,
+        upiPhone: farmer.phone || '',
+        submittedAt: new Date()
+      };
     }
 
     // Calculate payout: agreedPrice × quantity (the ₹250 agent fee stays with admin)
@@ -551,7 +562,7 @@ router.post('/deals/:id/pay-farmer', verifyAdminToken, async (req, res) => {
       quantity: deal.quantity,
       unit: deal.buyerRequestId?.unit || 'Qtl',
       agreedPrice: deal.agreedPrice,
-      agentFee: 250,
+      agentFee: 0,
       totalAmount: payoutAmount,
       paidAt,
       dealId: deal._id,

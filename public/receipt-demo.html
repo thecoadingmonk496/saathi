@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Saathi — Transaction Receipt</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+Devanagari:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', 'Noto Sans Devanagari', ui-sans-serif, sans-serif;
+      background: #ECEFF1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px 60px;
+      color: #212121;
+    }
+
+    /* ── Demo toolbar ── */
+    .demo-bar {
+      width: 100%;
+      max-width: 660px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .demo-bar h1 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #616161;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .demo-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 20px;
+      border-radius: 10px;
+      border: none;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .demo-btn:active { transform: scale(0.97); }
+    .btn-print  { background: #13233A; color: #fff; }
+    .btn-print:hover  { background: #0d1829; }
+    .btn-close  { background: #fff; color: #616161; border: 1px solid #e0e0e0; }
+    .btn-close:hover  { background: #f5f5f5; }
+
+    /* ── Receipt Card ── */
+    .receipt-card {
+      width: 100%;
+      max-width: 660px;
+      background: #fff;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 24px 72px rgba(0,0,0,0.14);
+    }
+
+    /* ── Header ── */
+    .receipt-header {
+      background: linear-gradient(135deg, #13233A 0%, #1e3a5f 100%);
+      padding: 30px 36px 26px;
+      color: #fff;
+    }
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .brand-icon {
+      width: 42px; height: 42px;
+      background: #E51B2A;
+      border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .brand-icon svg { width: 24px; height: 24px; }
+    .brand-name { font-size: 24px; font-weight: 900; letter-spacing: -0.5px; line-height: 1; }
+    .brand-sub  { font-size: 11px; color: rgba(255,255,255,0.55); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 2px; }
+
+    .title-row {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+    }
+    .receipt-label {
+      font-size: 11px; color: rgba(255,255,255,0.5);
+      letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 5px;
+    }
+    .receipt-product {
+      font-size: 26px; font-weight: 800; text-transform: capitalize; line-height: 1.1;
+    }
+
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 16px; border-radius: 999px;
+      font-size: 12px; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .badge-completed { background: #e8f5e9; color: #2e7d32; }
+    .badge-pending   { background: #fff8e1; color: #e65100; }
+
+    .hline { margin: 18px 0; border-top: 1px solid rgba(255,255,255,0.12); }
+
+    .metrics-row { display: flex; gap: 36px; flex-wrap: wrap; }
+    .metric-label { font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.08em; }
+    .metric-value { font-size: 21px; font-weight: 800; margin-top: 3px; }
+    .metric-unit  { font-size: 13px; font-weight: 500; opacity: 0.65; }
+    .metric-total { color: #ff8a80; }
+
+    /* ── Stage Bar ── */
+    .stage-bar {
+      background: #f8f9fa;
+      padding: 12px 36px;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .stage-arrow { color: #E51B2A; }
+    .stage-text  { font-size: 12px; font-weight: 700; color: #13233A; letter-spacing: 0.02em; }
+
+    /* ── Body ── */
+    .receipt-body { padding: 26px 36px; }
+
+    /* Parties */
+    .parties-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+      margin-bottom: 22px;
+    }
+    .party-card {
+      background: #f5f5f5; border-radius: 14px; padding: 16px;
+    }
+    .party-card.seller { border-left: 4px solid #13233A; }
+    .party-card.buyer  { border-left: 4px solid #E51B2A; }
+    .party-role  { font-size: 10px; font-weight: 700; color: #9e9e9e; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+    .party-name  { font-size: 15px; font-weight: 800; color: #212121; }
+    .party-sub   { font-size: 11px; color: #757575; margin-top: 3px; }
+
+    /* Section title */
+    .section-title {
+      font-size: 11px; font-weight: 700; color: #9e9e9e;
+      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;
+    }
+
+    /* Detail rows */
+    .details-block { margin-bottom: 22px; }
+    .detail-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid #f0f0f0;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-icon  { color: #E51B2A; margin-top: 2px; flex-shrink: 0; }
+    .detail-icon svg { width: 15px; height: 15px; }
+    .detail-label { flex: 1; font-size: 13px; color: #616161; font-weight: 600; }
+    .detail-value { font-size: 13px; font-weight: 700; color: #212121; text-align: right; max-width: 55%; word-break: break-word; }
+
+    /* Financial Summary */
+    .fin-summary {
+      background: linear-gradient(135deg, #13233A 0%, #1e3a5f 100%);
+      border-radius: 16px; padding: 22px; color: #fff; margin-bottom: 22px;
+    }
+    .fin-title { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; }
+    .fin-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 10px; }
+    .fin-row .lbl { color: rgba(255,255,255,0.7); }
+    .fin-row .val { font-weight: 700; }
+    .fin-divider { border-top: 1px solid rgba(255,255,255,0.15); margin: 12px 0; }
+    .fin-total { display: flex; justify-content: space-between; align-items: center; }
+    .fin-total .lbl { font-size: 14px; font-weight: 700; }
+    .fin-total .val { font-size: 22px; font-weight: 900; color: #ff8a80; }
+
+    /* Quality */
+    .quality-block {
+      background: #e8f5e9; border: 1px solid #c8e6c9;
+      border-radius: 14px; padding: 16px; margin-bottom: 22px;
+    }
+    .quality-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    }
+    .quality-header svg { width: 16px; height: 16px; color: #2e7d32; }
+    .quality-header span { font-size: 12px; font-weight: 700; color: #2e7d32; text-transform: uppercase; letter-spacing: 0.08em; }
+    .quality-moisture { font-size: 13px; color: #1b5e20; font-weight: 600; margin-bottom: 4px; }
+    .quality-findings { font-size: 12px; color: #388e3c; line-height: 1.55; }
+
+    /* Dashed sep */
+    .dashed-sep { border-top: 2px dashed #e0e0e0; margin: 4px 0 20px; }
+
+    /* Disclaimer */
+    .disclaimer { font-size: 11px; color: #9e9e9e; line-height: 1.65; text-align: center; }
+    .disclaimer strong { color: #757575; }
+
+    /* Watermark */
+    .watermark-area {
+      display: flex; justify-content: center; align-items: center; gap: 8px;
+      padding: 10px 36px 6px;
+      border-top: 1px solid #f5f5f5;
+    }
+    .watermark-dot { width: 6px; height: 6px; border-radius: 50%; background: #E51B2A; }
+    .watermark-text { font-size: 10px; color: #bdbdbd; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; }
+
+    /* Action Buttons */
+    .actions {
+      padding: 16px 36px 26px;
+      display: flex; gap: 12px; justify-content: flex-end;
+      border-top: 1px solid #f0f0f0;
+    }
+
+    /* ── Print ── */
+    @media print {
+      body { background: transparent; padding: 0; }
+      .demo-bar, .actions { display: none !important; }
+      .receipt-card { box-shadow: none; border: 1px solid #ccc; max-width: 100%; border-radius: 0; }
+      @page { size: A4; margin: 10mm; }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 520px) {
+      .receipt-header { padding: 22px 20px 20px; }
+      .receipt-body   { padding: 20px; }
+      .actions        { padding: 14px 20px 22px; }
+      .stage-bar      { padding: 12px 20px; }
+      .parties-grid   { grid-template-columns: 1fr; }
+      .metrics-row    { gap: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Demo Toolbar -->
+  <div class="demo-bar">
+    <h1>📄 Receipt Preview — Example Data</h1>
+    <div style="display:flex;gap:10px;">
+      <button class="demo-btn btn-close" onclick="window.history.back()">← Back</button>
+      <button class="demo-btn btn-print" onclick="window.print()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print / Save PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- Receipt Card -->
+  <div class="receipt-card">
+
+    <!-- ═══ HEADER ═══════════════════════════════════════════════════ -->
+    <div class="receipt-header">
+
+      <!-- Brand -->
+      <div class="brand-row">
+        <div class="brand-icon">
+          <!-- Wheat icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22V2"/><path d="M17 7c0-2.8-2.2-5-5-5S7 4.2 7 7c0 1.7.8 3.2 2.1 4.2L12 13l2.9-1.8C16.2 10.2 17 8.7 17 7z"/><path d="M7 17c0 2.8 2.2 5 5 5s5-2.2 5-5c0-1.7-.8-3.2-2.1-4.2L12 11l-2.9 1.8C7.8 13.8 7 15.3 7 17z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-name">Saathi</div>
+          <div class="brand-sub">Agri Supply Chain</div>
+        </div>
+      </div>
+
+      <!-- Title + Status -->
+      <div class="title-row">
+        <div>
+          <div class="receipt-label">Transaction Receipt</div>
+          <div class="receipt-product">Wheat · Sharbati Grade A</div>
+        </div>
+        <span class="status-badge badge-completed">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Completed
+        </span>
+      </div>
+
+      <div class="hline"></div>
+
+      <!-- Key Metrics -->
+      <div class="metrics-row">
+        <div>
+          <div class="metric-label">Quantity</div>
+          <div class="metric-value">42 <span class="metric-unit">quintal</span></div>
+        </div>
+        <div>
+          <div class="metric-label">Rate / Qtl</div>
+          <div class="metric-value">₹2,350.00</div>
+        </div>
+        <div>
+          <div class="metric-label">Total Value</div>
+          <div class="metric-value metric-total">₹98,700.00</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ STAGE BAR ════════════════════════════════════════════════ -->
+    <div class="stage-bar">
+      <span class="stage-arrow">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </span>
+      <span class="stage-text">Farmer → Buyer &nbsp;|&nbsp; Stage 1 of 5</span>
+    </div>
+
+    <!-- ═══ BODY ══════════════════════════════════════════════════════ -->
+    <div class="receipt-body">
+
+      <!-- Parties -->
+      <div class="parties-grid">
+        <div class="party-card seller">
+          <div class="party-role">Seller / Farmer</div>
+          <div class="party-name">Ramesh Kumar Sharma</div>
+          <div class="party-sub">Farmer ID: FM-2024-08741</div>
+          <div class="party-sub">Khandwa, Madhya Pradesh</div>
+        </div>
+        <div class="party-card buyer">
+          <div class="party-role">Buyer</div>
+          <div class="party-name">Arjun Singh Mehta</div>
+          <div class="party-sub">Mehta Agro Traders Pvt. Ltd.</div>
+          <div class="party-sub">GST: 23AABCM1234F1Z5</div>
+        </div>
+      </div>
+
+      <!-- Transaction Details -->
+      <div class="details-block">
+        <div class="section-title">Transaction Details</div>
+
+        <!-- Transaction ID -->
+        <div class="detail-row">
+          <span class="detail-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+          </span>
+          <span class="detail-label">Transaction ID</span>
+          <span class="detail-value">TXN-2026-09-XKPM41</span>
+        </div>
+
+        <!-- Batch ID -->
+        <div class="detail-row">
+          <span class="detail-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          </span>
+          <span class="detail-label">Batch ID</span>
+          <span class="detail-value">BATCH-KHD-2026-00194</span>
+        </div>
+
+        <!-- Date -->
+        <div class="detail-row">
+          <span class="detail-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </span>
+          <span class="detail-label">Date &amp; Time</span>
+          <span class="detail-value">25 Sep 2026, 12:04 AM</span>
+        </div>
+
+        <!-- Location -->
+        <div class="detail-row">
+          <span class="detail-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </span>
+          <span class="detail-label">Location</span>
+          <span class="detail-value">Khandwa APMC Mandi, MP</span>
+        </div>
+
+        <!-- UTR -->
+        <div class="detail-row">
+          <span class="detail-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+          </span>
+          <span class="detail-label">UTR Number</span>
+          <span class="detail-value">SBIN026250012348765</span>
+        </div>
+
+        <!-- GST -->
+        <div class="detail-row">
+          <span class="detail-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </span>
+          <span class="detail-label">GST Number</span>
+          <span class="detail-value">23AABCM1234F1Z5</span>
+        </div>
+      </div>
+
+      <!-- Financial Summary -->
+      <div class="fin-summary">
+        <div class="fin-title">Financial Summary</div>
+        <div class="fin-row"><span class="lbl">Quantity</span><span class="val">42 quintal</span></div>
+        <div class="fin-row"><span class="lbl">Rate per Quintal</span><span class="val">₹2,350.00</span></div>
+        <div class="fin-row"><span class="lbl">Gross Amount</span><span class="val">₹98,700.00</span></div>
+        <div class="fin-row"><span class="lbl">Platform Fee ✓</span><span class="val" style="color:#a5d6a7">₹250.00</span></div>
+        <div class="fin-divider"></div>
+        <div class="fin-total">
+          <span class="lbl">Total Amount</span>
+          <span class="val">₹98,700.00</span>
+        </div>
+      </div>
+
+      <!-- Quality Certification -->
+      <div class="quality-block">
+        <div class="quality-header">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+          <span>Quality Certification</span>
+        </div>
+        <div class="quality-moisture">
+          Moisture Level: <strong>11.8%</strong> &nbsp;✓ Optimal (10%–14%)
+        </div>
+        <div class="quality-findings">
+          Moisture Level: 11.8% (Optimal — standard safe range is 10%–14%). No mold, discoloration, or pest damage detected. Produce successfully passed AI quality screening. Pre-shipment human verification: <strong>APPROVED</strong>.
+        </div>
+      </div>
+
+      <!-- Dashed Separator -->
+      <div class="dashed-sep"></div>
+
+      <!-- Disclaimer -->
+      <div class="disclaimer">
+        This is a computer-generated receipt issued by the <strong>Saathi Agri Supply Chain</strong> platform.<br />
+        No signature is required. Transaction ID <strong>TXN-2026-09-XKPM41</strong> is immutably recorded on the Saathi ledger.<br />
+        For disputes, contact <strong>support@saathi.co.in</strong> &nbsp;|&nbsp; Helpline: 1800-XXX-XXXX (Toll-Free)
+      </div>
+    </div>
+
+    <!-- Watermark strip -->
+    <div class="watermark-area">
+      <div class="watermark-dot"></div>
+      <span class="watermark-text">Verified by Saathi · AI Quality Passed · Escrow Released</span>
+      <div class="watermark-dot"></div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="actions">
+      <button class="demo-btn btn-close" onclick="window.history.back()">Done</button>
+      <button class="demo-btn" style="background:#f5f5f5;color:#13233A;" onclick="window.print()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Save PDF
+      </button>
+      <button class="demo-btn btn-print" onclick="window.print()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print
+      </button>
+    </div>
+
+  </div><!-- /receipt-card -->
+
+  <p style="margin-top:20px;font-size:11px;color:#9e9e9e;text-align:center;">
+    Demo only — all data above is example data. &nbsp;|&nbsp;
+    <a href="#" onclick="window.print();return false;" style="color:#E51B2A;font-weight:700;text-decoration:none;">Use Ctrl+P / ⌘P</a> to save as PDF.
+  </p>
+
+</body>
+</html>

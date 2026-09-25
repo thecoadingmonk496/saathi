@@ -65,13 +65,18 @@ const getCropImage = (pub) => {
 /* ════════════════════════════════════════════════════════════ */
 export default function FarmerDashboard() {
   const { user } = useUser();
-  const [requests, setRequests] = useState([]);
-  const [deals, setDeals] = useState([]);
-  const [loading, setLoading] = useState(true);
+
+  // SWR cache key — scoped to this user so different farmers never share cache
+  const cacheKey = user?._id ? `farmer_discovery_${user._id}` : null;
+  const getCache = () => { try { return cacheKey ? JSON.parse(localStorage.getItem(cacheKey)) || {} : {}; } catch(e) { return {}; } };
+
+  const [requests, setRequests] = useState(() => getCache().requests || []);
+  const [deals, setDeals] = useState(() => getCache().deals || []);
+  const [loading, setLoading] = useState(() => !cacheKey || !localStorage.getItem(cacheKey));
   const [activeTab, setActiveTab] = useState('browse');
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [offerForm, setOfferForm] = useState({ quantity: '', counterOfferPrice: '', message: '', declaration: false });
-  const [myOffers, setMyOffers] = useState([]);
+  const [myOffers, setMyOffers] = useState(() => getCache().myOffers || []);
   const [showAllOffers, setShowAllOffers] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState(null);
   const [selectedBuyerContact, setSelectedBuyerContact] = useState(null);
@@ -104,20 +109,33 @@ export default function FarmerDashboard() {
 
   const fetchData = async () => {
     try {
-      setLoading(true);
+      // Only show spinner if no cache exists yet
+      if (!cacheKey || !localStorage.getItem(cacheKey)) setLoading(true);
       const token = localStorage.getItem('token');
 
-      const reqRes = await fetch(`${API_BASE}/buyer-discovery/requests/published`, { headers: { Authorization: `Bearer ${token}` } });
-      const reqData = await reqRes.json();
-      if (reqData.success) setRequests(reqData.data);
+      const [reqRes, dealRes, offerRes] = await Promise.all([
+        fetch(`${API_BASE}/buyer-discovery/requests/published`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE}/buyer-discovery/deals`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE}/buyer-discovery/offers/mine`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const [reqData, dealData, offerData] = await Promise.all([reqRes.json(), dealRes.json(), offerRes.json()]);
 
-      const dealRes = await fetch(`${API_BASE}/buyer-discovery/deals`, { headers: { Authorization: `Bearer ${token}` } });
-      const dealData = await dealRes.json();
-      if (dealData.success) setDeals(dealData.data);
+      const newRequests = reqData.success ? reqData.data : requests;
+      const newDeals = dealData.success ? dealData.data : deals;
+      const newOffers = offerData.success ? offerData.data : myOffers;
 
-      const offerRes = await fetch(`${API_BASE}/buyer-discovery/offers/mine`, { headers: { Authorization: `Bearer ${token}` } });
-      const offerData = await offerRes.json();
-      if (offerData.success) setMyOffers(offerData.data);
+      if (reqData.success) setRequests(newRequests);
+      if (dealData.success) setDeals(newDeals);
+      if (offerData.success) setMyOffers(newOffers);
+
+      // Save fresh data to user-scoped cache
+      if (cacheKey && (reqData.success || dealData.success || offerData.success)) {
+        localStorage.setItem(cacheKey, JSON.stringify({
+          requests: newRequests,
+          deals: newDeals,
+          myOffers: newOffers,
+        }));
+      }
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
@@ -732,7 +750,7 @@ export default function FarmerDashboard() {
                                   : isWaitingMoistureOrPayment
                                   ? "Photos uploaded successfully. Waiting for AI/Admin moisture check and buyer escrow."
                                   : inInspection
-                                  ? "Waiting for physical inspection by Saathi Field Agent."
+                                  ? (deal.videoCallSlot?.date ? `Free Video Call scheduled for ${deal.videoCallSlot.date} (${deal.videoCallSlot.timeSlot}).` : "Select an available slot for Free Video Call Verification.")
                                   : "Upload 5+ clear photos of your produce to begin verification."
                                 }
                               </p>

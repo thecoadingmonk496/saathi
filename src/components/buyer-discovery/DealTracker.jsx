@@ -198,7 +198,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
 
         const rzp = new Razorpay(options);
         rzp.on("payment.failed", function (response) {
-            alert(response.error.description);
+            alert(response?.error?.description || 'Payment failed. Please try again.');
             setPaymentProcessing(false);
         });
         rzp.open();
@@ -210,81 +210,47 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
     }
   };
 
-  const handlePayFarmerFee = async () => {
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
+  const [schedulingLoading, setSchedulingLoading] = useState(false);
+
+  const generateAvailableDates = () => {
+    const dates = [];
+    const today = new Date();
+    for (let i = 1; i <= 4; i++) {
+      const nextDate = new Date(today);
+      nextDate.setDate(today.getDate() + i);
+      dates.push(nextDate.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' }));
+    }
+    return dates;
+  };
+
+  const handleScheduleVideoCall = async (e) => {
+    if (e) e.preventDefault();
+    if (!selectedDate || !selectedTimeSlot) {
+      alert('Please select both a date and a time slot.');
+      return;
+    }
     try {
-        setPaymentProcessing(true);
-        const token = localStorage.getItem('token');
-        
-        // 1. Create order on backend (amount 250 INR)
-        const orderRes = await fetch(`${API_BASE}/payment/create-order`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ amount: 250, dealId: deal._id }) 
-        });
-        const orderData = await orderRes.json();
-        
-        if (!orderData.success) {
-            alert("Error initializing payment");
-            setPaymentProcessing(false);
-            return;
-        }
-
-        const options = {
-            key: import.meta.env.VITE_RAZORPAY_KEY_ID, 
-            amount: orderData.order.amount,
-            currency: orderData.order.currency,
-            name: "Saathi",
-            description: "Field Agent Verification Fee",
-            order_id: orderData.order.id,
-            handler: async function (response) {
-                try {
-                    // 2. Verify payment on backend
-                    const verifyRes = await fetch(`${API_BASE}/payment/verify-payment`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                        body: JSON.stringify({ ...response, dealId: deal._id })
-                    });
-                    const verifyData = await verifyRes.json();
-                    
-                    if (verifyData.success) {
-                        // 3. Update Deal DB status
-                        const res = await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/pay-farmer-fee`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                        });
-                        const data = await res.json();
-                        if(data.success) {
-                            alert("Verification Fee Paid Successfully! Field Agent assigned.");
-                            onRefresh();
-                        } else {
-                            alert(data.message || "Payment successful but failed to update deal status.");
-                        }
-                    } else {
-                        alert("Payment verification failed.");
-                    }
-                } catch (err) {
-                    alert("Error verifying payment.");
-                } finally {
-                    setPaymentProcessing(false);
-                }
-            },
-            prefill: {
-                name: "Farmer",
-                email: "farmer@example.com",
-            },
-            theme: { color: "#16a34a" } // green-600
-        };
-
-        const rzp = new Razorpay(options);
-        rzp.on("payment.failed", function (response) {
-            alert(response.error.description);
-            setPaymentProcessing(false);
-        });
-        rzp.open();
+      setSchedulingLoading(true);
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/schedule-video-call`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ date: selectedDate, timeSlot: selectedTimeSlot })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(data.message || '✅ Free Video Call Verification scheduled!');
+        onRefresh();
+      } else {
+        alert(data.message || 'Failed to schedule video call.');
+      }
     } catch (err) {
-        console.error("Payment flow error:", err);
-        alert("Payment Error: " + err.message);
-        setPaymentProcessing(false);
+      console.error('Video call error:', err);
+      alert('Network error while scheduling video call.');
+    } finally {
+      setSchedulingLoading(false);
     }
   };
 
@@ -552,41 +518,103 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
               </div>
             )}
 
-            {/* Step 2.5: Farmer Pays Verification Fee */}
+            {/* Step 2.5: Free Video Call Verification Scheduling */}
             {deal.status === 'AGENT_PAYMENT_PENDING' && (
               <div className="bg-amber-50 rounded-2xl border border-amber-200 p-5 space-y-4 shadow-sm">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
                   <span className="text-xs font-black uppercase tracking-wider text-amber-900">
-                    Pending Field Agent Fee
+                    Video Call Verification Setup
                   </span>
                 </div>
                 
                 {userRole === 'FARMER' ? (
                   <div className="bg-white p-5 rounded-xl border border-amber-200 shadow-sm space-y-4">
-                    <h5 className="font-bold text-gray-900 flex items-center gap-2">
-                      <span>👤</span> Pay Field Agent Verification Fee
-                    </h5>
-                    <p className="text-sm text-gray-600 leading-relaxed">
-                      The buyer has successfully deposited the fixed deal amount into escrow. To proceed with the physical verification, you need to pay the field agent verification fee.
-                    </p>
-                    
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
-                      <span className="text-sm font-semibold text-gray-600">Verification Fee</span>
-                      <span className="font-black text-gray-900 text-lg">₹250</span>
+                    <div className="flex items-center justify-between">
+                      <h5 className="font-bold text-gray-900 flex items-center gap-2">
+                        <span>🎥</span> Schedule Free Video Call Verification
+                      </h5>
+                      <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-black rounded-full uppercase border border-emerald-200">
+                        100% FREE
+                      </span>
                     </div>
+                    <p className="text-xs text-gray-600 leading-relaxed">
+                      Select an available date & time slot for a quick 2-minute WhatsApp Video Call verification (10:00 AM – 7:00 PM).
+                    </p>
 
-                    <button
-                      onClick={handlePayFarmerFee}
-                      disabled={paymentProcessing}
-                      className="w-full py-3.5 bg-[#16a34a] hover:bg-green-700 text-white font-black text-sm uppercase tracking-wider rounded-xl transition flex justify-center items-center gap-2 shadow-md shadow-green-600/20"
-                    >
-                      {paymentProcessing ? 'Processing...' : 'Pay ₹250 via Razorpay'}
-                    </button>
+                    {deal.videoCallSlot?.date ? (
+                      <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 space-y-2">
+                        <div className="flex items-center justify-between text-xs font-bold text-emerald-900">
+                          <span>📅 Scheduled Date:</span>
+                          <span>{deal.videoCallSlot.date}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs font-bold text-emerald-900">
+                          <span>⏰ Time Slot:</span>
+                          <span>{deal.videoCallSlot.timeSlot}</span>
+                        </div>
+                        <div className="pt-2 text-xs text-emerald-700 font-semibold flex items-center gap-1.5">
+                          <span>📱</span> A WhatsApp confirmation message was sent to your phone. Please be ready for the call!
+                        </div>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleScheduleVideoCall} className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Select Available Date</label>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {generateAvailableDates().map(d => (
+                              <button
+                                key={d}
+                                type="button"
+                                onClick={() => setSelectedDate(d)}
+                                className={`py-2 px-2 rounded-lg text-xs font-bold border text-center transition ${selectedDate === d ? 'bg-amber-600 text-white border-amber-600 shadow' : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'}`}
+                              >
+                                {d}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Select Time Slot (10:00 AM – 7:00 PM)</label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {[
+                              '10:00 AM - 11:00 AM',
+                              '11:30 AM - 12:30 PM',
+                              '01:00 PM - 02:00 PM',
+                              '02:30 PM - 03:30 PM',
+                              '04:00 PM - 05:00 PM',
+                              '05:30 PM - 06:30 PM'
+                            ].map(slot => (
+                              <button
+                                key={slot}
+                                type="button"
+                                onClick={() => setSelectedTimeSlot(slot)}
+                                className={`py-2 px-2 rounded-lg text-xs font-bold border text-center transition ${selectedTimeSlot === slot ? 'bg-emerald-600 text-white border-emerald-600 shadow' : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'}`}
+                              >
+                                {slot}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={schedulingLoading || !selectedDate || !selectedTimeSlot}
+                          className="w-full py-3 bg-[#16a34a] hover:bg-green-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition flex justify-center items-center gap-2 disabled:opacity-50 shadow-md"
+                        >
+                          {schedulingLoading ? '⏳ Scheduling...' : '📅 Confirm & Schedule Free Video Call'}
+                        </button>
+                      </form>
+                    )}
                   </div>
                 ) : (
-                  <div className="bg-white p-4 rounded-xl border border-amber-200 text-sm font-medium text-amber-900">
-                    Waiting for the Farmer to pay their field agent verification fee. Once paid, the physical inspection process will begin.
+                  <div className="bg-white p-4 rounded-xl border border-amber-200 text-xs font-medium text-amber-900 space-y-1">
+                    <div className="font-bold text-amber-950 flex items-center gap-1.5">
+                      <span>🎥</span> Video Call Verification Pending
+                    </div>
+                    <div>
+                      {deal.videoCallSlot?.date ? `Farmer scheduled video call for ${deal.videoCallSlot.date} at ${deal.videoCallSlot.timeSlot}.` : 'Waiting for Farmer to select their video call verification slot.'}
+                    </div>
                   </div>
                 )}
               </div>
