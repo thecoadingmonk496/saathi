@@ -1,11 +1,83 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import saathiLogo from '../assets/logo.png';
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 ).replace(/\/$/, '');
 
 const apiUrl = (path) => `${API_BASE_URL}${path}`;
+
+const InlineConfirmButton = ({ 
+  baseText, 
+  baseClassName, 
+  onConfirm, 
+  confirmText = "Yes, Proceed", 
+  fastMode, 
+  disabled,
+  confirmingId,
+  setConfirmingId,
+  id,
+  requireReason = false,
+  reasonPlaceholder = "Reason (optional)"
+}) => {
+  const isConfirming = confirmingId === id;
+  const [reason, setReason] = React.useState("");
+  
+  if (fastMode) {
+    return (
+      <button 
+        disabled={disabled}
+        onClick={(e) => { e.stopPropagation(); onConfirm(requireReason ? "Action taken in Fast Mode" : undefined); }} 
+        className={baseClassName}
+      >
+        {baseText}
+      </button>
+    );
+  }
+  
+  if (isConfirming) {
+    return (
+      <div className="flex flex-col gap-2 p-2 bg-red-50 rounded-lg animate-in fade-in zoom-in-95 duration-200 w-full" onClick={e => e.stopPropagation()}>
+        <span className="text-xs font-bold text-red-800">Are you sure?</span>
+        {requireReason && (
+          <input 
+            type="text" 
+            placeholder={reasonPlaceholder} 
+            value={reason} 
+            onChange={e => setReason(e.target.value)}
+            className="w-full px-2 py-1.5 text-xs rounded bg-white focus:outline-none focus:border-red-400 text-slate-800"
+          />
+        )}
+        <div className="flex items-center gap-1.5">
+          <button 
+            disabled={disabled}
+            onClick={(e) => { e.stopPropagation(); setConfirmingId(null); onConfirm(reason || undefined); }} 
+            className="flex-1 px-3 py-1.5 bg-[#E51B2A] hover:bg-red-800 text-white rounded-md text-[10px] font-bold transition shadow-sm whitespace-nowrap"
+          >
+            {confirmText}
+          </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); setConfirmingId(null); setReason(""); }} 
+            className="flex-1 px-3 py-1.5 bg-white hover:bg-gray-100 text-[#5F6B7A] rounded-md text-[10px] font-bold transition shadow-sm whitespace-nowrap"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <button 
+      disabled={disabled}
+      onClick={(e) => { e.stopPropagation(); setConfirmingId(id); }} 
+      className={baseClassName}
+    >
+      {baseText}
+    </button>
+  );
+};
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState('buyer-requests');
@@ -21,9 +93,19 @@ export default function Admin() {
   const [adminUtr, setAdminUtr] = useState('');
   const [adminReceipt, setAdminReceipt] = useState('');
   const [deletingId, setDeletingId] = useState(null);
-  const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
+  const [toasts, setToasts] = useState([]);
+  const addToast = (msg, type = 'success') => {
+    if (!msg) return;
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, message: msg, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 5000);
+  };
+  const setError = (msg) => addToast(msg, 'error');
+  const setSuccessMsg = (msg) => addToast(msg, 'success');
   const [loadedImages, setLoadedImages] = useState({}); // Stores lazily loaded images for deals
+  const [selectedIds, setSelectedIds] = useState([]);
 
   // Wallet state
   const [walletData, setWalletData] = useState({ balance: 0, totalReceived: 0, totalForwarded: 0 });
@@ -36,6 +118,9 @@ export default function Admin() {
   const [selectedKycApp, setSelectedKycApp] = useState(null);
   const [relatedRequest, setRelatedRequest] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
+
+  const [fastMode, setFastMode] = useState(false);
+  const [confirmingId, setConfirmingId] = useState(null);
 
   const fetchDealImages = async (dealId) => {
     setLoadedImages(prev => ({ ...prev, [dealId]: { ...prev[dealId], isLoading: true } }));
@@ -197,6 +282,69 @@ export default function Admin() {
     }
   };
 
+  /* ── Bulk Actions (Frontend Promise Loop) ── */
+  const handleBulkAction = async (actionType, customReason) => {
+    if (selectedIds.length === 0) return;
+    const isApprove = actionType === 'APPROVE';
+    
+    let reason = customReason || '';
+    if (!isApprove && !reason) {
+      reason = 'Quality specifications incomplete or outside fair market range.';
+    }
+
+    const token = localStorage.getItem('adminToken');
+    if (!token) { handleLogout(); return; }
+
+    setActionLoadingId('BULK');
+    setError('');
+    setSuccessMsg('');
+    
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const id of selectedIds) {
+      try {
+        const url = apiUrl(`/api/admin/buyer-requests/${id}/${isApprove ? 'approve' : 'reject'}`);
+        const opts = {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}` },
+        };
+        if (!isApprove) {
+          opts.headers['Content-Type'] = 'application/json';
+          opts.body = JSON.stringify({ reason });
+        }
+        
+        const res = await fetch(url, opts);
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+          successCount++;
+          setBuyerRequests((prev) =>
+            prev.map((r) => (r._id === id ? { 
+              ...r, 
+              status: isApprove ? 'PUBLISHED' : 'REJECTED', 
+              ...(isApprove ? { publishedAt: new Date() } : { adminRemarks: reason })
+            } : r))
+          );
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        failCount++;
+      }
+    }
+
+    if (failCount === 0) {
+      setSuccessMsg(`✓ Successfully ${isApprove ? 'approved' : 'rejected'} ${successCount} requests.`);
+    } else {
+      setError(`⚠️ Processed ${successCount} requests. ${failCount} failed.`);
+    }
+    
+    setSelectedIds([]);
+    setActionLoadingId(null);
+    setTimeout(() => { setSuccessMsg(''); setError(''); }, 5000);
+  };
+
   /* ── Buyer Requests Actions ── */
   const handleApproveRequest = async (requestId, cropName) => {
     const token = localStorage.getItem('adminToken');
@@ -231,12 +379,11 @@ export default function Admin() {
     }
   };
 
-  const handleRejectRequest = async (requestId, cropName) => {
+  const handleRejectRequest = async (requestId, cropName, customReason) => {
     const token = localStorage.getItem('adminToken');
     if (!token) { handleLogout(); return; }
 
-    const reason = window.prompt(`Enter rejection reason for "${cropName}":`, 'Quality specifications incomplete or offered price outside fair market range.');
-    if (reason === null) return;
+    const reason = customReason || 'Quality specifications incomplete or offered price outside fair market range.';
 
     setActionLoadingId(requestId);
     setError('');
@@ -305,12 +452,11 @@ export default function Admin() {
     }
   };
 
-  const handleRejectApplication = async (appId, applicantName) => {
+  const handleRejectApplication = async (appId, applicantName, customReason) => {
     const token = localStorage.getItem('adminToken');
     if (!token) { handleLogout(); return; }
 
-    const reason = window.prompt(`Enter rejection reason for "${applicantName}":`, 'Incomplete business documents.');
-    if (reason === null) return;
+    const reason = customReason || 'Incomplete business documents.';
 
     setActionLoadingId(appId);
     setError('');
@@ -346,11 +492,6 @@ export default function Admin() {
   const handleDeleteUser = async (user) => {
     const token = localStorage.getItem('adminToken');
     if (!token) { handleLogout(); return; }
-
-    const confirmDelete = window.confirm(
-      `Are you sure you want to permanently delete user "${user.firstName} ${user.lastName}" (${user.phone}) from MongoDB?`
-    );
-    if (!confirmDelete) return;
 
     setDeletingId(user._id);
     setError('');
@@ -480,12 +621,11 @@ export default function Admin() {
   };
 
 
-  const handleUnverifyDeal = async (dealId, cropName) => {
+  const handleUnverifyDeal = async (dealId, cropName, customReason) => {
     const token = localStorage.getItem('adminToken');
     if (!token) { handleLogout(); return; }
 
-    const reason = window.prompt(`Enter reason for marking "${cropName}" as unverified:`, 'Moisture level or physical stock quality failed field criteria.');
-    if (reason === null) return;
+    const reason = customReason || 'Moisture level or physical stock quality failed field criteria.';
 
     setActionLoadingId(dealId);
     setError('');
@@ -641,34 +781,43 @@ export default function Admin() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-[var(--saathi-primary)] selection:text-white pb-12">
+    <div className="min-h-screen bg-[#F1F3F5] text-[#132B47] pb-12">
       {/* Top Navigation Bar */}
-      <header className="bg-slate-900/80 border-b border-slate-800 backdrop-blur-md sticky top-0 z-30">
+      <header className="bg-white sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[var(--saathi-primary)]/10 border border-[var(--saathi-primary)]/30 flex items-center justify-center text-emerald-400 font-bold shadow-md">
-              🛡️
-            </div>
-            <div>
-              <span className="font-extrabold tracking-tight text-white text-base">SAATHI</span>
-              <span className="ml-2 px-2 py-0.5 rounded-md bg-[var(--saathi-primary)]/20 text-emerald-400 text-xs font-bold uppercase tracking-wider border border-[var(--saathi-primary)]/30">
+            <img src={saathiLogo} alt="SAATHI Logo" className="h-8 w-auto object-contain" />
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold tracking-tight text-[#132B47] text-lg">SAATHI</span>
+              <span className="px-2 py-0.5 rounded-md text-[#5F6B7A] text-xs font-bold uppercase tracking-wider">
                 Admin Verification Center
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <div className="flex items-center gap-4">
+            <label className="hidden sm:flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-md shadow-sm">
+              <input
+                type="checkbox"
+                checked={fastMode}
+                onChange={(e) => setFastMode(e.target.checked)}
+                className="w-4 h-4 text-[#E51B2A] border-[#D9DEE5] rounded focus:ring-[#E51B2A]"
+              />
+              <span className="text-xs font-bold text-[#132B47] uppercase tracking-wide">
+                Fast Mode <span className="text-[#5F6B7A] font-medium">(Skip Confirms)</span>
+              </span>
+            </label>
+
+            <div className="hidden sm:flex items-center gap-2 text-[#5F6B7A] px-3 py-1.5 text-xs font-medium border-l border-[#D9DEE5]">
+              <span className="w-2 h-2 rounded-full bg-green-500" />
               <span>{adminEmail}</span>
             </div>
 
             <button
               onClick={handleLogout}
-              className="px-3.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+              className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
             >
               <span>Logout</span>
-              <span>→</span>
             </button>
           </div>
         </div>
@@ -676,67 +825,77 @@ export default function Admin() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        {/* Status Alerts */}
-        {error && (
-          <div className="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm font-semibold flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <span>⚠️</span>
-              <span>{error}</span>
-            </span>
-            <button onClick={() => setError('')} className="text-red-400 hover:text-white text-xs">✕</button>
-          </div>
-        )}
-
-        {successMsg && (
-          <div className="mb-6 p-4 rounded-2xl bg-[var(--saathi-primary)]/10 border border-[var(--saathi-primary)]/30 text-emerald-300 text-sm font-semibold flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <span>✓</span>
-              <span>{successMsg}</span>
-            </span>
-            <button onClick={() => setSuccessMsg('')} className="text-emerald-400 hover:text-white text-xs">✕</button>
-          </div>
-        )}
+        {/* Floating Toasts */}
+        <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 pointer-events-none">
+          {toasts.map(toast => (
+            <div 
+              key={toast.id}
+              className={`pointer-events-auto flex items-start justify-between gap-3 p-4 min-w-[300px] max-w-md rounded-xl border shadow-xl transition-all animate-in slide-in-from-bottom-5 fade-in duration-300 ${
+                toast.type === 'success' 
+                  ? 'bg-green-50 border-green-200 text-[#16845B]'
+                  : 'bg-red-50 border-red-200 text-[#C62828]'
+              }`}
+            >
+              <span className="flex items-start gap-2 text-sm font-bold">
+                <span className="mt-0.5">{toast.type === 'success' ? '✓' : '⚠️'}</span>
+                <span className="leading-relaxed">{toast.message}</span>
+              </span>
+              <button 
+                onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+                className="opacity-60 hover:opacity-100 transition text-lg mt-0.5 shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
 
         {/* Top Summary Badges */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-slate-900/70 border border-slate-800/80 p-5 rounded-2xl">
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Buyer Publications</div>
-            <div className="text-3xl font-black text-amber-400">{pendingRequestsCount} Pending</div>
-            <div className="text-xs text-slate-400 mt-1">Requires Admin Accept or Reject</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 mt-4">
+          <div className="bg-white p-5 rounded-xl shadow-sm">
+            <div className="text-xs font-bold text-[#5F6B7A] uppercase tracking-wider mb-2">Buyer Publications</div>
+            <div className={`text-2xl font-black ${pendingRequestsCount > 0 ? 'text-[#C88A00]' : 'text-[#132B47]'}`}>
+              {pendingRequestsCount} Pending
+            </div>
+            <div className="text-xs text-[#5F6B7A] mt-2">Requires Admin Accept or Reject</div>
           </div>
 
-          <div className="bg-slate-900/70 border border-slate-800/80 p-5 rounded-2xl">
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">On-Ground Inspections</div>
-            <div className="text-3xl font-black text-emerald-400">{pendingInspectionsCount} Pending</div>
-            <div className="text-xs text-slate-400 mt-1">₹250 Paid • 11.8% Moisture</div>
+          <div className="bg-white p-5 rounded-xl shadow-sm">
+            <div className="text-xs font-bold text-[#5F6B7A] uppercase tracking-wider mb-2">On-Ground Inspections</div>
+            <div className={`text-2xl font-black ${pendingInspectionsCount > 0 ? 'text-[#16845B]' : 'text-[#132B47]'}`}>
+              {pendingInspectionsCount} Pending
+            </div>
+            <div className="text-xs text-[#5F6B7A] mt-2">₹250 Paid • 11.8% Moisture</div>
           </div>
 
-          <div className="bg-slate-900/70 border border-slate-800/80 p-5 rounded-2xl">
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Buyer KYC Applications</div>
-            <div className="text-3xl font-black text-blue-400">{pendingAppsCount} Pending</div>
-            <div className="text-xs text-slate-400 mt-1">{buyerApplications.length} total applications</div>
+          <div className="bg-white p-5 rounded-xl shadow-sm">
+            <div className="text-xs font-bold text-[#5F6B7A] uppercase tracking-wider mb-2">Buyer KYC Applications</div>
+            <div className={`text-2xl font-black ${pendingAppsCount > 0 ? 'text-[#0052CC]' : 'text-[#132B47]'}`}>
+              {pendingAppsCount} Pending
+            </div>
+            <div className="text-xs text-[#5F6B7A] mt-2">{buyerApplications.length} total applications</div>
           </div>
 
-          <div className="bg-slate-900/70 border border-slate-800/80 p-5 rounded-2xl">
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Users</div>
-            <div className="text-3xl font-black text-purple-400">{users.length}</div>
-            <div className="text-xs text-slate-400 mt-1">Direct read & manage access</div>
+          <div className="bg-white p-5 rounded-xl shadow-sm">
+            <div className="text-xs font-bold text-[#5F6B7A] uppercase tracking-wider mb-2">Total Users</div>
+            <div className="text-2xl font-black text-[#132B47]">{users.length}</div>
+            <div className="text-xs text-[#5F6B7A] mt-2">Direct read & manage access</div>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-slate-800 pb-3 mb-6 overflow-x-auto">
+        <div className="flex items-center gap-6 pb-0 mb-6 overflow-x-auto scrollbar-hide">
           <button
             onClick={() => setActiveTab('buyer-requests')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shrink-0 ${
+            className={`pb-3 text-sm font-bold transition flex items-center gap-2 shrink-0 border-b-2 ${
               activeTab === 'buyer-requests'
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                ? 'border-[#E51B2A] text-[#132B47]'
+                : 'border-transparent text-[#5F6B7A] hover:text-[#132B47]'
             }`}
           >
-            <span>🌾 Buyer Publications</span>
+            <span>Buyer Publications</span>
             {pendingRequestsCount > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-black bg-amber-500 text-slate-950">
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${activeTab === 'buyer-requests' ? 'bg-[#E51B2A] text-white' : 'bg-gray-200 text-gray-700'}`}>
                 {pendingRequestsCount}
               </span>
             )}
@@ -744,15 +903,15 @@ export default function Admin() {
 
           <button
             onClick={() => setActiveTab('deal-inspections')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shrink-0 ${
+            className={`pb-3 text-sm font-bold transition flex items-center gap-2 shrink-0 border-b-2 ${
               activeTab === 'deal-inspections'
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                ? 'border-[#E51B2A] text-[#132B47]'
+                : 'border-transparent text-[#5F6B7A] hover:text-[#132B47]'
             }`}
           >
-            <span>🛵 On-Ground Crop Inspections</span>
+            <span>On-Ground Inspections</span>
             {pendingInspectionsCount > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-black bg-emerald-500 text-slate-950">
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${activeTab === 'deal-inspections' ? 'bg-[#E51B2A] text-white' : 'bg-gray-200 text-gray-700'}`}>
                 {pendingInspectionsCount}
               </span>
             )}
@@ -760,15 +919,15 @@ export default function Admin() {
 
           <button
             onClick={() => setActiveTab('buyer-applications')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shrink-0 ${
+            className={`pb-3 text-sm font-bold transition flex items-center gap-2 shrink-0 border-b-2 ${
               activeTab === 'buyer-applications'
-                ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                ? 'border-[#E51B2A] text-[#132B47]'
+                : 'border-transparent text-[#5F6B7A] hover:text-[#132B47]'
             }`}
           >
-            <span>📄 Buyer KYC Applications</span>
+            <span>Buyer KYC</span>
             {pendingAppsCount > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-black bg-blue-500 text-slate-950">
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${activeTab === 'buyer-applications' ? 'bg-[#E51B2A] text-white' : 'bg-gray-200 text-gray-700'}`}>
                 {pendingAppsCount}
               </span>
             )}
@@ -776,25 +935,26 @@ export default function Admin() {
 
           <button
             onClick={() => setActiveTab('users')}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shrink-0 ${
+            className={`pb-3 text-sm font-bold transition flex items-center gap-2 shrink-0 border-b-2 ${
               activeTab === 'users'
-                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                ? 'border-[#E51B2A] text-[#132B47]'
+                : 'border-transparent text-[#5F6B7A] hover:text-[#132B47]'
             }`}
           >
-            <span>👥 Registered Users ({users.length})</span>
+            <span>Users</span>
+            <span className="text-xs text-gray-500">({users.length})</span>
           </button>
 
           <button
             onClick={() => { setActiveTab('wallet'); fetchWalletData(); }}
-            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shrink-0 ${
+            className={`pb-3 text-sm font-bold transition flex items-center gap-2 shrink-0 border-b-2 ${
               activeTab === 'wallet'
-                ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/40'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                ? 'border-[#E51B2A] text-[#132B47]'
+                : 'border-transparent text-[#5F6B7A] hover:text-[#132B47]'
             }`}
           >
-            <span>💰 Saathi Wallet</span>
-            <span className="px-2 py-0.5 rounded-full text-xs font-black bg-yellow-500/20 text-yellow-300 border border-yellow-500/40">
+            <span>Saathi Wallet</span>
+            <span className="text-xs font-bold text-[#16845B]">
               ₹{Number(walletData.balance || 0).toLocaleString('en-IN')}
             </span>
           </button>
@@ -803,7 +963,7 @@ export default function Admin() {
           <button
             onClick={() => { fetchAllData(); fetchWalletData(); }}
             disabled={loading}
-            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-xl border border-slate-800 transition flex items-center gap-1.5"
+            className="pb-3 text-[#5F6B7A] hover:text-[#132B47] text-xs font-bold transition flex items-center gap-1.5 shrink-0"
           >
             <span>🔄 Refresh</span>
           </button>
@@ -813,16 +973,16 @@ export default function Admin() {
         {activeTab === 'buyer-requests' && (
           <div className="space-y-4">
             {/* Filter controls */}
-            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 sticky top-16 bg-[#F1F3F5] z-20 py-2/50">
               <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
                 {['ALL', 'PENDING_REVIEW', 'PUBLISHED', 'REJECTED'].map((st) => (
                   <button
                     key={st}
                     onClick={() => setRequestFilter(st)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${
                       requestFilter === st
-                        ? 'bg-slate-800 text-white border border-slate-700'
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-white text-[#132B47] shadow-sm'
+                        : 'text-[#5F6B7A] hover:bg-white hover:border-[#D9DEE5] border border-transparent'
                     }`}
                   >
                     {st === 'ALL' ? 'All Publications' : st.replace('_', ' ')}
@@ -836,154 +996,166 @@ export default function Admin() {
                   placeholder="Search crop, location, buyer..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-9 pl-8 pr-3 bg-slate-900 border border-slate-800 rounded-lg text-white text-xs font-medium placeholder:text-slate-500 focus:outline-none focus:border-amber-500"
+                  className="w-full h-9 pl-8 pr-3 bg-white rounded-md text-[#132B47] text-xs font-medium placeholder:text-[#99A5BA] focus:outline-none focus:border-[#E51B2A]"
                 />
-                <span className="absolute left-2.5 top-2.5 text-xs text-slate-500">🔍</span>
+                <span className="absolute left-2.5 top-2.5 text-xs text-[#99A5BA]">🔍</span>
               </div>
             </div>
 
             {loading ? (
-              <div className="py-20 text-center text-slate-400">Loading publications…</div>
+              <div className="py-20 text-center text-[#5F6B7A]">Loading publications…</div>
             ) : filteredRequests.length === 0 ? (
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-12 text-center text-slate-400">
-                <div className="text-4xl mb-2">🌾</div>
-                <p className="font-bold text-white">No publication requests found</p>
-                <p className="text-xs text-slate-500 mt-1">When buyers submit crop procurement requirements, they will appear here for verification.</p>
+              <div className="bg-white rounded-xl p-12 text-center text-[#5F6B7A]">
+                <div className="text-4xl mb-2 opacity-50">🌾</div>
+                <p className="font-bold text-[#132B47]">No publication requests found</p>
+                <p className="text-xs mt-1">When buyers submit crop procurement requirements, they will appear here for verification.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 gap-4 pb-20">
                 {filteredRequests.map((req) => {
                   const isPending = req.status === 'PENDING_REVIEW';
                   const isPublished = req.status === 'PUBLISHED';
                   const isRejected = req.status === 'REJECTED';
+                  const isSelected = selectedIds.includes(req._id);
 
                   return (
                     <div
                       key={req._id}
-                      className={`bg-slate-900/80 border rounded-2xl p-5 shadow-lg transition ${
-                        isPending
-                          ? 'border-amber-500/50 bg-amber-500/5'
-                          : isPublished
-                          ? 'border-emerald-500/40 bg-emerald-500/5'
-                          : 'border-slate-800'
+                      className={`bg-white border rounded-xl p-5 shadow-sm transition flex gap-3 relative overflow-hidden ${
+                        isSelected ? 'border-[#E51B2A] bg-red-50/30' : 'border-[#D9DEE5] hover:border-gray-300'
                       }`}
                     >
-                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                        {/* Details */}
-                        <div className="space-y-2 flex-1">
-                          <div className="flex items-center gap-2.5 flex-wrap">
-                            <span className="text-lg font-black text-white">{req.crop}</span>
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-slate-800 text-amber-300 border border-slate-700">
-                              {req.quantity} {req.unit || 'Quintals'}
-                            </span>
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                              Offered: ₹{Number(req.offeredPrice).toLocaleString('en-IN')}/{req.unit || 'Qtl'}
-                            </span>
-                            <span
-                              className={`px-2.5 py-0.5 rounded-full text-sm font-bold tracking-wider ${
-                                isPending
-                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
-                                  : isPublished
-                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                  : 'bg-red-500/20 text-red-300 border border-red-500/40'
+                      {/* Left Status Color Accent */}
+                      <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+                        isPending ? 'bg-[#C88A00]' : isPublished ? 'bg-[#16845B]' : 'bg-[#C62828]'
+                      }`} />
+
+                      {/* Checkbox for Bulk Actions */}
+                      <div className="pt-1 pl-1">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 text-[#E51B2A] border-gray-300 rounded focus:ring-[#E51B2A] cursor-pointer"
+                          checked={isSelected}
+                          onChange={() => {
+                            setSelectedIds(prev =>
+                              prev.includes(req._id) ? prev.filter(id => id !== req._id) : [...prev, req._id]
+                            );
+                          }}
+                        />
+                      </div>
+
+                      <div className="flex flex-col lg:flex-row justify-between gap-4 flex-1">
+                        {/* Details (Left Side) */}
+                        <div className="space-y-3 flex-1">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <span className="text-lg font-black text-[#132B47] uppercase">{req.crop}</span>
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                                isPending ? 'bg-amber-100 text-amber-800' : isPublished ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                               }`}
                             >
                               ● {req.status.replace('_', ' ')}
                             </span>
                           </div>
+                          
+                          <div className="text-[#132B47] font-semibold">
+                            {req.quantity} {req.unit || 'Quintals'} • Offered: ₹{Number(req.offeredPrice).toLocaleString('en-IN')}/{req.unit || 'Qtl'}
+                          </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs text-slate-300 pt-1">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-3 gap-x-2 pt-1 border-t border-gray-100 mt-2">
                             <div>
-                              <span className="text-slate-500 font-bold uppercase tracking-wider text-xs">Delivery Location: </span>
-                              <span className="font-semibold text-white">{req.location || 'Not specified'}</span>
+                              <div className="text-[#5F6B7A] font-bold uppercase tracking-wider text-[10px]">Delivery Location</div>
+                              <div className="font-semibold text-[#132B47] text-sm mt-0.5">{req.location || 'Not specified'}</div>
                             </div>
                             <div>
-                              <span className="text-slate-500 font-bold uppercase tracking-wider text-xs">Buyer Name: </span>
-                              <button
-                                onClick={() => openKycForRequest(req)}
-                                className="font-semibold text-blue-400 hover:text-blue-300 hover:underline inline-flex items-center gap-1"
-                                title="Click to inspect full 9-stage KYC & uploaded documents"
-                              >
-                                <span>{req.buyerId?.firstName} {req.buyerId?.lastName}</span>
-                                <span>({req.buyerId?.phone || 'No phone'})</span>
-                                <span className="text-xs bg-blue-500/20 px-1.5 py-0.2 rounded border border-blue-500/30">KYC 🔍</span>
-                              </button>
+                              <div className="text-[#5F6B7A] font-bold uppercase tracking-wider text-[10px]">Buyer Name</div>
+                              <div className="font-semibold text-[#132B47] text-sm mt-0.5">
+                                {req.buyerId?.firstName} {req.buyerId?.lastName}
+                              </div>
                             </div>
                             <div>
-                              <span className="text-slate-500 font-bold uppercase tracking-wider text-xs">Estimated Value: </span>
-                              <span className="font-bold text-emerald-400">
+                              <div className="text-[#5F6B7A] font-bold uppercase tracking-wider text-[10px]">Estimated Value</div>
+                              <div className="font-bold text-[#16845B] text-sm mt-0.5">
                                 ₹{((Number(req.quantity) || 0) * (Number(req.offeredPrice) || 0)).toLocaleString('en-IN')}
-                              </span>
+                              </div>
                             </div>
                           </div>
 
                           {req.description && (
-                            <p className="text-xs text-slate-400 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
-                              <strong className="text-slate-300">Specifications / Notes:</strong> {req.description}
+                            <p className="text-xs text-[#5F6B7A] bg-gray-50 p-2.5 rounded-lg mt-2">
+                              <strong className="text-[#132B47]">Specifications / Notes:</strong> {req.description}
                             </p>
                           )}
 
                           {isRejected && req.adminRemarks && (
-                            <p className="text-xs text-red-300 bg-red-950/40 p-2.5 rounded-xl border border-red-900/50">
+                            <p className="text-xs text-[#C62828] bg-red-50 p-2.5 rounded-lg mt-2">
                               <strong>Rejection Reason:</strong> {req.adminRemarks}
                             </p>
                           )}
 
-                          <div className="flex items-center gap-4 text-sm text-slate-500">
+                          <div className="flex items-center gap-4 text-xs text-[#99A5BA] pt-2">
                             <span>Submitted: {new Date(req.createdAt).toLocaleString('en-IN')}</span>
                             {req.reviewedAt && <span>Reviewed: {new Date(req.reviewedAt).toLocaleString('en-IN')}</span>}
                           </div>
                         </div>
 
-                        {/* Admin Actions */}
-                        <div className="flex flex-col sm:flex-row lg:flex-col gap-2 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-800/80 pt-3 lg:pt-0 lg:pl-4">
-                          {/* 9-Stage KYC Inspection Button */}
+                        {/* Admin Actions (Right Column) */}
+                        <div className="flex flex-col gap-2 shrink-0 border-t lg:border-t-0 lg:border-l border-[#D9DEE5] pt-3 lg:pt-0 lg:pl-4 min-w-[200px]">
                           <button
                             onClick={() => openKycForRequest(req)}
-                            className="px-3.5 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 font-bold rounded-xl text-xs border border-blue-500/40 transition flex items-center justify-center gap-1.5 shadow-sm"
+                            className="w-full py-2 bg-blue-50 hover:bg-blue-100 text-[#0052CC] font-bold rounded-md text-xs transition flex items-center justify-center gap-1.5"
                           >
                             <span>📋</span>
                             <span>Inspect 9-Stage KYC</span>
                           </button>
 
                           {isPending ? (
-                            <div className="flex items-center gap-2">
+                            <>
                               <button
                                 onClick={() => handleApproveRequest(req._id, req.crop)}
                                 disabled={actionLoadingId === req._id}
-                                className="flex-1 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl text-xs transition shadow flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                className="w-full py-2 bg-[#E51B2A] hover:bg-red-800 text-white font-bold rounded-md text-xs transition flex items-center justify-center gap-1.5 disabled:opacity-50"
                               >
                                 <span>✓</span>
                                 <span>Accept & Publish</span>
                               </button>
-
-                              <button
-                                onClick={() => handleRejectRequest(req._id, req.crop)}
+                              <InlineConfirmButton
+                                id={`${req._id}-reject`}
+                                confirmingId={confirmingId}
+                                setConfirmingId={setConfirmingId}
+                                fastMode={fastMode}
+                                requireReason={true}
+                                reasonPlaceholder="Reason (optional)"
+                                baseText={<><span>✕</span><span>Reject</span></>}
+                                confirmText="Reject"
+                                baseClassName="w-full py-2 bg-[#C62828] hover:bg-red-800 text-white font-bold rounded-md text-xs transition flex items-center justify-center gap-1.5 disabled:opacity-50"
                                 disabled={actionLoadingId === req._id}
-                                className="flex-1 px-4 py-2 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white font-bold rounded-xl text-xs border border-red-500/40 hover:border-transparent transition flex items-center justify-center gap-1.5 disabled:opacity-50"
-                              >
-                                <span>✕</span>
-                                <span>Reject</span>
-                              </button>
-                            </div>
+                                onConfirm={(reason) => handleRejectRequest(req._id, req.crop, reason)}
+                              />
+                            </>
                           ) : isPublished ? (
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-bold text-emerald-400">✓ Live on Farmer UI</span>
-                              <button
-                                onClick={() => handleRejectRequest(req._id, req.crop)}
+                            <div className="flex flex-col items-center gap-2 mt-2">
+                              <span className="text-xs font-bold text-[#16845B]">✓ Live on Farmer UI</span>
+                              <InlineConfirmButton
+                                id={`${req._id}-revoke`}
+                                confirmingId={confirmingId}
+                                setConfirmingId={setConfirmingId}
+                                fastMode={fastMode}
+                                requireReason={true}
+                                reasonPlaceholder="Reason (optional)"
+                                baseText="Revoke"
+                                confirmText="Revoke"
+                                baseClassName="w-full py-1.5 bg-white hover:bg-gray-50 text-[#5F6B7A] rounded-md text-xs font-bold transition"
                                 disabled={actionLoadingId === req._id}
-                                className="px-2.5 py-1 bg-slate-800 hover:bg-red-900/40 text-slate-400 hover:text-red-300 rounded-lg text-xs font-medium border border-slate-700 transition"
-                              >
-                                Revoke
-                              </button>
+                                onConfirm={(reason) => handleRejectRequest(req._id, req.crop, reason)}
+                              />
                             </div>
                           ) : (
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-bold text-red-400">✕ Rejected</span>
+                            <div className="flex flex-col items-center gap-2 mt-2">
+                              <span className="text-xs font-bold text-[#C62828]">✕ Rejected</span>
                               <button
                                 onClick={() => handleApproveRequest(req._id, req.crop)}
                                 disabled={actionLoadingId === req._id}
-                                className="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/40 text-slate-300 hover:text-emerald-300 rounded-lg text-xs font-medium border border-slate-700 transition"
+                                className="w-full py-1.5 bg-white hover:bg-gray-50 text-[#5F6B7A] rounded-md text-xs font-bold transition"
                               >
                                 Re-approve
                               </button>
@@ -1003,73 +1175,87 @@ export default function Admin() {
         {activeTab === 'buyer-applications' && (
           <div className="space-y-4">
             {loading ? (
-              <div className="py-20 text-center text-slate-400">Loading applications…</div>
+              <div className="py-20 text-center text-[#5F6B7A]">Loading applications…</div>
             ) : buyerApplications.length === 0 ? (
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-12 text-center text-slate-400">
-                <p className="font-bold text-white">No buyer registration applications found</p>
+              <div className="bg-white rounded-xl p-12 text-center text-[#5F6B7A]">
+                <p className="font-bold text-[#132B47]">No buyer registration applications found</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
                 {buyerApplications.map((app) => (
-                  <div key={app._id} className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                      <div className="space-y-1.5 flex-1">
+                  <div key={app._id} className="bg-white rounded-xl shadow-sm overflow-hidden relative flex flex-col md:flex-row">
+                    {/* Left Border Status */}
+                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+                      app.verificationStatus === 'APPROVED' ? 'bg-[#16845B]' :
+                      app.verificationStatus === 'REJECTED' ? 'bg-[#C62828]' : 'bg-[#C88A00]'
+                    }`} />
+
+                    {/* Left Content Area */}
+                    <div className="flex-1 p-5 md:pr-6 md:border-r border-[#D9DEE5]">
+                      <div className="space-y-1.5 flex-1 pl-2">
                         <div className="flex items-center gap-3 flex-wrap">
-                          <h3 className="text-base font-bold text-white">{app.applicantName}</h3>
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                          <h3 className="text-base font-bold text-[#132B47] uppercase">{app.applicantName}</h3>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 uppercase tracking-wider">
                             {app.buyerType}
                           </span>
-                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                            app.verificationStatus === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300' :
-                            app.verificationStatus === 'REJECTED' ? 'bg-red-500/20 text-red-300' :
-                            'bg-amber-500/20 text-amber-300'
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            app.verificationStatus === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                            app.verificationStatus === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                            'bg-amber-100 text-amber-800'
                           }`}>
                             {app.verificationStatus}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-400">
-                          <strong>Business:</strong> {app.business?.name} ({app.business?.businessType}) • <strong>Phone:</strong> {app.phone} • <strong>Email:</strong> {app.email}
+                        <p className="text-xs text-[#5F6B7A]">
+                          <strong className="text-[#132B47]">Business:</strong> {app.business?.name} ({app.business?.businessType}) • <strong className="text-[#132B47]">Phone:</strong> {app.phone} • <strong className="text-[#132B47]">Email:</strong> {app.email}
                         </p>
-                        <p className="text-xs text-slate-400">
-                          <strong>Location:</strong> {app.address?.district}, {app.address?.state} ({app.address?.pincode})
+                        <p className="text-xs text-[#5F6B7A]">
+                          <strong className="text-[#132B47]">Location:</strong> {app.address?.district}, {app.address?.state} ({app.address?.pincode})
                         </p>
                         {app.adminRemarks && (
-                          <p className="text-xs text-red-300 bg-red-950/30 p-2 rounded-lg border border-red-900/40">
+                          <p className="text-xs text-[#C62828] bg-red-50 p-2 rounded-lg mt-2">
                             <strong>Remarks:</strong> {app.adminRemarks}
                           </p>
                         )}
                       </div>
+                    </div>
 
-                      <div className="flex items-center gap-2 flex-wrap">
+                    {/* Right Action Area */}
+                    <div className="p-5 bg-gray-50 md:w-64 shrink-0 flex flex-col justify-center gap-2">
+                      <button
+                        onClick={() => {
+                          openKycApp(app._id, app, null);
+                        }}
+                        className="w-full px-3.5 py-2 bg-white hover:bg-gray-100 text-[#0052CC] font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
+                      >
+                        <span>🔍</span>
+                        <span>View 9-Stage Form & Docs</span>
+                      </button>
+
+                      {app.verificationStatus !== 'APPROVED' && (
                         <button
-                          onClick={() => {
-                            openKycApp(app._id, app, null);
-                          }}
-                          className="px-3.5 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 font-bold rounded-xl text-xs border border-blue-500/40 transition flex items-center gap-1.5"
+                          onClick={() => handleApproveApplication(app._id, app.applicantName)}
+                          disabled={actionLoadingId === app._id}
+                          className="w-full px-4 py-2 bg-[#E51B2A] hover:bg-red-800 text-white font-bold rounded-lg text-xs transition shadow-sm"
                         >
-                          <span>🔍</span>
-                          <span>View 9-Stage Form & Docs</span>
+                          ✓ Approve KYC
                         </button>
-
-                        {app.verificationStatus !== 'APPROVED' && (
-                          <button
-                            onClick={() => handleApproveApplication(app._id, app.applicantName)}
-                            disabled={actionLoadingId === app._id}
-                            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl text-xs transition"
-                          >
-                            ✓ Approve KYC
-                          </button>
-                        )}
-                        {app.verificationStatus !== 'REJECTED' && (
-                          <button
-                            onClick={() => handleRejectApplication(app._id, app.applicantName)}
-                            disabled={actionLoadingId === app._id}
-                            className="px-4 py-2 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white font-bold rounded-xl text-xs border border-red-500/30 transition"
-                          >
-                            ✕ Reject
-                          </button>
-                        )}
-                      </div>
+                      )}
+                      {app.verificationStatus !== 'REJECTED' && (
+                        <InlineConfirmButton
+                          id={`${app._id}-reject-kyc`}
+                          confirmingId={confirmingId}
+                          setConfirmingId={setConfirmingId}
+                          fastMode={fastMode}
+                          requireReason={true}
+                          reasonPlaceholder="Rejection Reason"
+                          baseText={<><span>✕</span><span>Reject</span></>}
+                          confirmText="Reject KYC"
+                          baseClassName="w-full px-4 py-2 bg-[#C62828] hover:bg-red-800 text-white font-bold rounded-lg text-xs transition shadow-sm flex justify-center gap-1.5"
+                          disabled={actionLoadingId === app._id}
+                          onConfirm={(reason) => handleRejectApplication(app._id, app.applicantName, reason)}
+                        />
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1080,68 +1266,72 @@ export default function Admin() {
 
         {/* ── Tab 3: Registered Users ── */}
         {activeTab === 'users' && (
-          <div className="bg-slate-900/80 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
-            <div className="p-4 border-b border-slate-800 flex justify-between items-center gap-4">
+          <div className="bg-white rounded-xl overflow-hidden shadow-sm">
+            <div className="p-4 flex justify-between items-center gap-4 bg-gray-50">
               <input
                 type="text"
                 placeholder="Search user by name, phone, or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full max-w-sm h-10 px-4 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
+                className="w-full max-w-sm h-10 px-4 bg-white rounded-lg text-[#132B47] text-sm placeholder:text-[#99A5BA] focus:outline-none focus:border-[#0052CC] focus:ring-1 focus:ring-[#0052CC]"
               />
-              <span className="text-xs text-slate-400 font-semibold">{filteredUsers.length} Users</span>
+              <span className="text-xs text-[#5F6B7A] font-bold uppercase tracking-wider">{filteredUsers.length} Users</span>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-950/60 border-b border-slate-800">
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">User Details</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Phone / Mobile</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Email Address</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Registered On</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Action</th>
+                  <tr className="bg-gray-50">
+                    <th className="px-6 py-4 text-xs font-bold text-[#5F6B7A] uppercase tracking-wider">User Details</th>
+                    <th className="px-6 py-4 text-xs font-bold text-[#5F6B7A] uppercase tracking-wider">Phone / Mobile</th>
+                    <th className="px-6 py-4 text-xs font-bold text-[#5F6B7A] uppercase tracking-wider">Email Address</th>
+                    <th className="px-6 py-4 text-xs font-bold text-[#5F6B7A] uppercase tracking-wider">Registered On</th>
+                    <th className="px-6 py-4 text-xs font-bold text-[#5F6B7A] uppercase tracking-wider text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60">
+                <tbody className="divide-y divide-[#D9DEE5]">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="px-6 py-16 text-center text-slate-400">
+                      <td colSpan="5" className="px-6 py-16 text-center text-[#5F6B7A]">
                         No registered users matching query.
                       </td>
                     </tr>
                   ) : (
                     filteredUsers.map((user) => (
-                      <tr key={user._id} className="hover:bg-slate-800/40 transition">
+                      <tr key={user._id} className="hover:bg-gray-50/50 transition">
                         <td className="px-6 py-4">
-                          <div className="font-bold text-white text-sm">
+                          <div className="font-bold text-[#132B47] text-sm">
                             {user.firstName} {user.lastName}
                           </div>
-                          <div className="text-sm font-mono text-slate-500 mt-0.5 select-all">
+                          <div className="text-xs font-mono text-[#5F6B7A] mt-0.5 select-all">
                             ID: {user._id}
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-mono font-bold">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-50 text-[#16845B] text-xs font-mono font-bold">
                             📞 {user.phone}
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-sm text-slate-300 font-medium">{user.email}</span>
+                          <span className="text-sm text-[#132B47] font-medium">{user.email}</span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-xs text-slate-400 font-medium">
+                          <span className="text-xs text-[#5F6B7A] font-medium">
                             {user.createdAt ? new Date(user.createdAt).toLocaleString('en-IN') : 'N/A'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => handleDeleteUser(user)}
+                        <td className="px-6 py-4 text-right flex justify-end">
+                          <InlineConfirmButton
+                            id={`${user._id}-delete`}
+                            confirmingId={confirmingId}
+                            setConfirmingId={setConfirmingId}
+                            fastMode={fastMode}
+                            baseText={deletingId === user._id ? 'Deleting…' : 'Delete'}
+                            confirmText="Delete User"
+                            baseClassName="px-3 py-1.5 bg-[#C62828] hover:bg-red-800 text-white rounded-lg text-xs font-bold transition shadow-sm w-24 text-center"
                             disabled={deletingId === user._id}
-                            className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 rounded-xl text-xs font-bold transition ml-auto"
-                          >
-                            {deletingId === user._id ? 'Deleting…' : 'Delete'}
-                          </button>
+                            onConfirm={() => handleDeleteUser(user)}
+                          />
                         </td>
                       </tr>
                     ))
@@ -1156,7 +1346,7 @@ export default function Admin() {
         {activeTab === 'deal-inspections' && (
           <div className="space-y-4">
             {/* Filter controls */}
-            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 sticky top-16 bg-[#F1F3F5] z-20 py-2/50">
               <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
                                 {[
                   { key: 'ALL', label: 'All Deals' },
@@ -1168,10 +1358,10 @@ export default function Admin() {
                   <button
                     key={item.key}
                     onClick={() => setInspectionFilter(item.key)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition whitespace-nowrap ${
                       inspectionFilter === item.key
-                        ? 'bg-emerald-600 text-white shadow'
-                        : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                        ? 'bg-white text-[#132B47] shadow-sm'
+                        : 'text-[#5F6B7A] hover:bg-white hover:border-[#D9DEE5] border border-transparent'
                     }`}
                   >
                     {item.label}
@@ -1185,19 +1375,19 @@ export default function Admin() {
                   placeholder="Search crop, farmer name, phone, village..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-9 pl-8 pr-3 bg-slate-900 border border-slate-800 rounded-lg text-white text-xs font-medium placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
+                  className="w-full h-9 pl-8 pr-3 bg-white rounded-md text-[#132B47] text-xs font-medium placeholder:text-[#99A5BA] focus:outline-none focus:border-[#E51B2A]"
                 />
-                <span className="absolute left-2.5 top-2.5 text-xs text-slate-500">🔍</span>
+                <span className="absolute left-2.5 top-2.5 text-xs text-[#99A5BA]">🔍</span>
               </div>
             </div>
 
             {loading ? (
-              <div className="py-20 text-center text-slate-400">Loading inspection deals…</div>
+              <div className="py-20 text-center text-[#5F6B7A]">Loading inspection deals…</div>
             ) : filteredInspections.length === 0 ? (
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-12 text-center text-slate-400">
-                <div className="text-4xl mb-2">🌾</div>
-                <p className="font-bold text-white">No crop inspections found</p>
-                <p className="text-xs text-slate-500 mt-1">
+              <div className="bg-white rounded-xl p-12 text-center text-[#5F6B7A]">
+                <div className="text-4xl mb-2 opacity-50">🌾</div>
+                <p className="font-bold text-[#132B47]">No crop inspections found</p>
+                <p className="text-xs mt-1">
                   When farmers upload photos and pay the ₹250 agent verification fee, deals will appear here for admin review.
                 </p>
               </div>
@@ -1221,89 +1411,94 @@ export default function Admin() {
                   return (
                     <div
                       key={deal._id}
-                      className={`bg-slate-900/90 border rounded-3xl p-6 shadow-xl transition relative overflow-hidden ${
+                      className={`bg-white border rounded-xl p-6 shadow-sm transition relative overflow-hidden ${
                         isAwaiting
-                          ? 'border-amber-500/60 ring-1 ring-amber-500/30'
+                          ? 'border-[#C88A00] bg-amber-50/20'
                           : isVerified
-                          ? 'border-emerald-500/50 ring-1 ring-emerald-500/20'
+                          ? 'border-[#16845B] bg-green-50/20'
                           : isUnverified
-                          ? 'border-red-500/50'
-                          : 'border-slate-800'
+                          ? 'border-[#C62828] bg-red-50/20'
+                          : 'border-[#D9DEE5]'
                       }`}
                     >
+                      {/* Left Status Color Accent */}
+                      <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+                        isAwaiting ? 'bg-[#C88A00]' : isVerified ? 'bg-[#16845B]' : isUnverified ? 'bg-[#C62828]' : 'bg-[#132B47]'
+                      }`} />
+
                       {/* Top Header */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-800">
-                        <div>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
+                        <div className="pl-2">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-mono font-bold text-slate-400 uppercase tracking-wider">
+                            <span className="text-sm font-mono font-bold text-[#5F6B7A] uppercase tracking-wider">
                               DEAL #{deal._id?.slice(-6).toUpperCase()}
                             </span>
-                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${
                               isAwaiting
-                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                ? 'bg-amber-100 text-amber-800'
                                 : isVerified
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                ? 'bg-green-100 text-green-800'
                                 : isUnverified
-                                ? 'bg-red-500/20 text-red-300 border border-red-500/40'
-                                : 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-blue-100 text-blue-800'
                             }`}>
                               {isAwaiting ? '🛵 Agent Assigned • Awaiting Admin Verify' :
                                isVerified ? '✓ Verified' :
                                isUnverified ? '✕ Unverified' : deal.status}
                             </span>
                           </div>
-                          <h3 className="text-xl font-black text-white mt-1">
+                          <h3 className="text-xl font-black text-[#132B47] mt-1 uppercase">
                             {deal.crop} — {deal.quantity} Qtl
                           </h3>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-lg">
                           <div className="text-right">
-                            <p className="text-xs text-slate-400">Agreed Price</p>
-                            <p className="text-base font-black text-amber-400">₹{Number(deal.agreedPrice).toLocaleString('en-IN')}/Qtl</p>
+                            <p className="text-[10px] uppercase font-bold text-[#5F6B7A]">Agreed Price</p>
+                            <p className="text-sm font-black text-[#132B47]">₹{Number(deal.agreedPrice).toLocaleString('en-IN')}/Qtl</p>
                           </div>
-                          <div className="text-right pl-3 border-l border-slate-800">
-                            <p className="text-xs text-slate-400">Total Value</p>
-                            <p className="text-base font-black text-emerald-400">₹{(Number(deal.agreedPrice) * Number(deal.quantity)).toLocaleString('en-IN')}</p>
+                          <div className="text-right pl-3 border-l border-[#D9DEE5]">
+                            <p className="text-[10px] uppercase font-bold text-[#5F6B7A]">Total Value</p>
+                            <p className="text-sm font-black text-[#16845B]">₹{(Number(deal.agreedPrice) * Number(deal.quantity)).toLocaleString('en-IN')}</p>
                           </div>
                         </div>
                       </div>
 
                       {/* Status Badges Row: Moisture + Agent Fee */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-4 border-b border-slate-800/80">
-                        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
+                        <div className="p-3 rounded-xl bg-green-50 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className="text-lg">💧</span>
                             <div>
-                              <p className="text-sm font-bold text-emerald-400 uppercase tracking-wide">Moisture Analysis</p>
-                              <p className="text-xs font-semibold text-emerald-200">
-                                {deal.moisturePercent || 11.8}% (Acceptable standard 10%-14%)
+                              <p className="text-[11px] font-bold text-green-800 uppercase tracking-wide">Moisture Analysis</p>
+                              <p className="text-xs font-semibold text-green-600">
+                                {deal.moisturePercent || 11.8}% (Acceptable 10%-14%)
                               </p>
                             </div>
                           </div>
-                          <span className="px-2 py-0.5 rounded text-xs font-black bg-emerald-500 text-slate-950 uppercase">
-                            Screening Passed
+                          <span className="px-2 py-0.5 rounded text-xs font-black bg-green-600 text-white uppercase">
+                            Passed
                           </span>
                         </div>
 
                         <div className={`p-3 rounded-xl border flex items-center justify-between ${
                           deal.agentFeePaid
-                            ? 'bg-blue-500/10 border-blue-500/30'
-                            : 'bg-slate-800/50 border-slate-700'
+                            ? 'bg-blue-50 border-blue-200'
+                            : 'bg-gray-50 border-gray-200'
                         }`}>
                           <div className="flex items-center gap-2">
                             <span className="text-lg">💳</span>
                             <div>
-                              <p className="text-sm font-bold text-blue-400 uppercase tracking-wide">Agent Connection Fee</p>
-                              <p className="text-xs font-semibold text-slate-200">
+                              <p className={`text-[11px] font-bold uppercase tracking-wide ${deal.agentFeePaid ? 'text-blue-800' : 'text-[#5F6B7A]'}`}>Agent Connection Fee</p>
+                              <p className={`text-xs font-semibold ${deal.agentFeePaid ? 'text-blue-600' : 'text-gray-500'}`}>
                                 {deal.agentFeePaid ? '₹250 Paid by Buyer' : '₹250 Payment Pending'}
                               </p>
                             </div>
                           </div>
                           <span className={`px-2 py-0.5 rounded text-xs font-black uppercase ${
                             deal.agentFeePaid
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-slate-700 text-slate-300'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-200 text-gray-500'
                           }`}>
                             {deal.agentFeePaid ? 'PAID ✓' : 'UNPAID'}
                           </span>
@@ -1311,30 +1506,30 @@ export default function Admin() {
                       </div>
 
                       {/* 2-Column Info: Farmer Address/Phone vs Buyer Info */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4 border-b border-slate-800/80">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
                         {/* Farmer on-ground address card */}
-                        <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+                        <div className="bg-gray-50 p-4 rounded-xl">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
-                              <span>👨‍🌾</span> Farmer & Field Inspection Location
+                            <span className="text-xs font-black uppercase text-[#C88A00] tracking-wider flex items-center gap-1.5">
+                              <span>👨‍🌾</span> Farmer & Field Location
                             </span>
                           </div>
-                          <h4 className="text-base font-bold text-white">
+                          <h4 className="text-sm font-bold text-[#132B47]">
                             {deal.farmerId?.firstName} {deal.farmerId?.lastName}
                           </h4>
-                          <div className="mt-2 space-y-1.5 text-xs text-slate-300">
+                          <div className="mt-2 space-y-1.5 text-xs text-[#5F6B7A]">
                             <p className="flex items-center gap-2">
-                              <span className="text-slate-500">Phone:</span>
-                              <span className="font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 select-all">
+                              <span>Phone:</span>
+                              <span className="font-mono font-bold text-[#16845B] select-all">
                                 📞 {deal.farmerId?.phone || 'Not provided'}
                               </span>
                             </p>
                             <p className="flex items-start gap-2">
-                              <span className="text-slate-500 shrink-0">Field Address:</span>
-                              <span className="font-medium text-slate-200">
-                                📍 {deal.farmerId?.village ? `Village: ${deal.farmerId.village}, ` : ''}
-                                {deal.farmerId?.block ? `Block: ${deal.farmerId.block}, ` : ''}
-                                {deal.farmerId?.district ? `District: ${deal.farmerId.district}, ` : ''}
+                              <span className="shrink-0">Field:</span>
+                              <span className="font-medium text-[#132B47]">
+                                📍 {deal.farmerId?.village ? `${deal.farmerId.village}, ` : ''}
+                                {deal.farmerId?.block ? `${deal.farmerId.block}, ` : ''}
+                                {deal.farmerId?.district ? `${deal.farmerId.district}, ` : ''}
                                 {deal.farmerId?.state || ''}
                               </span>
                             </p>
@@ -1342,25 +1537,25 @@ export default function Admin() {
                         </div>
 
                         {/* Buyer Info Card */}
-                        <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+                        <div className="bg-gray-50 p-4 rounded-xl">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-black uppercase text-blue-400 tracking-wider flex items-center gap-1.5">
+                            <span className="text-xs font-black uppercase text-[#0052CC] tracking-wider flex items-center gap-1.5">
                               <span>🏢</span> Buyer Details
                             </span>
                           </div>
-                          <h4 className="text-base font-bold text-white">
+                          <h4 className="text-sm font-bold text-[#132B47]">
                             {deal.buyerId?.firstName} {deal.buyerId?.lastName}
                           </h4>
-                          <div className="mt-2 space-y-1.5 text-xs text-slate-300">
+                          <div className="mt-2 space-y-1.5 text-xs text-[#5F6B7A]">
                             <p className="flex items-center gap-2">
-                              <span className="text-slate-500">Phone:</span>
-                              <span className="font-mono font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20 select-all">
+                              <span>Phone:</span>
+                              <span className="font-mono font-bold text-[#0052CC] select-all">
                                 📞 {deal.buyerId?.phone || 'Not provided'}
                               </span>
                             </p>
                             <p className="flex items-start gap-2">
-                              <span className="text-slate-500 shrink-0">Location:</span>
-                              <span className="font-medium text-slate-200">
+                              <span className="shrink-0">Location:</span>
+                              <span className="font-medium text-[#132B47]">
                                 📍 {deal.buyerId?.district ? `${deal.buyerId.district}, ` : ''}
                                 {deal.buyerId?.state || 'N/A'}
                               </span>
@@ -1371,29 +1566,29 @@ export default function Admin() {
 
                       {/* Uploaded Crop Photos */}
                       {shouldShowImagesSection && (
-                        <div className="py-4 border-b border-slate-800/80">
+                        <div className="py-4">
                           <div className="flex items-center justify-between mb-2.5">
-                            <span className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
+                            <span className="text-xs font-black uppercase text-[#5F6B7A] tracking-wider flex items-center gap-1.5">
                               <span>📷</span> Uploaded Crop Photos
                             </span>
-                            {hasImages && <span className="text-sm text-slate-500">Click any photo to zoom in full screen</span>}
+                            {hasImages && <span className="text-[10px] text-[#99A5BA]">Click any photo to zoom</span>}
                           </div>
                           
                           {!imagesState && (
                             <button
                               onClick={() => fetchDealImages(deal._id)}
-                              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition"
+                              className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-[#132B47] text-xs font-bold rounded-lg transition"
                             >
                               Load Inspection Photos & Documents
                             </button>
                           )}
                           
                           {isLoadingImages && (
-                            <div className="text-sm text-slate-400 italic">Downloading heavy image files...</div>
+                            <div className="text-sm text-[#99A5BA] italic">Downloading heavy image files...</div>
                           )}
                           
                           {imagesError && (
-                            <div className="text-sm text-red-400">{imagesError}</div>
+                            <div className="text-sm text-[#C62828]">{imagesError}</div>
                           )}
 
                           {hasImages && (
@@ -1402,14 +1597,14 @@ export default function Admin() {
                                 <div
                                   key={idx}
                                   onClick={() => setPreviewImage(img)}
-                                  className="aspect-square rounded-xl overflow-hidden border border-slate-700 hover:border-amber-400 transition cursor-zoom-in group relative bg-slate-950"
+                                  className="aspect-square rounded-xl overflow-hidden hover:border-[#16845B] transition cursor-zoom-in group relative bg-gray-100 shadow-sm"
                                 >
                                   <img
                                     src={img}
                                     alt={`Crop ${idx + 1}`}
                                     className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
                                   />
-                                  <span className="absolute bottom-1 right-1 text-[9px] bg-black/70 text-white px-1.5 py-0.5 rounded">
+                                  <span className="absolute bottom-1 right-1 text-[9px] bg-black/70 text-white px-1.5 py-0.5 rounded font-bold">
                                     #{idx + 1}
                                   </span>
                                 </div>
@@ -1421,15 +1616,15 @@ export default function Admin() {
 
                       {/* Uploaded Transaction Receipt & UTR (Submitted by Farmer) */}
                       {shouldShowReceiptSection && (
-                        <div className="py-4 border-b border-slate-800/80 bg-slate-950/60 p-4 rounded-2xl my-3 border border-slate-800">
+                        <div className="py-4 bg-gray-50 p-4 rounded-xl my-3">
                           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                            <span className="text-xs font-black uppercase text-emerald-400 tracking-wider flex items-center gap-1.5">
+                            <span className="text-xs font-black uppercase text-[#16845B] tracking-wider flex items-center gap-1.5">
                               <span>🧾</span> Sale Payment Proof & UTR Reference
                             </span>
-                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase ${
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${
                               deal.status === 'COMPLETED'
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-amber-100 text-amber-800'
                             }`}>
                               {deal.status === 'COMPLETED' ? '✓ Deal Completed' : 'Pending Admin Completion'}
                             </span>
@@ -1439,7 +1634,7 @@ export default function Admin() {
                             <div className="mb-4">
                               <button
                                 onClick={() => fetchDealImages(deal._id)}
-                                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition"
+                                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-[#132B47] text-xs font-bold rounded-lg transition shadow-sm"
                               >
                                 Load Inspection Photos & Documents
                               </button>
@@ -1447,34 +1642,34 @@ export default function Admin() {
                           )}
 
                           {isLoadingImages && (
-                            <div className="text-sm text-slate-400 italic mb-4">Downloading heavy image files...</div>
+                            <div className="text-sm text-[#99A5BA] italic mb-4">Downloading heavy image files...</div>
                           )}
 
                           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                             {hasReceipt && (
                               <div
                                 onClick={() => setPreviewImage(receiptUrl)}
-                                className="w-24 h-24 rounded-xl overflow-hidden border border-slate-700 hover:border-emerald-400 transition cursor-zoom-in group relative bg-slate-900 shrink-0"
+                                className="w-24 h-24 rounded-xl overflow-hidden hover:border-[#16845B] transition cursor-zoom-in group relative bg-gray-100 shrink-0 shadow-sm"
                               >
                                 <img
                                   src={receiptUrl}
                                   alt="Transaction Receipt"
                                   className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
                                 />
-                                <span className="absolute bottom-1 right-1 text-[9px] bg-black/80 text-white px-1.5 py-0.5 rounded">
+                                <span className="absolute bottom-1 right-1 text-[9px] bg-black/80 text-white px-1.5 py-0.5 rounded font-bold">
                                   🔍 Zoom
                                 </span>
                               </div>
                             )}
 
-                            <div className="space-y-1.5 text-xs text-slate-300">
+                            <div className="space-y-1.5 text-xs text-[#5F6B7A]">
                               <p className="flex items-center gap-2">
-                                <span className="text-slate-500">UTR / Reference:</span>
-                                <span className="font-mono font-black text-white bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 select-all text-sm">
+                                <span>UTR / Reference:</span>
+                                <span className="font-mono font-black text-[#132B47] bg-white px-2 py-1 rounded select-all text-sm">
                                   {deal.utrNumber || 'No UTR typed'}
                                 </span>
                               </p>
-                              <p className="text-sm text-slate-400">
+                              <p className="text-xs text-[#99A5BA]">
                                 Uploaded by farmer after receiving payment from buyer.
                               </p>
                             </div>
@@ -1484,151 +1679,162 @@ export default function Admin() {
 
                       {/* Action Bar (Verified / Complete / Unverified) */}
                       <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                        <div className="text-xs text-slate-400">
+                        <div className="text-xs text-[#5F6B7A]">
                           {deal.status === 'COMPLETED' && (
-                            <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                            <span className="text-[#16845B] font-bold flex items-center gap-1.5">
                               <span>🎉</span> Deal marked as COMPLETED! Transaction recorded.
                             </span>
                           )}
                           {deal.status === 'RECEIPT_SUBMITTED' && (
-                            <span className="text-amber-300 font-bold flex items-center gap-1.5">
+                            <span className="text-[#C88A00] font-bold flex items-center gap-1.5">
                               <span>📄</span> Transaction receipt & UTR uploaded. Click "Mark Deal Completed" to finalize.
                             </span>
                           )}
                           {(deal.status === 'VERIFIED' || deal.status === 'ADMIN_PRE_SHIPMENT_VERIFIED') && (
-                            <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                            <span className="text-[#16845B] font-bold flex items-center gap-1.5">
                               <span>✓</span> Crop physically verified from agent. Awaiting buyer to upload delivery photos.
                             </span>
                           )}
                           {isUnverified && (
-                            <span className="text-red-400 font-bold flex items-center gap-1.5">
+                            <span className="text-[#C62828] font-bold flex items-center gap-1.5">
                               <span>✕</span> Crop marked unverified. Deal paused.
                             </span>
                           )}
                           {isAwaiting && (
-                            <span className="text-amber-400 font-bold flex items-center gap-1.5">
+                            <span className="text-[#C88A00] font-bold flex items-center gap-1.5">
                               <span>🛵</span> Agent has farmer's address and phone number for physical check. Tap below to verify or reject.
                             </span>
                           )}
-                        
-                          </div>
+                        </div>
 
-                          {/* Image Gallery */}
-                          {images.length > 0 && (
-                            <div className="flex gap-2 overflow-x-auto mt-4 pb-2">
-                              {images.map((img, i) => (
-                                <img key={i} src={img} alt="crop" className="h-20 w-20 object-cover rounded-lg border border-slate-700" />
+                        {/* Image Gallery */}
+                        {images.length > 0 && (
+                          <div className="flex gap-2 overflow-x-auto mt-4 pb-2">
+                            {images.map((img, i) => (
+                              <img key={i} src={img} alt="crop" className="h-20 w-20 object-cover rounded-lg shadow-sm" />
+                            ))}
+                          </div>
+                        )}
+                        {deal.deliverySubmissions?.length > 0 && (
+                          <div className="mt-4">
+                            <p className="text-xs font-bold text-[#5F6B7A] mb-2">Delivery Photos:</p>
+                            <div className="flex gap-2 overflow-x-auto pb-2">
+                              {deal.deliverySubmissions.map((img, i) => (
+                                <img key={i} src={img} alt="delivery" className="h-20 w-20 object-cover rounded-lg shadow-sm" />
                               ))}
                             </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 justify-end flex-wrap mt-5">
+                          {deal.status === 'ADMIN_MOISTURE_REVIEW' && (
+                            <>
+                              <button
+                                onClick={() => handleVerifyMoisture(deal._id, 'APPROVED')}
+                                disabled={actionLoadingId === deal._id}
+                                className="px-4 py-2 bg-[#E51B2A] text-white font-black rounded-lg text-xs hover:bg-red-800 shadow-sm"
+                              >
+                                Approve Moisture & Photos
+                              </button>
+                              <InlineConfirmButton
+                                id={`${deal._id}-reject-moisture`}
+                                confirmingId={confirmingId}
+                                setConfirmingId={setConfirmingId}
+                                fastMode={fastMode}
+                                baseText="Reject"
+                                confirmText="Reject"
+                                baseClassName="px-4 py-2 bg-[#C62828] text-white font-black rounded-lg text-xs hover:bg-red-800 shadow-sm"
+                                disabled={actionLoadingId === deal._id}
+                                onConfirm={() => handleVerifyMoisture(deal._id, 'REJECTED')}
+                              />
+                            </>
                           )}
-                          {deal.deliverySubmissions?.length > 0 && (
-                            <div className="mt-4">
-                              <p className="text-xs font-bold text-slate-400 mb-2">Delivery Photos:</p>
-                              <div className="flex gap-2 overflow-x-auto pb-2">
-                                {deal.deliverySubmissions.map((img, i) => (
-                                  <img key={i} src={img} alt="delivery" className="h-20 w-20 object-cover rounded-lg border border-slate-700" />
-                                ))}
+
+                          {deal.status === 'HUMAN_REVIEW' && (
+                            <>
+                              <button
+                                onClick={() => handleVerifyPreShipment(deal._id, 'APPROVED')}
+                                disabled={actionLoadingId === deal._id}
+                                className="px-4 py-2 bg-[#E51B2A] text-white font-black rounded-lg text-xs hover:bg-red-800 shadow-sm"
+                              >
+                                Approve Photos
+                              </button>
+                              <InlineConfirmButton
+                                id={`${deal._id}-reject-photos`}
+                                confirmingId={confirmingId}
+                                setConfirmingId={setConfirmingId}
+                                fastMode={fastMode}
+                                baseText="Reject"
+                                confirmText="Reject"
+                                baseClassName="px-4 py-2 bg-[#C62828] text-white font-black rounded-lg text-xs hover:bg-red-800 shadow-sm"
+                                disabled={actionLoadingId === deal._id}
+                                onConfirm={() => handleVerifyPreShipment(deal._id, 'REJECTED')}
+                              />
+                            </>
+                          )}
+
+                          {deal.status === 'BUYER_DELIVERY_UPLOADED' && (
+                            <div className="mt-4 p-4 bg-blue-50 rounded-xl space-y-3 w-full">
+                              <h6 className="text-sm font-bold text-blue-900">Finalize Deal & Release Escrow</h6>
+                              <p className="text-xs text-blue-800 mb-2">Transfer the escrow funds to the farmer's bank account, then upload the receipt below.</p>
+                              <input
+                                type="text"
+                                placeholder="Bank Transfer UTR Number"
+                                value={adminUtr}
+                                onChange={(e) => setAdminUtr(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg text-xs font-mono bg-white text-[#132B47] focus:outline-none focus:border-blue-400"
+                              />
+                              <input
+                                type="file"
+                                accept="image/*,.pdf"
+                                onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if(file) {
+                                    const r = new FileReader();
+                                    r.onload = () => setAdminReceipt(r.result);
+                                    r.readAsDataURL(file);
+                                  }
+                                }}
+                                className="w-full px-3 py-2 rounded-lg text-xs bg-white text-[#5F6B7A]"
+                              />
+                              <div className="flex gap-2 pt-2">
+                                <button
+                                  onClick={() => handleVerifyFinalDelivery(deal._id, 'APPROVED')}
+                                  disabled={actionLoadingId === deal._id || !adminUtr || !adminReceipt}
+                                  className="px-4 py-2 bg-[#E51B2A] text-white font-black rounded-lg text-xs hover:bg-red-800 disabled:opacity-50 shadow-sm"
+                                >
+                                  Approve Delivery & Upload Receipt
+                                </button>
+                                <InlineConfirmButton
+                                  id={`${deal._id}-reject-delivery`}
+                                  confirmingId={confirmingId}
+                                  setConfirmingId={setConfirmingId}
+                                  fastMode={fastMode}
+                                  baseText="Reject (Refund Buyer)"
+                                  confirmText="Reject"
+                                  baseClassName="px-4 py-2 bg-[#C62828] text-white font-black rounded-lg text-xs hover:bg-red-800 disabled:opacity-50 shadow-sm"
+                                  disabled={actionLoadingId === deal._id}
+                                  onConfirm={() => handleVerifyFinalDelivery(deal._id, 'REJECTED')}
+                                />
                               </div>
                             </div>
                           )}
 
-                          <div className="flex items-center gap-2 justify-end flex-wrap mt-5">
-                            {deal.status === 'ADMIN_MOISTURE_REVIEW' && (
-                              <>
-                                <button
-                                  onClick={() => handleVerifyMoisture(deal._id, 'APPROVED')}
-                                  disabled={actionLoadingId === deal._id}
-                                  className="px-4 py-2 bg-emerald-500 text-slate-950 font-black rounded-lg text-xs hover:bg-emerald-600"
-                                >
-                                  Approve Moisture & Photos
-                                </button>
-                                <button
-                                  onClick={() => handleVerifyMoisture(deal._id, 'REJECTED')}
-                                  disabled={actionLoadingId === deal._id}
-                                  className="px-4 py-2 bg-red-500 text-white font-black rounded-lg text-xs hover:bg-red-600"
-                                >
-                                  Reject
-                                </button>
-                              </>
-                            )}
-
-                            {deal.status === 'HUMAN_REVIEW' && (
-                              <>
-                                <button
-                                  onClick={() => handleVerifyPreShipment(deal._id, 'APPROVED')}
-                                  disabled={actionLoadingId === deal._id}
-                                  className="px-4 py-2 bg-emerald-500 text-slate-950 font-black rounded-lg text-xs hover:bg-emerald-600"
-                                >
-                                  Approve Photos
-                                </button>
-                                <button
-                                  onClick={() => handleVerifyPreShipment(deal._id, 'REJECTED')}
-                                  disabled={actionLoadingId === deal._id}
-                                  className="px-4 py-2 bg-red-500 text-white font-black rounded-lg text-xs hover:bg-red-600"
-                                >
-                                  Reject
-                                </button>
-                              </>
-                            )}
-
-                            {deal.status === 'BUYER_DELIVERY_UPLOADED' && (
-                              <div className="mt-4 p-4 border border-blue-200 bg-blue-50 rounded-xl space-y-3">
-                                <h6 className="text-sm font-bold text-blue-900">Finalize Deal & Release Escrow</h6>
-                                <p className="text-xs text-blue-800 mb-2">Transfer the escrow funds to the farmer's bank account, then upload the receipt below.</p>
-                                <input
-                                  type="text"
-                                  placeholder="Bank Transfer UTR Number"
-                                  value={adminUtr}
-                                  onChange={(e) => setAdminUtr(e.target.value)}
-                                  className="w-full px-3 py-2 border rounded-lg text-xs font-mono"
-                                />
-                                <input
-                                  type="file"
-                                  accept="image/*,.pdf"
-                                  onChange={(e) => {
-                                    const file = e.target.files[0];
-                                    if(file) {
-                                      const r = new FileReader();
-                                      r.onload = () => setAdminReceipt(r.result);
-                                      r.readAsDataURL(file);
-                                    }
-                                  }}
-                                  className="w-full px-3 py-2 border rounded-lg text-xs bg-white"
-                                />
-                                <div className="flex gap-2 pt-2">
-                                  <button
-                                    onClick={() => handleVerifyFinalDelivery(deal._id, 'APPROVED')}
-                                    disabled={actionLoadingId === deal._id || !adminUtr || !adminReceipt}
-                                    className="px-4 py-2 bg-emerald-500 text-white font-black rounded-lg text-xs hover:bg-emerald-600 disabled:opacity-50"
-                                  >
-                                    Approve Delivery & Upload Receipt
-                                  </button>
-                                  <button
-                                    onClick={() => handleVerifyFinalDelivery(deal._id, 'REJECTED')}
-                                    disabled={actionLoadingId === deal._id}
-                                    className="px-4 py-2 bg-red-500 text-white font-black rounded-lg text-xs hover:bg-red-600 disabled:opacity-50"
-                                  >
-                                    Reject (Refund Buyer)
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-
-                            {deal.status !== 'COMPLETED' && (
-
-                            <button
-                              onClick={() => handleUnverifyDeal(deal._id, deal.crop)}
+                          {deal.status !== 'COMPLETED' && (
+                            <InlineConfirmButton
+                              id={`${deal._id}-mark-unverified`}
+                              confirmingId={confirmingId}
+                              setConfirmingId={setConfirmingId}
+                              fastMode={fastMode}
+                              requireReason={true}
+                              reasonPlaceholder="Reason (optional)"
+                              baseText={<><span>✕</span><span>{actionLoadingId === deal._id ? 'Updating…' : 'Mark Unverified'}</span></>}
+                              confirmText="Mark Unverified"
+                              baseClassName="px-4 py-2.5 bg-[#C62828] hover:bg-red-800 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
                               disabled={actionLoadingId === deal._id}
-                              className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-300 hover:text-red-200 border border-red-500/30 rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center gap-1.5"
-                            >
-                              <span>✕</span>
-                              <span>{actionLoadingId === deal._id ? 'Updating…' : 'Unverified'}</span>
-                            </button>
+                              onConfirm={(reason) => handleUnverifyDeal(deal._id, deal.crop, reason)}
+                            />
                           )}
-
-                          
-
-                          
                         </div>
                       </div>
                     </div>
@@ -1644,10 +1850,10 @@ export default function Admin() {
         {/* ════════════════════════════════════════════════════════════ */}
         {selectedKycApp && (
           <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-white  rounded-3xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
               
               {/* Modal Header */}
-              <div className="p-6 border-b border-slate-800 flex items-start justify-between gap-4 bg-slate-950/60 shrink-0">
+              <div className="p-6 border-b border-gray-200 flex items-start justify-between gap-4 bg-gray-50 shrink-0">
                 <div className="flex items-center gap-4">
                   {selectedKycApp.profilePhoto ? (
                     <img
@@ -1656,26 +1862,26 @@ export default function Admin() {
                       className="w-14 h-14 rounded-2xl object-cover border-2 border-slate-700"
                     />
                   ) : (
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-red-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 font-extrabold text-xl">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-red-500/20 flex items-center justify-center text-amber-700 font-extrabold text-xl">
                       {selectedKycApp.applicantName?.charAt(0)?.toUpperCase() || 'B'}
                     </div>
                   )}
 
                   <div>
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <h2 className="text-xl font-black text-white">{selectedKycApp.applicantName}</h2>
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                      <h2 className="text-xl font-black text-[#132B47]">{selectedKycApp.applicantName}</h2>
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-700">
                         {selectedKycApp.buyerType}
                       </span>
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                        selectedKycApp.verificationStatus === 'APPROVED' || selectedKycApp.verificationStatus === 'PUBLISHED' ? 'bg-emerald-500/20 text-emerald-300' :
-                        selectedKycApp.verificationStatus === 'REJECTED' ? 'bg-red-500/20 text-red-300' :
-                        'bg-amber-500/20 text-amber-300'
+                        selectedKycApp.verificationStatus === 'APPROVED' || selectedKycApp.verificationStatus === 'PUBLISHED' ? 'bg-emerald-500/20 text-emerald-700' :
+                        selectedKycApp.verificationStatus === 'REJECTED' ? 'bg-red-500/20 text-red-700' :
+                        'bg-amber-500/20 text-amber-700'
                       }`}>
                         Status: {selectedKycApp.verificationStatus}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className="text-xs text-[#5F6B7A] mt-1">
                       📞 {selectedKycApp.phone} &nbsp;•&nbsp; ✉️ {selectedKycApp.email} &nbsp;•&nbsp; 🏢 {selectedKycApp.business?.name}
                     </p>
                   </div>
@@ -1683,7 +1889,7 @@ export default function Admin() {
 
                 <button
                   onClick={() => { setSelectedKycApp(null); setRelatedRequest(null); }}
-                  className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm font-bold transition"
+                  className="w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 text-[#132B47] hover:text-[#132B47] flex items-center justify-center text-sm font-bold transition"
                 >
                   ✕
                 </button>
@@ -1692,7 +1898,7 @@ export default function Admin() {
               {/* Modal Body - 9 Stages Grid */}
               <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
                 {selectedKycApp.fallbackNote && (
-                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                  <div className="p-3 rounded-xl bg-amber-500/10 text-amber-700">
                     ℹ️ {selectedKycApp.fallbackNote}
                   </div>
                 )}
@@ -1700,95 +1906,95 @@ export default function Admin() {
                 {/* Grid of Stages 1 through 6 */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Stage 1: Personal Details */}
-                  <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2">
-                    <h4 className="text-sm font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <div className="bg-gray-50 p-4 rounded-2xl  space-y-2">
+                    <h4 className="text-sm font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5">
                       <span>👤 Stage 1: Applicant Information</span>
                     </h4>
-                    <div className="space-y-1 text-slate-300">
-                      <div><strong className="text-slate-400">Full Name:</strong> {selectedKycApp.applicantName}</div>
-                      <div><strong className="text-slate-400">Mobile Number:</strong> {selectedKycApp.phone}</div>
-                      <div><strong className="text-slate-400">Email Address:</strong> {selectedKycApp.email}</div>
+                    <div className="space-y-1 text-[#132B47]">
+                      <div><strong className="text-[#5F6B7A]">Full Name:</strong> {selectedKycApp.applicantName}</div>
+                      <div><strong className="text-[#5F6B7A]">Mobile Number:</strong> {selectedKycApp.phone}</div>
+                      <div><strong className="text-[#5F6B7A]">Email Address:</strong> {selectedKycApp.email}</div>
                     </div>
                   </div>
 
                   {/* Stage 2 & 3: Business & Buyer Type */}
-                  <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2">
-                    <h4 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <div className="bg-gray-50 p-4 rounded-2xl  space-y-2">
+                    <h4 className="text-sm font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1.5">
                       <span>🏢 Stage 2 & 3: Business Profile</span>
                     </h4>
-                    <div className="space-y-1 text-slate-300">
-                      <div><strong className="text-slate-400">Buyer Type:</strong> {selectedKycApp.buyerType} {selectedKycApp.otherBuyerType && `(${selectedKycApp.otherBuyerType})`}</div>
-                      <div><strong className="text-slate-400">Business / Shop Name:</strong> {selectedKycApp.business?.name || 'N/A'}</div>
-                      <div><strong className="text-slate-400">Entity Type:</strong> {selectedKycApp.business?.businessType || 'N/A'}</div>
+                    <div className="space-y-1 text-[#132B47]">
+                      <div><strong className="text-[#5F6B7A]">Buyer Type:</strong> {selectedKycApp.buyerType} {selectedKycApp.otherBuyerType && `(${selectedKycApp.otherBuyerType})`}</div>
+                      <div><strong className="text-[#5F6B7A]">Business / Shop Name:</strong> {selectedKycApp.business?.name || 'N/A'}</div>
+                      <div><strong className="text-[#5F6B7A]">Entity Type:</strong> {selectedKycApp.business?.businessType || 'N/A'}</div>
                       <div>
-                        <strong className="text-slate-400">GST Number:</strong> {selectedKycApp.business?.gstNumber || 'Not provided'}
+                        <strong className="text-[#5F6B7A]">GST Number:</strong> {selectedKycApp.business?.gstNumber || 'Not provided'}
                         {selectedKycApp.gstVerification && selectedKycApp.gstVerification.status !== 'NOT_PROVIDED' && (
                           <span className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                             selectedKycApp.gstVerification.status === 'VERIFIED' 
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' 
-                              : 'bg-red-500/20 text-red-300 border border-red-500/40'
+                              ? 'bg-emerald-500/20 text-emerald-700' 
+                              : 'bg-red-500/20 text-red-700'
                           }`}>
                             {selectedKycApp.gstVerification.status === 'VERIFIED' ? '✅ VERIFIED' : '❌ FAILED'}
                           </span>
                         )}
                         {selectedKycApp.gstVerification?.message && (
-                          <div className="text-[10px] text-slate-500 mt-0.5 italic">
+                          <div className="text-[10px] text-[#99A5BA] mt-0.5 italic">
                             API: {selectedKycApp.gstVerification.message}
                           </div>
                         )}
                       </div>
-                      <div><strong className="text-slate-400">Year Established:</strong> {selectedKycApp.business?.yearEstablished || 'N/A'}</div>
-                      <div><strong className="text-slate-400">Business Address:</strong> {selectedKycApp.business?.address || 'N/A'}</div>
+                      <div><strong className="text-[#5F6B7A]">Year Established:</strong> {selectedKycApp.business?.yearEstablished || 'N/A'}</div>
+                      <div><strong className="text-[#5F6B7A]">Business Address:</strong> {selectedKycApp.business?.address || 'N/A'}</div>
                     </div>
                   </div>
 
                   {/* Stage 4: Location */}
-                  <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2">
-                    <h4 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <div className="bg-gray-50 p-4 rounded-2xl  space-y-2">
+                    <h4 className="text-sm font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1.5">
                       <span>📍 Stage 4: Operating Location</span>
                     </h4>
-                    <div className="space-y-1 text-slate-300">
-                      <div><strong className="text-slate-400">Village / City:</strong> {selectedKycApp.address?.villageCity || 'N/A'}</div>
-                      <div><strong className="text-slate-400">Tehsil / Block:</strong> {selectedKycApp.address?.tehsilBlock || 'N/A'}</div>
-                      <div><strong className="text-slate-400">District & State:</strong> {selectedKycApp.address?.district}, {selectedKycApp.address?.state}</div>
-                      <div><strong className="text-slate-400">Pincode:</strong> {selectedKycApp.address?.pincode || 'N/A'}</div>
+                    <div className="space-y-1 text-[#132B47]">
+                      <div><strong className="text-[#5F6B7A]">Village / City:</strong> {selectedKycApp.address?.villageCity || 'N/A'}</div>
+                      <div><strong className="text-[#5F6B7A]">Tehsil / Block:</strong> {selectedKycApp.address?.tehsilBlock || 'N/A'}</div>
+                      <div><strong className="text-[#5F6B7A]">District & State:</strong> {selectedKycApp.address?.district}, {selectedKycApp.address?.state}</div>
+                      <div><strong className="text-[#5F6B7A]">Pincode:</strong> {selectedKycApp.address?.pincode || 'N/A'}</div>
                     </div>
                   </div>
 
                   {/* Stage 5 & 6: Commodities & Radius */}
-                  <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2">
-                    <h4 className="text-sm font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <div className="bg-gray-50 p-4 rounded-2xl  space-y-2">
+                    <h4 className="text-sm font-bold text-purple-600 uppercase tracking-wider flex items-center gap-1.5">
                       <span>🌾 Stage 5 & 6: Products & Trading Radius</span>
                     </h4>
-                    <div className="space-y-1 text-slate-300">
-                      <div><strong className="text-slate-400">Purchase Radius:</strong> {selectedKycApp.preferredPurchaseRadius ? `${selectedKycApp.preferredPurchaseRadius} km` : 'Regional'}</div>
-                      <strong className="text-slate-400 block mt-1">Crops & Commodities:</strong>
+                    <div className="space-y-1 text-[#132B47]">
+                      <div><strong className="text-[#5F6B7A]">Purchase Radius:</strong> {selectedKycApp.preferredPurchaseRadius ? `${selectedKycApp.preferredPurchaseRadius} km` : 'Regional'}</div>
+                      <strong className="text-[#5F6B7A] block mt-1">Crops & Commodities:</strong>
                       {selectedKycApp.commodities && selectedKycApp.commodities.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5 pt-1">
                           {selectedKycApp.commodities.map((c, i) => (
-                            <span key={i} className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 text-xs font-bold">
+                            <span key={i} className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-700  text-xs font-bold">
                               {c.name} {c.offerPrice ? `(₹${c.offerPrice}/${c.unit || 'Qtl'})` : ''}
                             </span>
                           ))}
                         </div>
                       ) : (
-                        <span className="text-slate-500 italic">No specific commodities declared</span>
+                        <span className="text-[#99A5BA] italic">No specific commodities declared</span>
                       )}
                     </div>
                   </div>
                 </div>
 
                 {/* Stage 7 & 8: Uploaded Verification Documents (Images / PDFs) */}
-                <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800 space-y-4">
+                <div className="bg-gray-50 p-5 rounded-2xl  space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-[#132B47] uppercase tracking-wider flex items-center gap-2">
                       <span>📑 Stage 7 & 8: Uploaded Documents & Image Proofs</span>
                     </h4>
-                    <span className="text-slate-500 text-xs">Click image thumbnail to inspect full resolution</span>
+                    <span className="text-[#99A5BA] text-xs">Click image thumbnail to inspect full resolution</span>
                   </div>
 
                   {(!selectedKycApp.documents || Object.values(selectedKycApp.documents).filter(Boolean).length === 0) ? (
-                    <div className="p-6 text-center text-slate-500 italic border border-dashed border-slate-800 rounded-xl">
+                    <div className="p-6 text-center text-[#99A5BA] italic border border-dashed border-gray-200 rounded-xl">
                       No document files were attached to this profile.
                     </div>
                   ) : (
@@ -1807,23 +2013,23 @@ export default function Admin() {
                         const isImage = fileData.startsWith('data:image') || /\.(jpg|jpeg|png|webp)/i.test(fileData);
 
                         return (
-                          <div key={doc.key} className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2 flex flex-col justify-between">
+                          <div key={doc.key} className="bg-white shadow-sm border border-gray-200 rounded-xl p-3 space-y-2 flex flex-col justify-between">
                             <div>
-                              <span className="text-xs font-bold text-slate-400 uppercase block truncate mb-1">
+                              <span className="text-xs font-bold text-[#5F6B7A] uppercase block truncate mb-1">
                                 {doc.label}
                               </span>
                               {isImage ? (
                                 <div
                                   onClick={() => setPreviewImage(fileData)}
-                                  className="w-full h-32 rounded-lg bg-slate-950 border border-slate-800 overflow-hidden cursor-pointer hover:border-amber-500 transition relative group"
+                                  className="w-full h-32 rounded-lg bg-gray-100  overflow-hidden cursor-pointer hover:border-amber-500 transition relative group"
                                 >
                                   <img src={fileData} alt={doc.label} className="w-full h-full object-cover group-hover:scale-105 transition" />
-                                  <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-white font-bold text-xs gap-1">
+                                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-white font-bold text-xs gap-1">
                                     <span>🔍</span> Click to zoom
                                   </div>
                                 </div>
                               ) : (
-                                <div className="w-full h-32 rounded-lg bg-slate-950 border border-slate-800 flex flex-col items-center justify-center text-slate-400 p-2 text-center">
+                                <div className="w-full h-32 rounded-lg bg-gray-100  flex flex-col items-center justify-center text-[#5F6B7A] p-2 text-center">
                                   <span className="text-2xl mb-1">📄</span>
                                   <span className="text-xs truncate max-w-[150px]">Document File</span>
                                 </div>
@@ -1835,7 +2041,7 @@ export default function Admin() {
                               target="_blank"
                               rel="noreferrer"
                               download={`${selectedKycApp.applicantName}_${doc.key}`}
-                              className="text-center py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg text-xs transition block"
+                              className="text-center py-1.5 bg-white hover:bg-gray-50 text-[#132B47] font-bold shadow-sm border border-gray-300 rounded-lg text-xs transition block"
                             >
                               Download / Open File ↗
                             </a>
@@ -1847,14 +2053,14 @@ export default function Admin() {
                 </div>
 
                 {/* Stage 9: Declaration & Review Audit */}
-                <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 text-slate-400 text-xs space-y-1">
-                  <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-2">
+                <div className="bg-gray-50 p-4 rounded-2xl  text-[#5F6B7A] text-xs space-y-1">
+                  <h4 className="text-sm font-bold text-[#132B47] uppercase tracking-wider mb-2">
                     ⚖️ Stage 9: Declaration & Audit
                   </h4>
                   <div>Submitted On: {selectedKycApp.submittedAt ? new Date(selectedKycApp.submittedAt).toLocaleString('en-IN') : 'N/A'}</div>
                   {selectedKycApp.reviewedAt && <div>Last Reviewed: {new Date(selectedKycApp.reviewedAt).toLocaleString('en-IN')} by {selectedKycApp.reviewedBy || 'Admin'}</div>}
                   {selectedKycApp.adminRemarks && (
-                    <div className="text-red-300 pt-1">
+                    <div className="text-red-700 pt-1">
                       <strong>Rejection / Information Remarks:</strong> {selectedKycApp.adminRemarks}
                     </div>
                   )}
@@ -1862,10 +2068,10 @@ export default function Admin() {
               </div>
 
               {/* Modal Footer - Direct Actions */}
-              <div className="p-4 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between gap-3 shrink-0">
+              <div className="p-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between gap-3 shrink-0">
                 <button
                   onClick={() => { setSelectedKycApp(null); setRelatedRequest(null); }}
-                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition"
+                  className="px-4 py-2.5 bg-white hover:bg-gray-50 text-[#132B47] font-bold shadow-sm border border-gray-300 rounded-xl text-xs transition"
                 >
                   Close Inspection
                 </button>
@@ -1878,7 +2084,7 @@ export default function Admin() {
                         onClick={() => {
                           handleRejectRequest(relatedRequest._id, relatedRequest.crop);
                         }}
-                        className="px-4 py-2 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white font-bold rounded-xl text-xs border border-red-500/40 transition"
+                        className="px-4 py-2 bg-red-500/20 hover:bg-red-800 text-red-700 hover:text-[#132B47] font-bold rounded-xl text-xs transition"
                       >
                         ✕ Reject Publication
                       </button>
@@ -1899,7 +2105,7 @@ export default function Admin() {
                       {selectedKycApp.verificationStatus !== 'REJECTED' && (
                         <button
                           onClick={() => handleRejectApplication(selectedKycApp._id, selectedKycApp.applicantName)}
-                          className="px-4 py-2 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white font-bold rounded-xl text-xs border border-red-500/30 transition"
+                          className="px-4 py-2 bg-red-500/20 hover:bg-red-800 text-red-700 hover:text-[#132B47] font-bold rounded-xl text-xs transition"
                         >
                           ✕ Reject Application
                         </button>
@@ -1930,7 +2136,7 @@ export default function Admin() {
               <img src={previewImage} alt="Document Preview" className="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl" />
               <button
                 onClick={() => setPreviewImage(null)}
-                className="absolute top-3 right-3 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold"
+                className="absolute top-3 right-3 px-3 py-1.5 bg-white text-[#132B47] hover:bg-gray-100 shadow-lg rounded-lg text-xs font-bold"
               >
                 ✕ Close
               </button>
@@ -1941,13 +2147,13 @@ export default function Admin() {
         {/* ── Last Generated Receipt Popup ── */}
         {lastGeneratedReceipt && (
           <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-            <div className="bg-slate-900 border border-yellow-500/30 rounded-2xl max-w-2xl w-full p-6 shadow-2xl">
+            <div className="bg-white  rounded-2xl max-w-2xl w-full p-6 shadow-2xl">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-lg font-black text-yellow-300">✅ Receipt Generated!</h2>
-                  <p className="text-xs text-slate-400 mt-1">Receipt #{lastGeneratedReceipt.receiptNumber} for {lastGeneratedReceipt.cropName}</p>
+                  <h2 className="text-lg font-black text-green-700">✅ Receipt Generated!</h2>
+                  <p className="text-xs text-[#5F6B7A] mt-1">Receipt #{lastGeneratedReceipt.receiptNumber} for {lastGeneratedReceipt.cropName}</p>
                 </div>
-                <button onClick={() => setLastGeneratedReceipt(null)} className="text-slate-400 hover:text-white text-xl font-bold">✕</button>
+                <button onClick={() => setLastGeneratedReceipt(null)} className="text-[#5F6B7A] hover:text-[#132B47] text-xl font-bold">✕</button>
               </div>
               <div className="bg-white rounded-xl overflow-hidden" style={{ height: '420px' }}>
                 <iframe
@@ -1966,7 +2172,7 @@ export default function Admin() {
                 </a>
                 <button
                   onClick={() => setLastGeneratedReceipt(null)}
-                  className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-sm transition"
+                  className="px-5 py-2.5 bg-white hover:bg-white text-[#132B47] font-bold shadow-sm border border-gray-200 rounded-xl text-sm transition"
                 >
                   Close
                 </button>
@@ -1981,20 +2187,20 @@ export default function Admin() {
 
             {/* Wallet Balance Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border border-yellow-500/30 rounded-2xl p-5">
-                <div className="text-xs font-bold text-yellow-400 uppercase tracking-wider mb-1">💰 Current Wallet Balance</div>
-                <div className="text-3xl font-black text-yellow-300">₹{Number(walletData.balance || 0).toLocaleString('en-IN')}</div>
-                <div className="text-xs text-slate-400 mt-1">Available for farmer payouts</div>
+              <div className="bg-amber-50 rounded-xl p-5 shadow-sm">
+                <div className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1 flex items-center gap-1.5"><span>💰</span> Current Wallet Balance</div>
+                <div className="text-3xl font-black text-amber-900">₹{Number(walletData.balance || 0).toLocaleString('en-IN')}</div>
+                <div className="text-xs text-amber-700/80 mt-1 font-semibold">Available for farmer payouts</div>
               </div>
-              <div className="bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border border-emerald-500/30 rounded-2xl p-5">
-                <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">📥 Total Received</div>
-                <div className="text-3xl font-black text-emerald-300">₹{Number(walletData.totalReceived || 0).toLocaleString('en-IN')}</div>
-                <div className="text-xs text-slate-400 mt-1">From buyer escrow + farmer agent fees</div>
+              <div className="bg-green-50 rounded-xl p-5 shadow-sm">
+                <div className="text-xs font-bold text-green-700 uppercase tracking-wider mb-1 flex items-center gap-1.5"><span>📥</span> Total Received</div>
+                <div className="text-3xl font-black text-green-900">₹{Number(walletData.totalReceived || 0).toLocaleString('en-IN')}</div>
+                <div className="text-xs text-green-700/80 mt-1 font-semibold">From buyer escrow + farmer agent fees</div>
               </div>
-              <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/30 rounded-2xl p-5">
-                <div className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-1">📤 Total Forwarded</div>
-                <div className="text-3xl font-black text-blue-300">₹{Number(walletData.totalForwarded || 0).toLocaleString('en-IN')}</div>
-                <div className="text-xs text-slate-400 mt-1">Paid out to farmers</div>
+              <div className="bg-blue-50 rounded-xl p-5 shadow-sm">
+                <div className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-1 flex items-center gap-1.5"><span>📤</span> Total Forwarded</div>
+                <div className="text-3xl font-black text-blue-900">₹{Number(walletData.totalForwarded || 0).toLocaleString('en-IN')}</div>
+                <div className="text-xs text-blue-700/80 mt-1 font-semibold">Paid out to farmers</div>
               </div>
             </div>
 
@@ -2005,30 +2211,32 @@ export default function Admin() {
                 d.escrowDepositPaid
               );
               return pendingPayouts.length > 0 ? (
-                <div className="bg-slate-900/70 border border-orange-500/30 rounded-2xl p-5">
-                  <h3 className="text-sm font-black text-orange-300 mb-4">🔔 Pending Farmer Payouts ({pendingPayouts.length})</h3>
+                <div className="bg-white rounded-xl p-5 shadow-sm">
+                  <h3 className="text-sm font-black text-amber-700 mb-4 flex items-center gap-2"><span>🔔</span> Pending Farmer Payouts ({pendingPayouts.length})</h3>
                   <div className="space-y-3">
                     {pendingPayouts.map(deal => {
                       const payoutAmt = Number(deal.agreedPrice || 0) * Number(deal.quantity || 0);
                       const farmerName = `${deal.farmerId?.firstName || ''} ${deal.farmerId?.lastName || ''}`.trim();
                       return (
-                        <div key={deal._id} className="flex items-center justify-between bg-slate-800/60 border border-slate-700 rounded-xl p-4 gap-4">
+                        <div key={deal._id} className="flex items-center justify-between bg-gray-50 rounded-xl p-4 gap-4 transition-colors hover:bg-white">
                           <div className="flex-1 min-w-0">
-                            <div className="font-black text-white text-sm">{deal.crop}</div>
-                            <div className="text-xs text-slate-400 mt-0.5">
-                              Farmer: <span className="text-slate-300 font-semibold">{farmerName || 'N/A'}</span>
+                            <div className="font-black text-[#132B47] text-sm uppercase">{deal.crop}</div>
+                            <div className="text-xs text-[#5F6B7A] mt-0.5">
+                              Farmer: <span className="text-[#132B47] font-bold">{farmerName || 'N/A'}</span>
                               {' · '}{deal.quantity} Qtl @ ₹{Number(deal.agreedPrice || 0).toLocaleString('en-IN')}
                             </div>
-                            <div className="text-xs text-slate-500 mt-0.5">Deal #{String(deal._id).slice(-8).toUpperCase()} · Status: <span className="text-orange-300 font-bold">{deal.status}</span></div>
+                            <div className="text-[10px] text-[#5F6B7A] mt-0.5 font-mono bg-white inline-block px-1.5 py-0.5 rounded mt-1 uppercase">
+                              Deal #{String(deal._id).slice(-8)} · Status: <span className="text-amber-600 font-bold">{deal.status}</span>
+                            </div>
                           </div>
                           <div className="text-right shrink-0">
-                            <div className="text-lg font-black text-yellow-300">₹{payoutAmt.toLocaleString('en-IN')}</div>
-                            <div className="text-xs text-slate-400">Payout amount</div>
+                            <div className="text-lg font-black text-[#16845B]">₹{payoutAmt.toLocaleString('en-IN')}</div>
+                            <div className="text-[10px] uppercase font-bold text-[#5F6B7A]">Payout amount</div>
                           </div>
                           <button
                             onClick={() => handlePayFarmer(deal._id, deal.crop)}
                             disabled={payingFarmerId === deal._id}
-                            className="shrink-0 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black rounded-xl text-xs transition"
+                            className="shrink-0 px-4 py-2 bg-[#16845B] hover:bg-green-700 text-white font-bold rounded-lg text-xs transition disabled:opacity-50 shadow-sm flex items-center gap-1.5"
                           >
                             {payingFarmerId === deal._id ? '⏳ Processing...' : '💸 Pay Farmer'}
                           </button>
@@ -2038,27 +2246,27 @@ export default function Admin() {
                   </div>
                 </div>
               ) : (
-                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 text-center text-slate-400 text-sm">
+                <div className="bg-gray-50 rounded-xl p-6 text-center text-[#5F6B7A] text-sm font-semibold">
                   ✅ No pending farmer payouts at this time.
                 </div>
               );
             })()}
 
             {/* Transaction History */}
-            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-black text-white">📋 Transaction History</h3>
+            <div className="bg-white rounded-xl p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                <h3 className="text-sm font-black text-[#132B47] flex items-center gap-1.5"><span>📋</span> Transaction History</h3>
                 <div className="flex gap-2">
                   {['ALL', 'RECEIVED', 'FORWARDED'].map(f => (
                     <button
                       key={f}
                       onClick={() => setWalletTxFilter(f)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
                         walletTxFilter === f
-                          ? f === 'RECEIVED' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                            : f === 'FORWARDED' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
-                            : 'bg-slate-700 text-white border border-slate-600'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                          ? f === 'RECEIVED' ? 'bg-green-50 text-green-800 border-green-200 shadow-sm'
+                            : f === 'FORWARDED' ? 'bg-blue-50 text-blue-800 border-blue-200 shadow-sm'
+                            : 'bg-[#132B47] text-white border-[#132B47] shadow-sm'
+                          : 'bg-white text-[#5F6B7A] border-gray-200 hover:text-[#132B47] hover:bg-gray-50'
                       }`}
                     >
                       {f === 'ALL' ? 'All' : f === 'RECEIVED' ? '📥 Payment Received' : '📤 Payment Forwarded'}
@@ -2068,7 +2276,7 @@ export default function Admin() {
               </div>
 
               {walletTransactions.filter(tx => walletTxFilter === 'ALL' || tx.type === walletTxFilter).length === 0 ? (
-                <div className="text-center text-slate-500 text-sm py-8">No transactions yet.</div>
+                <div className="text-center text-[#99A5BA] text-sm font-semibold py-8 bg-gray-50 rounded-xl">No transactions yet.</div>
               ) : (
                 <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
                   {walletTransactions
@@ -2082,22 +2290,22 @@ export default function Admin() {
                         : `${tx.toUserId?.firstName || ''} ${tx.toUserId?.lastName || ''}`.trim();
                       return (
                         <div key={tx._id} className={`flex items-center justify-between rounded-xl p-3.5 border gap-3 ${
-                          isReceived ? 'bg-emerald-950/30 border-emerald-800/40' : 'bg-blue-950/30 border-blue-800/40'
-                        }`}>
+                          isReceived ? 'bg-green-50/50 border-green-100 hover:border-green-300' : 'bg-blue-50/50 border-blue-100 hover:border-blue-300'
+                        } transition`}>
                           <div className="text-xl shrink-0">{isReceived ? '📥' : '📤'}</div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-xs font-black text-white truncate">{tx.description || '—'}</div>
-                            <div className="text-xs text-slate-400 mt-0.5">
-                              {isReceived ? 'From' : 'To'}: <span className="text-slate-300">{personName || 'N/A'}</span>
-                              {tx.payerRole && <span className="ml-1 px-1.5 py-0.5 rounded text-xs bg-slate-700 text-slate-300">{tx.payerRole}</span>}
+                            <div className="text-xs font-black text-[#132B47] truncate">{tx.description || '—'}</div>
+                            <div className="text-xs text-[#5F6B7A] mt-0.5">
+                              {isReceived ? 'From' : 'To'}: <span className="text-[#132B47] font-bold">{personName || 'N/A'}</span>
+                              {tx.payerRole && <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-200 text-[#5F6B7A]">{tx.payerRole}</span>}
                             </div>
-                            <div className="text-xs text-slate-500 mt-0.5">{date} · {time}</div>
+                            <div className="text-[10px] text-[#99A5BA] mt-0.5 font-mono bg-white inline-block px-1.5 py-0.5 border rounded border-gray-200 uppercase">{date} · {time}</div>
                           </div>
                           <div className="text-right shrink-0">
-                            <div className={`text-base font-black ${isReceived ? 'text-emerald-400' : 'text-blue-400'}`}>
+                            <div className={`text-base font-black ${isReceived ? 'text-green-700' : 'text-blue-700'}`}>
                               {isReceived ? '+' : '-'}₹{Number(tx.amount || 0).toLocaleString('en-IN')}
                             </div>
-                            <div className="text-xs text-slate-500">Bal: ₹{Number(tx.balanceAfter || 0).toLocaleString('en-IN')}</div>
+                            <div className="text-[10px] uppercase font-bold text-[#5F6B7A]">Bal: ₹{Number(tx.balanceAfter || 0).toLocaleString('en-IN')}</div>
                           </div>
                           {!isReceived && tx.receiptData?.generatedReceiptUrl && (
                             <button
@@ -2106,9 +2314,9 @@ export default function Admin() {
                                 receiptNumber: tx.receiptData.receiptNumber,
                                 cropName: tx.receiptData.crop
                               })}
-                              className="shrink-0 px-2.5 py-1 bg-yellow-500/20 hover:bg-yellow-500/40 text-yellow-300 font-bold rounded-lg text-xs border border-yellow-500/30 transition"
+                              className="shrink-0 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold rounded-lg text-xs transition shadow-sm flex items-center gap-1"
                             >
-                              🧾 Receipt
+                              <span>🧾</span> Receipt
                             </button>
                           )}
                         </div>
@@ -2117,6 +2325,49 @@ export default function Admin() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Floating Bulk Action Bar */}
+        {selectedIds.length > 0 && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-white shadow-xl shadow-gray-200/50 rounded-full px-6 py-3 animate-in slide-in-from-bottom-5">
+            <div className="flex items-center gap-2 border-r border-[#D9DEE5] pr-4">
+              <span className="w-6 h-6 rounded-full bg-[#132B47] text-white flex items-center justify-center text-xs font-bold">
+                {selectedIds.length}
+              </span>
+              <span className="text-sm font-bold text-[#132B47]">Selected</span>
+            </div>
+            <InlineConfirmButton
+              id="bulk-approve"
+              confirmingId={confirmingId}
+              setConfirmingId={setConfirmingId}
+              fastMode={fastMode}
+              baseText={<><span>✓</span><span>Approve All</span></>}
+              confirmText="Approve All"
+              baseClassName="px-4 py-1.5 bg-[#E51B2A] hover:bg-red-800 text-white rounded-full text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50"
+              disabled={actionLoadingId === 'BULK'}
+              onConfirm={() => handleBulkAction('APPROVE')}
+            />
+            <InlineConfirmButton
+              id="bulk-reject"
+              confirmingId={confirmingId}
+              setConfirmingId={setConfirmingId}
+              fastMode={fastMode}
+              requireReason={true}
+              reasonPlaceholder="Bulk Rejection Reason"
+              baseText={<><span>✕</span><span>Reject All</span></>}
+              confirmText="Reject All"
+              baseClassName="px-4 py-1.5 bg-[#C62828] hover:bg-red-800 text-white rounded-full text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50"
+              disabled={actionLoadingId === 'BULK'}
+              onConfirm={(reason) => handleBulkAction('REJECT', reason)}
+            />
+            <button
+              onClick={() => setSelectedIds([])}
+              className="px-2 py-1.5 ml-2 text-[#99A5BA] hover:text-[#5F6B7A] text-sm transition"
+              title="Clear Selection"
+            >
+              ✕
+            </button>
           </div>
         )}
 
