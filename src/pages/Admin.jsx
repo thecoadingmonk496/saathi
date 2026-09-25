@@ -25,9 +25,9 @@ export default function Admin() {
   const [successMsg, setSuccessMsg] = useState('');
   const [loadedImages, setLoadedImages] = useState({}); // Stores lazily loaded images for deals
 
-  // Wallet state
-  const [walletData, setWalletData] = useState({ balance: 0, totalReceived: 0, totalForwarded: 0 });
-  const [walletTransactions, setWalletTransactions] = useState([]);
+  // Wallet state — SWR: initialize from localStorage cache for instant load
+  const [walletData, setWalletData] = useState(() => { try { return JSON.parse(localStorage.getItem('adminWalletData'))?.walletData || { balance: 0, totalReceived: 0, totalForwarded: 0 }; } catch(e) { return { balance: 0, totalReceived: 0, totalForwarded: 0 }; } });
+  const [walletTransactions, setWalletTransactions] = useState(() => { try { return JSON.parse(localStorage.getItem('adminWalletData'))?.walletTransactions || []; } catch(e) { return []; } });
   const [walletTxFilter, setWalletTxFilter] = useState('ALL');
   const [payingFarmerId, setPayingFarmerId] = useState(null);
   const [lastGeneratedReceipt, setLastGeneratedReceipt] = useState(null);
@@ -76,6 +76,13 @@ export default function Admin() {
       const [walletJson, txJson] = await Promise.all([walletRes.json(), txRes.json()]);
       if (walletJson.success) setWalletData(walletJson.data);
       if (txJson.success) setWalletTransactions(txJson.data || []);
+      // Save to localStorage cache (SWR pattern)
+      if (walletJson.success || txJson.success) {
+        localStorage.setItem('adminWalletData', JSON.stringify({
+          walletData: walletJson.success ? walletJson.data : walletData,
+          walletTransactions: txJson.success ? (txJson.data || []) : walletTransactions,
+        }));
+      }
     } catch (err) {
       console.error('Failed to fetch wallet data:', err.message);
     }
@@ -1198,7 +1205,7 @@ export default function Admin() {
                 <div className="text-4xl mb-2">🌾</div>
                 <p className="font-bold text-white">No crop inspections found</p>
                 <p className="text-xs text-slate-500 mt-1">
-                  When farmers upload photos and pay the ₹250 agent verification fee, deals will appear here for admin review.
+                  When farmers submit quality photos and schedule their free video call verification, deals will appear here for admin review.
                 </p>
               </div>
             ) : (
@@ -1294,18 +1301,14 @@ export default function Admin() {
                           <div className="flex items-center gap-2">
                             <span className="text-lg">💳</span>
                             <div>
-                              <p className="text-sm font-bold text-blue-400 uppercase tracking-wide">Agent Connection Fee</p>
+                              <p className="text-sm font-bold text-emerald-400 uppercase tracking-wide">Verification Status</p>
                               <p className="text-xs font-semibold text-slate-200">
-                                {deal.agentFeePaid ? '₹250 Paid by Buyer' : '₹250 Payment Pending'}
+                                {deal.videoCallSlot?.date ? `Free Video Call: ${deal.videoCallSlot.date} (${deal.videoCallSlot.timeSlot})` : 'Free Video Verification'}
                               </p>
                             </div>
                           </div>
-                          <span className={`px-2 py-0.5 rounded text-xs font-black uppercase ${
-                            deal.agentFeePaid
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-slate-700 text-slate-300'
-                          }`}>
-                            {deal.agentFeePaid ? 'PAID ✓' : 'UNPAID'}
+                          <span className="px-2 py-0.5 rounded text-xs font-black uppercase bg-emerald-500 text-slate-950">
+                            FREE ✓
                           </span>
                         </div>
                       </div>
@@ -1553,60 +1556,73 @@ export default function Admin() {
                             )}
 
                             {deal.status === 'HUMAN_REVIEW' && (
-                              <>
-                                <button
-                                  onClick={() => handleVerifyPreShipment(deal._id, 'APPROVED')}
-                                  disabled={actionLoadingId === deal._id}
-                                  className="px-4 py-2 bg-emerald-500 text-slate-950 font-black rounded-lg text-xs hover:bg-emerald-600"
-                                >
-                                  Approve Photos
-                                </button>
-                                <button
-                                  onClick={() => handleVerifyPreShipment(deal._id, 'REJECTED')}
-                                  disabled={actionLoadingId === deal._id}
-                                  className="px-4 py-2 bg-red-500 text-white font-black rounded-lg text-xs hover:bg-red-600"
-                                >
-                                  Reject
-                                </button>
-                              </>
+                              <div className="w-full mt-4 p-4 border border-amber-500/30 bg-amber-950/30 rounded-xl space-y-3">
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                  <div>
+                                    <h6 className="text-sm font-bold text-amber-300 flex items-center gap-1.5">
+                                      <span>🎥</span> Free Video Call Verification
+                                    </h6>
+                                    {deal.videoCallSlot?.date ? (
+                                      <p className="text-xs text-slate-300 mt-1">
+                                        Slot: <span className="font-bold text-amber-200">{deal.videoCallSlot.date}</span> at <span className="font-bold text-amber-200">{deal.videoCallSlot.timeSlot}</span>
+                                        {' · '}Farmer Phone: <span className="font-mono text-emerald-300 font-bold">{deal.farmerId?.phone || 'N/A'}</span>
+                                      </p>
+                                    ) : (
+                                      <p className="text-xs text-slate-400 mt-1">Video call slot scheduled. Perform WhatsApp call and verify crop quality.</p>
+                                    )}
+                                  </div>
+                                  <span className="px-2.5 py-1 bg-amber-500/20 text-amber-300 text-xs font-bold rounded-lg border border-amber-500/30">
+                                    📱 WhatsApp Call Pending
+                                  </span>
+                                </div>
+
+                                <div className="flex gap-2 pt-1 flex-wrap">
+                                  <button
+                                    onClick={() => handleVerifyPreShipment(deal._id, 'APPROVED')}
+                                    disabled={actionLoadingId === deal._id}
+                                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-lg text-xs transition disabled:opacity-50"
+                                  >
+                                    ✅ Mark Video Call Verified
+                                  </button>
+                                  <button
+                                    onClick={() => handleVerifyPreShipment(deal._id, 'REJECTED')}
+                                    disabled={actionLoadingId === deal._id}
+                                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 font-bold rounded-lg text-xs transition disabled:opacity-50"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              </div>
                             )}
 
                             {deal.status === 'BUYER_DELIVERY_UPLOADED' && (
-                              <div className="mt-4 p-4 border border-blue-200 bg-blue-50 rounded-xl space-y-3">
-                                <h6 className="text-sm font-bold text-blue-900">Finalize Deal & Release Escrow</h6>
-                                <p className="text-xs text-blue-800 mb-2">Transfer the escrow funds to the farmer's bank account, then upload the receipt below.</p>
-                                <input
-                                  type="text"
-                                  placeholder="Bank Transfer UTR Number"
-                                  value={adminUtr}
-                                  onChange={(e) => setAdminUtr(e.target.value)}
-                                  className="w-full px-3 py-2 border rounded-lg text-xs font-mono"
-                                />
-                                <input
-                                  type="file"
-                                  accept="image/*,.pdf"
-                                  onChange={(e) => {
-                                    const file = e.target.files[0];
-                                    if(file) {
-                                      const r = new FileReader();
-                                      r.onload = () => setAdminReceipt(r.result);
-                                      r.readAsDataURL(file);
-                                    }
-                                  }}
-                                  className="w-full px-3 py-2 border rounded-lg text-xs bg-white"
-                                />
-                                <div className="flex gap-2 pt-2">
+                              <div className="mt-4 p-4 border border-emerald-500/30 bg-emerald-950/40 rounded-xl space-y-3">
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                  <div>
+                                    <h6 className="text-sm font-bold text-emerald-300">✅ Delivery Uploaded by Buyer</h6>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                      Buyer has verified delivery. You can pay the farmer instantly using the Escrow Wallet.
+                                    </p>
+                                  </div>
                                   <button
-                                    onClick={() => handleVerifyFinalDelivery(deal._id, 'APPROVED')}
-                                    disabled={actionLoadingId === deal._id || !adminUtr || !adminReceipt}
-                                    className="px-4 py-2 bg-emerald-500 text-white font-black rounded-lg text-xs hover:bg-emerald-600 disabled:opacity-50"
+                                    onClick={() => setActiveTab('wallet')}
+                                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition border border-slate-700"
                                   >
-                                    Approve Delivery & Upload Receipt
+                                    👛 Open Wallet Tab
+                                  </button>
+                                </div>
+                                <div className="flex gap-2 pt-1 flex-wrap">
+                                  <button
+                                    onClick={() => handlePayFarmer(deal._id, deal.crop)}
+                                    disabled={payingFarmerId === deal._id}
+                                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-lg text-xs transition disabled:opacity-50"
+                                  >
+                                    {payingFarmerId === deal._id ? '⏳ Processing Payment...' : '💸 Pay Farmer via Escrow Wallet'}
                                   </button>
                                   <button
                                     onClick={() => handleVerifyFinalDelivery(deal._id, 'REJECTED')}
                                     disabled={actionLoadingId === deal._id}
-                                    className="px-4 py-2 bg-red-500 text-white font-black rounded-lg text-xs hover:bg-red-600 disabled:opacity-50"
+                                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 font-bold rounded-lg text-xs transition disabled:opacity-50"
                                   >
                                     Reject (Refund Buyer)
                                   </button>
@@ -2001,8 +2017,7 @@ export default function Admin() {
             {/* Pending Payouts Section */}
             {(() => {
               const pendingPayouts = dealInspections.filter(d =>
-                ['RECEIPT_SUBMITTED', 'BUYER_DELIVERY_UPLOADED', 'VERIFIED', 'ADMIN_PRE_SHIPMENT_VERIFIED'].includes(d.status) &&
-                d.escrowDepositPaid
+                d.escrowDepositPaid && d.status !== 'COMPLETED' && d.status !== 'CANCELLED' && d.status !== 'DISPUTED'
               );
               return pendingPayouts.length > 0 ? (
                 <div className="bg-slate-900/70 border border-orange-500/30 rounded-2xl p-5">

@@ -599,42 +599,39 @@ router.post('/deals/:id/pay-buyer-escrow', requireAuth, requireRole('BUYER'), as
   }
 });
 
-// User clicks "Pay Field Agent Verification Fee" in UI (FARMER)
-router.post('/deals/:id/pay-farmer-fee', requireAuth, requireRole('FARMER'), async (req, res) => {
+// Free Video Call Verification Slot Selection (FARMER)
+router.post('/deals/:id/schedule-video-call', requireAuth, requireRole('FARMER'), async (req, res) => {
   try {
+    const { date, timeSlot } = req.body;
+    if (!date || !timeSlot) {
+      return res.status(400).json({ success: false, message: 'Please select both a date and time slot.' });
+    }
+
     const deal = await Deal.findById(req.params.id);
     if (!deal || deal.farmerId.toString() !== req.user._id.toString()) {
       return res.status(404).json({ success: false, message: 'Deal not found or unauthorized' });
     }
 
-    if (deal.status === 'HUMAN_REVIEW') {
-      return res.json({ success: true, data: deal, message: 'Payment already processed. Field agent assigned.' });
-    }
-
-    if (deal.status !== 'AGENT_PAYMENT_PENDING') {
-      return res.status(400).json({ success: false, message: 'Deal is not ready for farmer fee payment.' });
-    }
-
+    deal.videoCallSlot = {
+      date,
+      timeSlot,
+      scheduledAt: new Date(),
+      status: 'SCHEDULED',
+      whatsappSent: true
+    };
     deal.farmerAgentFeePaid = true;
-    deal.agentFeePaid = true; // Recorded as paid on Farmer's side
-    deal.agentFeeAmount = 250;
-    deal.status = 'HUMAN_REVIEW'; // Now Sent to Admin Verification Center for on-ground physical check
+    deal.agentFeePaid = true;
+    deal.agentFeeAmount = 0;
+    deal.status = 'HUMAN_REVIEW'; // Sent to Admin for Video Verification
 
     await deal.save();
 
-    // Credit admin wallet with ₹250 agent fee from farmer
-    await creditWallet(
-      250,
-      deal._id,
-      req.user._id,
-      'FARMER',
-      `Field agent fee ₹250 for Deal #${deal._id} (${deal.crop})`
-    );
+    console.log(`[WhatsApp Notification] Sent to farmer ${req.user.phone || ''}: Your Free Video Call Verification is scheduled for ${date} at ${timeSlot}.`);
 
     res.json({
       success: true,
       data: deal,
-      message: 'Payment received! Field agent verification is now in progress.'
+      message: `✅ Free Video Call Verification scheduled for ${date} at ${timeSlot}! A WhatsApp notification has been sent.`
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

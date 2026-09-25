@@ -117,15 +117,26 @@ const dealSchema = new mongoose.Schema(
     },
     agentFeePaid: {
       type: Boolean,
-      default: false,
+      default: true,
     },
     farmerAgentFeePaid: {
       type: Boolean,
-      default: false,
+      default: true,
     },
     agentFeeAmount: {
       type: Number,
-      default: 250,
+      default: 0,
+    },
+    videoCallSlot: {
+      date: String,
+      timeSlot: String,
+      scheduledAt: Date,
+      status: {
+        type: String,
+        enum: ['SCHEDULED', 'COMPLETED', 'CANCELLED'],
+        default: 'SCHEDULED',
+      },
+      whatsappSent: { type: Boolean, default: false },
     },
     agentRequestedAt: {
       type: Date,
