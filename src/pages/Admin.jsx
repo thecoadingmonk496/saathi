@@ -1951,10 +1951,7 @@ export default function Admin() {
                                 onConfirm={(reason) => handleUnverifyDeal(deal._id, deal.crop, reason)}
                               />
                             )}
-                              disabled={actionLoadingId === deal._id}
-                              onConfirm={(reason) => handleUnverifyDeal(deal._id, deal.crop, reason)}
-                            />
-                          )}
+                          </div>
                         </div>
                       </div>
                     </div>
