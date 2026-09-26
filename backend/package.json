@@ -21,6 +21,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
     "jsonwebtoken": "^9.0.3",
+    "livekit-server-sdk": "^2.19.1",
     "mongoose": "^9.9.3",
     "razorpay": "^2.9.8"
   },

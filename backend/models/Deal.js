@@ -138,6 +138,13 @@ const dealSchema = new mongoose.Schema(
       },
       whatsappSent: { type: Boolean, default: false },
     },
+    liveKitCall: {
+      status: { type: String, enum: ['IDLE', 'REQUESTED', 'ACTIVE', 'ENDED'], default: 'IDLE' },
+      roomName: { type: String, default: '' },
+      requestedAt: Date,
+      startedAt: Date,
+      endedAt: Date,
+    },
     agentRequestedAt: {
       type: Date,
       default: null,

@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import saathiLogo from '../assets/logo.png';
+
+const LiveKitCallModal = lazy(() => import('../components/buyer-discovery/LiveKitCallModal'));
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
@@ -85,6 +87,10 @@ export default function Admin() {
   const [buyerRequests, setBuyerRequests] = useState(() => { try { return JSON.parse(localStorage.getItem('adminDashboardData'))?.buyerRequests || []; } catch(e) { return []; } });
   const [buyerApplications, setBuyerApplications] = useState(() => { try { return JSON.parse(localStorage.getItem('adminDashboardData'))?.buyerApplications || []; } catch(e) { return []; } });
   const [dealInspections, setDealInspections] = useState(() => { try { return JSON.parse(localStorage.getItem('adminDashboardData'))?.dealInspections || []; } catch(e) { return []; } });
+  const [pendingVideoCalls, setPendingVideoCalls] = useState([]);
+  const [activeVideoCall, setActiveVideoCall] = useState(null);
+  const [endingVideoCall, setEndingVideoCall] = useState(false);
+  const knownCallIds = useRef(new Set());
   const [inspectionFilter, setInspectionFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [requestFilter, setRequestFilter] = useState('ALL');
@@ -184,7 +190,64 @@ export default function Admin() {
     }
     fetchAllData(token);
     fetchWalletData(token);
+    const pollVideoCalls = async () => {
+      try {
+        const response = await fetch(apiUrl('/api/admin/video-calls'), { headers: { Authorization: `Bearer ${token}` } });
+        const result = await response.json();
+        if (!response.ok || !result.success) return;
+        const calls = result.data || [];
+        calls.forEach((call) => {
+          if (call.liveKitCall?.status === 'REQUESTED' && !knownCallIds.current.has(call._id)) {
+            knownCallIds.current.add(call._id);
+            addToast(`Incoming video verification call from ${call.farmerId?.firstName || 'a farmer'}.`, 'info');
+          }
+        });
+        setPendingVideoCalls(calls);
+      } catch (error) {
+        console.error('Unable to refresh incoming video calls:', error.message);
+      }
+    };
+    pollVideoCalls();
+    const timer = setInterval(pollVideoCalls, 4000);
+    return () => clearInterval(timer);
   }, [navigate]);
+
+  const joinAdminVideoCall = async (dealId) => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(apiUrl(`/api/admin/deals/${dealId}/video-call/join`), {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || 'Unable to join call.');
+      setActiveVideoCall({ ...result.data, dealId });
+    } catch (error) {
+      setError(error.message || 'Unable to join video call.');
+    }
+  };
+
+  const endAdminVideoCall = async () => {
+    if (!activeVideoCall) return;
+    setEndingVideoCall(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(apiUrl(`/api/admin/deals/${activeVideoCall.dealId}/video-call/end`), {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || 'Unable to end call.');
+      setPendingVideoCalls((current) => current.filter((call) => call._id !== activeVideoCall.dealId));
+      setDealInspections((current) => current.map((deal) => deal._id === activeVideoCall.dealId
+        ? { ...deal, liveKitCall: { ...deal.liveKitCall, status: 'ENDED', endedAt: new Date().toISOString() } }
+        : deal));
+      setActiveVideoCall(null);
+      setSuccessMsg('Call ended. Video call verification is ready.');
+    } catch (error) {
+      setError(error.message || 'Unable to end video call.');
+    } finally {
+      setEndingVideoCall(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
@@ -840,6 +903,8 @@ export default function Admin() {
               className={`pointer-events-auto flex items-start justify-between gap-3 p-4 min-w-[300px] max-w-md rounded-xl border shadow-xl transition-all animate-in slide-in-from-bottom-5 fade-in duration-300 ${
                 toast.type === 'success' 
                   ? 'bg-green-50 border-green-200 text-[#16845B]'
+                  : toast.type === 'info'
+                  ? 'bg-blue-50 border-blue-200 text-blue-800'
                   : 'bg-red-50 border-red-200 text-[#C62828]'
               }`}
             >
@@ -856,6 +921,25 @@ export default function Admin() {
             </div>
           ))}
         </div>
+
+        {pendingVideoCalls.length > 0 && (
+          <section className="mb-5 rounded-lg border border-amber-300 bg-amber-50 p-4" aria-label="Incoming video calls">
+            <h3 className="mb-3 text-sm font-bold text-amber-950">Incoming video verification calls ({pendingVideoCalls.length})</h3>
+            <div className="space-y-2">
+              {pendingVideoCalls.map((call) => (
+                <div key={call._id} className="flex flex-col gap-3 rounded-md border border-amber-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-sm text-[#132B47]">
+                    <strong>{call.farmerId?.firstName} {call.farmerId?.lastName}</strong> · {call.crop} · Deal #{call._id.slice(-6).toUpperCase()}
+                    <span className="ml-2 text-xs font-semibold text-amber-800">{call.liveKitCall?.status === 'ACTIVE' ? 'CALL ACTIVE' : 'CALLING NOW'}</span>
+                  </div>
+                  <button onClick={() => joinAdminVideoCall(call._id)} className="rounded-md bg-[#132B47] px-4 py-2 text-xs font-bold text-white">
+                    {call.liveKitCall?.status === 'ACTIVE' ? 'Rejoin Call' : 'Join Call'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Top Summary Badges */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 mt-4">
@@ -1404,6 +1488,7 @@ export default function Admin() {
                   const isAwaiting = deal.status === 'HUMAN_REVIEW';
                   const isVerified = deal.status === 'VERIFIED' || deal.status === 'ADMIN_PRE_SHIPMENT_VERIFIED';
                   const isUnverified = deal.status === 'UNVERIFIED';
+                  const liveCallInProgress = pendingVideoCalls.some((call) => call._id === deal._id);
 
                   const imagesState = loadedImages[deal._id];
                   const isLoadingImages = imagesState?.isLoading;
@@ -1774,14 +1859,16 @@ export default function Admin() {
                                     )}
                                   </div>
                                   <span className="px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-lg border border-amber-200 shadow-sm">
-                                    📱 WhatsApp Call Pending
+                                    {liveCallInProgress ? '🔴 LiveKit call in progress' : deal.liveKitCall?.status === 'ENDED' ? '✓ Call ended · Verification ready' : '🎥 Waiting for farmer to call'}
                                   </span>
                                 </div>
+
+                                {liveCallInProgress && <p className="text-xs font-semibold text-amber-900">End the call before submitting crop verification.</p>}
 
                                 <div className="flex gap-2 pt-1 flex-wrap">
                                   <button
                                     onClick={() => handleVerifyPreShipment(deal._id, 'APPROVED')}
-                                    disabled={actionLoadingId === deal._id}
+                                    disabled={actionLoadingId === deal._id || liveCallInProgress}
                                     className="px-4 py-2 bg-[#16845B] hover:bg-green-700 text-white font-black rounded-lg text-xs transition disabled:opacity-50 shadow-sm"
                                   >
                                     ✅ Mark Video Call Verified
@@ -1796,7 +1883,7 @@ export default function Admin() {
                                     baseText="Reject"
                                     confirmText="Reject"
                                     baseClassName="px-4 py-2 bg-[#C62828] text-white font-black rounded-lg text-xs hover:bg-red-800 shadow-sm"
-                                    disabled={actionLoadingId === deal._id}
+                                    disabled={actionLoadingId === deal._id || liveCallInProgress}
                                     onConfirm={() => handleVerifyPreShipment(deal._id, 'REJECTED')}
                                   />
                                 </div>
@@ -2151,7 +2238,7 @@ export default function Admin() {
         )}
 
         {/* Full Image Zoom Lightbox */}
-        {previewImage && (
+      {previewImage && (
           <div
             onClick={() => setPreviewImage(null)}
             className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
@@ -2394,6 +2481,15 @@ export default function Admin() {
           </div>
         )}
 
+        {activeVideoCall && <Suspense fallback={<div className="fixed inset-0 z-[100] grid place-items-center bg-black/80 text-white">Connecting call…</div>}>
+          <LiveKitCallModal
+            call={activeVideoCall}
+            title="SAATHI admin verification call"
+            ending={endingVideoCall}
+            onEnd={endAdminVideoCall}
+            onLeave={() => setActiveVideoCall(null)}
+          />
+        </Suspense>}
       </main>
     </div>
   );

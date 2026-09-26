@@ -19,6 +19,7 @@ const BuyerApplication = require('../models/BuyerApplication');
 const Deal = require('../models/Deal');
 const AdminWallet = require('../models/AdminWallet');
 const WalletTransaction = require('../models/WalletTransaction');
+const { AccessToken, RoomServiceClient } = require('livekit-server-sdk');
 
 const router = express.Router();
 
@@ -325,6 +326,67 @@ router.patch('/buyer-requests/:id/reject', verifyAdminToken, async (req, res) =>
 });
 
 // ── On-Ground Field Agent Inspections Admin Routes ──
+router.get('/video-calls', verifyAdminToken, async (req, res) => {
+  try {
+    const deals = await Deal.find({ 'liveKitCall.status': { $in: ['REQUESTED', 'ACTIVE'] } })
+      .populate('farmerId', 'firstName lastName phone')
+      .select('crop quantity videoCallSlot liveKitCall status')
+      .sort({ 'liveKitCall.requestedAt': 1 });
+    res.json({ success: true, data: deals });
+  } catch (error) {
+    console.error('Unable to load video call requests:', error.message);
+    res.status(500).json({ success: false, message: 'Unable to load video call requests.' });
+  }
+});
+
+router.post('/deals/:id/video-call/join', verifyAdminToken, async (req, res) => {
+  try {
+    if (!process.env.LIVEKIT_URL || !process.env.LIVEKIT_API_KEY || !process.env.LIVEKIT_API_SECRET) {
+      return res.status(503).json({ success: false, message: 'Video calling is not configured on the server.' });
+    }
+    const deal = await Deal.findById(req.params.id);
+    if (!deal || !['REQUESTED', 'ACTIVE'].includes(deal.liveKitCall?.status) || !deal.liveKitCall.roomName) {
+      return res.status(404).json({ success: false, message: 'This call is no longer waiting.' });
+    }
+    if (deal.liveKitCall.status === 'REQUESTED') {
+      deal.liveKitCall.status = 'ACTIVE';
+      deal.liveKitCall.startedAt = new Date();
+      await deal.save();
+    }
+    const token = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, {
+      identity: `admin-${req.admin.email || 'admin'}`, name: 'Saathi Admin', ttl: '2h',
+    });
+    token.addGrant({ roomJoin: true, room: deal.liveKitCall.roomName, canPublish: true, canSubscribe: true });
+    res.json({ success: true, data: { token: await token.toJwt(), serverUrl: process.env.LIVEKIT_URL, roomName: deal.liveKitCall.roomName } });
+  } catch (error) {
+    console.error('Unable to join video call:', error.message);
+    res.status(500).json({ success: false, message: 'Unable to join video call.' });
+  }
+});
+
+router.post('/deals/:id/video-call/end', verifyAdminToken, async (req, res) => {
+  try {
+    const deal = await Deal.findById(req.params.id);
+    if (!deal || !['REQUESTED', 'ACTIVE'].includes(deal.liveKitCall?.status)) {
+      return res.status(404).json({ success: false, message: 'No active video call was found.' });
+    }
+    deal.liveKitCall.status = 'ENDED';
+    deal.liveKitCall.endedAt = new Date();
+    await deal.save();
+    try {
+      const serviceUrl = process.env.LIVEKIT_URL.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:');
+      const rooms = new RoomServiceClient(serviceUrl, process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET);
+      await rooms.deleteRoom(deal.liveKitCall.roomName);
+    } catch (roomError) {
+      console.error('LiveKit room cleanup failed:', roomError.message);
+    }
+    res.json({ success: true, message: 'Call ended. Video call verification is ready.' });
+  } catch (error) {
+    console.error('Unable to end video call:', error.message);
+    res.status(500).json({ success: false, message: 'Unable to end video call.' });
+  }
+});
+
 router.get('/deals/inspections', verifyAdminToken, async (req, res) => {
   try {
     const deals = await Deal.find()
@@ -348,6 +410,9 @@ router.patch('/deals/:id/verify', verifyAdminToken, async (req, res) => {
 
     if (deal.status !== 'HUMAN_REVIEW') {
       return res.status(400).json({ success: false, message: 'Deal is not ready for physical verification.' });
+    }
+    if (deal.liveKitCall?.requestedAt && deal.liveKitCall.status !== 'ENDED') {
+      return res.status(400).json({ success: false, message: 'End the requested video call before completing verification.' });
     }
 
     if (req.body.status === 'REJECTED') {
@@ -623,4 +688,4 @@ router.post('/deals/:id/pay-farmer', verifyAdminToken, async (req, res) => {
   }
 });
 
-module.exports = router;
+module.exports = router;

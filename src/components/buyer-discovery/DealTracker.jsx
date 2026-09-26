@@ -1,5 +1,7 @@
-import { useState, useRef } from 'react';
+import { lazy, Suspense, useState, useRef } from 'react';
 import { useRazorpay } from "react-razorpay";
+
+const LiveKitCallModal = lazy(() => import('./LiveKitCallModal'));
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')).replace(/\/$/, '') + '/api';
 
@@ -31,7 +33,26 @@ export default function DealTracker({ deal, userRole, onRefresh, onDeliveryUploa
   const [bankAccount, setBankAccount] = useState(deal.farmerBankAccount || '');
   const [escrowModal, setEscrowModal] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [liveCall, setLiveCall] = useState(null);
+  const [callRequestLoading, setCallRequestLoading] = useState(false);
   const deliveryFileInputRef = useRef(null);
+
+  const joinFarmerCall = async (endpoint) => {
+    try {
+      setCallRequestLoading(true);
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/video-call/${endpoint}`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Unable to join video call.');
+      setLiveCall(data.data);
+    } catch (error) {
+      alert(error.message || 'Network error while joining video call.');
+    } finally {
+      setCallRequestLoading(false);
+    }
+  };
 
   const handleBankSubmit = async () => {
     if(!bankAccount) return;
@@ -686,6 +707,24 @@ export default function DealTracker({ deal, userRole, onRefresh, onDeliveryUploa
             {/* Step 3: ONLY shown after ₹250 is Paid (isFeePaid === true) */}
             {isFeePaid && deal.status !== 'AGENT_PAYMENT_PENDING' && deal.status !== 'VERIFIED' && deal.status !== 'ADMIN_PRE_SHIPMENT_VERIFIED' && deal.status !== 'COMPLETED' && deal.status !== 'UNVERIFIED' && deal.status !== 'BUYER_DELIVERY_UPLOADED' && deal.status !== 'ESCROW_PENDING' && deal.status !== 'RECEIPT_SUBMITTED' && (
               <div className="bg-amber-50 rounded-2xl border border-amber-200 p-5 space-y-3">
+                {userRole === 'FARMER' && deal.status === 'HUMAN_REVIEW' && deal.videoCallSlot?.date && (
+                  <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-[#132B47]">Admin video verification</p>
+                      <p className="text-xs text-gray-600">Your scheduled slot is ready. Start the call when you are prepared.</p>
+                    </div>
+                    {['REQUESTED', 'ACTIVE'].includes(deal.liveKitCall?.status) ? (
+                      <button onClick={() => joinFarmerCall('join')} disabled={callRequestLoading} className="rounded-md bg-[#132B47] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
+                        {callRequestLoading ? 'Joining…' : 'Rejoin Call'}
+                      </button>
+                    ) : (
+                      <button onClick={() => joinFarmerCall('request')} disabled={callRequestLoading} className="rounded-md bg-[#132B47] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
+                        {callRequestLoading ? 'Connecting…' : 'Call Now'}
+                      </button>
+                    )}
+                    {deal.liveKitCall?.status === 'REQUESTED' && <span className="text-xs font-semibold text-amber-800">Waiting for admin to join…</span>}
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
                   <span className="text-xs font-black uppercase tracking-wider text-amber-900">
@@ -882,6 +921,9 @@ export default function DealTracker({ deal, userRole, onRefresh, onDeliveryUploa
           </div>
         </div>
       )}
+      {liveCall && <Suspense fallback={<div className="fixed inset-0 z-[100] grid place-items-center bg-black/80 text-white">Connecting call…</div>}>
+        <LiveKitCallModal call={liveCall} title={`SAATHI verification call · ${deal.crop}`} onLeave={() => setLiveCall(null)} />
+      </Suspense>}
     </div>
   );
 }

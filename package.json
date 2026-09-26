@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
+    "@livekit/components-react": "^2.9.24",
+    "@livekit/components-styles": "^1.2.0",
     "axios": "^1.19.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
@@ -19,6 +21,7 @@
     "express": "^5.2.1",
     "glob": "^13.0.6",
     "jsonwebtoken": "^9.0.3",
+    "livekit-client": "^2.22.3",
     "lucide-react": "^1.34.0",
     "mongoose": "^9.9.3",
     "puppeteer": "^25.10.0",

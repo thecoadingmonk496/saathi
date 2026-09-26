@@ -8,6 +8,19 @@ const DealReport = require('../models/DealReport');
 const cropQualityService = require('../services/cropQualityService');
 const AdminWallet = require('../models/AdminWallet');
 const WalletTransaction = require('../models/WalletTransaction');
+const { AccessToken } = require('livekit-server-sdk');
+
+function liveKitConfigured() {
+  return Boolean(process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET);
+}
+
+async function makeCallToken(identity, name, roomName) {
+  const token = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, {
+    identity: String(identity), name, ttl: '2h',
+  });
+  token.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true });
+  return token.toJwt();
+}
 
 // Helper: Get or create the single admin wallet doc
 async function getWallet() {
@@ -600,6 +613,46 @@ router.post('/deals/:id/pay-buyer-escrow', requireAuth, requireRole('BUYER'), as
 });
 
 // Free Video Call Verification Slot Selection (FARMER)
+router.post('/deals/:id/video-call/request', requireAuth, requireRole('FARMER'), async (req, res) => {
+  try {
+    if (!liveKitConfigured()) return res.status(503).json({ success: false, message: 'Video calling is not configured on the server.' });
+    const deal = await Deal.findOne({ _id: req.params.id, farmerId: req.user._id });
+    if (!deal) return res.status(404).json({ success: false, message: 'Deal not found.' });
+    if (deal.status !== 'HUMAN_REVIEW' || !deal.videoCallSlot?.date) {
+      return res.status(400).json({ success: false, message: 'Schedule your video call slot before requesting a call.' });
+    }
+    if (['REQUESTED', 'ACTIVE'].includes(deal.liveKitCall?.status)) {
+      return res.status(409).json({ success: false, message: 'A video call is already in progress or waiting for admin.' });
+    }
+
+    const roomName = `saathi-deal-${deal._id}-${Date.now()}`;
+    deal.liveKitCall = { status: 'REQUESTED', roomName, requestedAt: new Date() };
+    await deal.save();
+    const farmerName = [req.user.firstName, req.user.lastName].filter(Boolean).join(' ') || 'Farmer';
+    const token = await makeCallToken(req.user._id, farmerName, roomName);
+    res.status(201).json({ success: true, data: { token, serverUrl: process.env.LIVEKIT_URL, roomName }, message: 'Call request sent. Waiting for an admin to join.' });
+  } catch (error) {
+    console.error('Video call request failed:', error.message);
+    res.status(500).json({ success: false, message: 'Unable to start video call.' });
+  }
+});
+
+router.post('/deals/:id/video-call/join', requireAuth, requireRole('FARMER'), async (req, res) => {
+  try {
+    if (!liveKitConfigured()) return res.status(503).json({ success: false, message: 'Video calling is not configured on the server.' });
+    const deal = await Deal.findOne({ _id: req.params.id, farmerId: req.user._id });
+    if (!deal || !['REQUESTED', 'ACTIVE'].includes(deal.liveKitCall?.status) || !deal.liveKitCall.roomName) {
+      return res.status(404).json({ success: false, message: 'There is no active call to rejoin.' });
+    }
+    const name = [req.user.firstName, req.user.lastName].filter(Boolean).join(' ') || 'Farmer';
+    const token = await makeCallToken(req.user._id, name, deal.liveKitCall.roomName);
+    res.json({ success: true, data: { token, serverUrl: process.env.LIVEKIT_URL, roomName: deal.liveKitCall.roomName } });
+  } catch (error) {
+    console.error('Unable to rejoin video call:', error.message);
+    res.status(500).json({ success: false, message: 'Unable to rejoin video call.' });
+  }
+});
+
 router.post('/deals/:id/schedule-video-call', requireAuth, requireRole('FARMER'), async (req, res) => {
   try {
     const { date, timeSlot } = req.body;
