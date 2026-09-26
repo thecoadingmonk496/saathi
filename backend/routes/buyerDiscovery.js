@@ -148,12 +148,15 @@ router.get('/requests/all-published', requireAuth, async (req, res) => {
 router.get('/requests/mine', requireAuth, requireRole('BUYER'), async (req, res) => {
   try {
     const requests = await BuyerRequest.find({ buyerId: req.user._id }).sort('-createdAt');
-    
-    // Compute fulfilled quantity for each request from ACCEPTED offers
-    const requestsWithFulfilled = await Promise.all(requests.map(async (req) => {
-      const acceptedOffers = await FarmerOffer.find({ buyerRequestId: req._id, status: 'ACCEPTED' });
-      const fulfilledQuantity = acceptedOffers.reduce((sum, o) => sum + Number(o.quantity || 0), 0);
-      return { ...req.toObject(), fulfilledQuantity };
+
+    const fulfilledQuantities = await FarmerOffer.aggregate([
+      { $match: { buyerRequestId: { $in: requests.map((request) => request._id) }, status: 'ACCEPTED' } },
+      { $group: { _id: '$buyerRequestId', quantity: { $sum: '$quantity' } } },
+    ]);
+    const fulfilledByRequest = new Map(fulfilledQuantities.map((row) => [row._id.toString(), row.quantity]));
+    const requestsWithFulfilled = requests.map((request) => ({
+      ...request.toObject(),
+      fulfilledQuantity: fulfilledByRequest.get(request._id.toString()) || 0,
     }));
     
     res.json({ success: true, data: requestsWithFulfilled });
@@ -403,37 +406,6 @@ router.get('/deals', requireAuth, async (req, res) => {
     const isBuyer = buyerRoles.includes(req.user.role);
     const query = isBuyer ? { buyerId: req.user._id } : { farmerId: req.user._id };
 
-    // Auto-heal: Ensure any ACCEPTED offer has its Deal record in MongoDB
-    try {
-      const acceptedOffers = await FarmerOffer.find({
-        status: 'ACCEPTED',
-        ...(isBuyer ? {} : { farmerId: req.user._id })
-      }).populate('buyerRequestId');
-
-      for (const off of acceptedOffers) {
-        if (off.buyerRequestId) {
-          const reqBuyerId = off.buyerRequestId.buyerId?.toString();
-          if (isBuyer && reqBuyerId !== req.user._id.toString()) continue;
-
-          const existingDeal = await Deal.findOne({ farmerOfferId: off._id });
-          if (!existingDeal) {
-            await Deal.create({
-              buyerId: off.buyerRequestId.buyerId,
-              farmerId: off.farmerId,
-              buyerRequestId: off.buyerRequestId._id,
-              farmerOfferId: off._id,
-              crop: off.buyerRequestId.crop || 'Agricultural Produce',
-              quantity: Number(off.quantity) || 1,
-              agreedPrice: Number(off.counterOfferPrice || off.buyerRequestId.offeredPrice) || 0,
-              status: 'ACCEPTED',
-            });
-          }
-        }
-      }
-    } catch (healErr) {
-      console.error('Auto-heal deals error:', healErr.message);
-    }
-    
     let deals = await Deal.find(query)
       .populate('buyerId', 'firstName lastName phone email village block district state')
       .populate('farmerId', 'firstName lastName phone email village block district state')
@@ -460,6 +432,41 @@ router.get('/deals', requireAuth, async (req, res) => {
     });
 
     res.json({ success: true, data: deals });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Repair accepted offers that predate deal creation. Kept out of dashboard reads.
+router.post('/deals/repair-missing', requireAuth, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const offers = await FarmerOffer.aggregate([
+      { $match: { status: 'ACCEPTED' } },
+      { $lookup: { from: 'deals', localField: '_id', foreignField: 'farmerOfferId', as: 'deals' } },
+      { $match: { deals: { $eq: [] } } },
+      { $project: { _id: 1, buyerRequestId: 1, farmerId: 1, quantity: 1, counterOfferPrice: 1 } },
+    ]);
+
+    const requestIds = [...new Set(offers.map((offer) => offer.buyerRequestId.toString()))];
+    const requests = await BuyerRequest.find({ _id: { $in: requestIds } }).select('buyerId crop offeredPrice');
+    const requestById = new Map(requests.map((request) => [request._id.toString(), request]));
+    const missingDeals = offers.flatMap((offer) => {
+      const buyerRequest = requestById.get(offer.buyerRequestId.toString());
+      if (!buyerRequest) return [];
+      return [{
+        buyerId: buyerRequest.buyerId,
+        farmerId: offer.farmerId,
+        buyerRequestId: buyerRequest._id,
+        farmerOfferId: offer._id,
+        crop: buyerRequest.crop || 'Agricultural Produce',
+        quantity: Number(offer.quantity) || 1,
+        agreedPrice: Number(offer.counterOfferPrice || buyerRequest.offeredPrice) || 0,
+        status: 'ACCEPTED',
+      }];
+    });
+
+    if (missingDeals.length) await Deal.insertMany(missingDeals, { ordered: false });
+    res.json({ success: true, repaired: missingDeals.length });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
