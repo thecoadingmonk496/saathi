@@ -443,7 +443,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
           )}
 
             {/* Step 2: Upload Photos (only if not yet uploaded) */}
-            {!hasUploadedPhotos && (deal.status === 'ACCEPTED' || deal.status === 'AI_FLAGGED') && (
+            {userRole === 'FARMER' && !hasUploadedPhotos && (deal.status === 'ACCEPTED' || deal.status === 'AI_FLAGGED') && (
               <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">
                 <h5 className="font-bold text-gray-900 mb-2">
                   {deal.status === 'AI_FLAGGED' ? '⚠️ AI Flagged: Re-Upload Photos' : '📷 Quality Screening'}
