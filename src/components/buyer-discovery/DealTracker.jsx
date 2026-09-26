@@ -132,81 +132,26 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
 
   const handlePayAgentFee = async () => {
     setPaymentProcessing(true);
-    const totalAmount = (deal.quantity * deal.agreedPrice);
     try {
         const token = localStorage.getItem('token');
         
-        // 1. Create order on backend (Backend handles conversion to paise)
-        const orderRes = await fetch(`${API_BASE}/payment/create-order`, {
+        // TEMPORARY BYPASS: Directly update the deal status without Razorpay
+        const res = await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/pay-buyer-escrow`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ amount: totalAmount, dealId: deal._id }) 
         });
-        const orderData = await orderRes.json();
         
-        if (!orderData.success || !orderData.order) {
-            console.error("Backend returned invalid order data:", orderData);
-            alert("Error initializing payment. Missing order details.");
-            setPaymentProcessing(false);
-            return;
+        const data = await res.json();
+        if(data.success) {
+            alert("Payment Bypass Successful! Deal updated.");
+            onRefresh();
+        } else {
+            alert(data.message || "Failed to update deal status.");
         }
-
-        const options = {
-            key: import.meta.env.VITE_RAZORPAY_KEY_ID, 
-            amount: orderData.order.amount,
-            currency: orderData.order.currency,
-            name: "Saathi",
-            description: "Crop Escrow & Agent Fee",
-            order_id: orderData.order.id,
-            handler: async function (response) {
-                try {
-                    // 2. Verify payment on backend
-                    const verifyRes = await fetch(`${API_BASE}/payment/verify-payment`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                        body: JSON.stringify({ ...response, dealId: deal._id })
-                    });
-                    const verifyData = await verifyRes.json();
-                    
-                    if (verifyData.success) {
-                        // 3. Update Deal DB status
-                        const res = await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/pay-buyer-escrow`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                        });
-                        const data = await res.json();
-                        if(data.success) {
-                            alert("Payment Successful! Deal updated.");
-                            onRefresh();
-                        } else {
-                            alert(data.message || "Payment successful but failed to update deal status.");
-                        }
-                    } else {
-                        alert("Payment verification failed.");
-                    }
-                } catch (err) {
-                    alert("Error verifying payment.");
-                } finally {
-                    setPaymentProcessing(false);
-                }
-            },
-            prefill: {
-                name: "Buyer",
-                email: "buyer@example.com",
-            },
-            theme: { color: "#b91c1c" } // red-700
-        };
-
-        const rzp = new Razorpay(options);
-        rzp.on("payment.failed", function (response) {
-            alert(response?.error?.description || 'Payment failed. Please try again.');
-            setPaymentProcessing(false);
-        });
-        rzp.open();
-        
     } catch (err) {
-        console.error("Payment error", err);
-        alert('Network error while initiating payment.');
+        console.error("Payment bypass error", err);
+        alert('Network error while updating payment status.');
+    } finally {
         setPaymentProcessing(false);
     }
   };
