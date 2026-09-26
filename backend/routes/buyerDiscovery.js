@@ -487,7 +487,7 @@ router.post('/deals/:id/escrow', requireAuth, requireRole('FARMER'), async (req,
     const deal = await Deal.findOne({ _id: req.params.id, farmerId: req.user._id });
     if (!deal) return res.status(403).json({ success: false, message: 'Unauthorized' });
 
-    if (deal.status !== 'ACCEPTED') {
+    if (deal.status !== 'BANK_DETAILS_PENDING') {
       return res.status(400).json({ success: false, message: 'Deal is not ready for escrow details.' });
     }
 
@@ -506,7 +506,7 @@ router.post('/deals/:id/escrow', requireAuth, requireRole('FARMER'), async (req,
       submittedAt: new Date()
     };
     
-    deal.status = 'PHOTO_PENDING';
+    deal.status = 'BUYER_PAYMENT_PENDING';
     await deal.save();
 
     res.json({ success: true, data: deal, message: 'Escrow bank details saved successfully.' });
@@ -521,7 +521,7 @@ router.post('/deals/:id/quality-submission', requireAuth, requireRole('FARMER'),
     const deal = await Deal.findOne({ _id: req.params.id, farmerId: req.user._id });
     if (!deal) return res.status(403).json({ success: false, message: 'Unauthorized' });
 
-    if (!['PHOTO_PENDING', 'AI_FLAGGED'].includes(deal.status)) {
+    if (!['ACCEPTED', 'AI_FLAGGED'].includes(deal.status)) {
       return res.status(400).json({ success: false, message: 'Deal is not ready for photo upload.' });
     }
 

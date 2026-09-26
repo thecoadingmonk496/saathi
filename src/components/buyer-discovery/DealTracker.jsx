@@ -144,8 +144,9 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
         });
         const orderData = await orderRes.json();
         
-        if (!orderData.success) {
-            alert("Error initializing payment");
+        if (!orderData.success || !orderData.order) {
+            console.error("Backend returned invalid order data:", orderData);
+            alert("Error initializing payment. Missing order details.");
             setPaymentProcessing(false);
             return;
         }
@@ -378,10 +379,28 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
 
             {/* Action Area */}
           <div>
-            <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">Action Required</h4>
+            {!(userRole === 'BUYER' && deal.status === 'ACCEPTED') && (
+              <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">Action Required</h4>
+            )}
+
+            {userRole === 'BUYER' && deal.status === 'ACCEPTED' && (
+              <div className="bg-blue-50 rounded-xl border border-blue-200 p-5 mb-6 shadow-sm">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+                    <span className="text-lg">⏳</span>
+                  </div>
+                  <div>
+                    <h5 className="font-extrabold text-blue-950 text-sm">Waiting for Farmer</h5>
+                    <p className="text-xs text-blue-800 mt-1 leading-relaxed">
+                      We're currently checking the farmer's crop and going through the initial verification. Please hang tight until the farmer's crop is verified!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Step 1: Escrow Bank Details */}
-            {userRole === 'FARMER' && deal.status === 'ACCEPTED' && (
+            {userRole === 'FARMER' && deal.status === 'BANK_DETAILS_PENDING' && (
               <div className="bg-orange-50 rounded-xl border border-orange-200 p-5 mb-6">
                 <h5 className="font-bold text-gray-900 mb-4">Enter your Bank Account Number</h5>
                 <form onSubmit={handleSubmitEscrow} className="space-y-4">
@@ -424,7 +443,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
           )}
 
             {/* Step 2: Upload Photos (only if not yet uploaded) */}
-            {!hasUploadedPhotos && (deal.status === 'PHOTO_PENDING' || deal.status === 'AI_FLAGGED') && (
+            {!hasUploadedPhotos && (deal.status === 'ACCEPTED' || deal.status === 'AI_FLAGGED') && (
               <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">
                 <h5 className="font-bold text-gray-900 mb-2">
                   {deal.status === 'AI_FLAGGED' ? '⚠️ AI Flagged: Re-Upload Photos' : '📷 Quality Screening'}
