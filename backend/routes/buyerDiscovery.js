@@ -570,7 +570,7 @@ router.post('/deals/:id/pay-buyer-escrow', requireAuth, requireRole('BUYER'), as
       return res.status(400).json({ success: false, message: 'Deal is not ready for escrow deposit.' });
     }
 
-    const amount = req.body.amount || (deal.quantity * deal.agreedPrice);
+    const amount = req.body?.amount || (deal.quantity * deal.agreedPrice);
 
     // Agent fee is paid by the Farmer only, Buyer just pays the Escrow deposit.
     deal.escrowDepositPaid = true;
