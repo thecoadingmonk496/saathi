@@ -788,7 +788,7 @@ export default function Admin() {
   });
 
   return (
-    <div className="min-h-screen bg-[#F1F3F5] text-[#132B47] pb-12">
+    <div data-no-translate="true" className="min-h-screen bg-[#F1F3F5] text-[#132B47] pb-12">
       {/* Top Navigation Bar */}
       <header className="bg-white sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
