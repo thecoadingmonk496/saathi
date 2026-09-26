@@ -66,7 +66,9 @@ export default function Register() {
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(err => {
+        throw new Error(`Invalid JSON response: ${err.message}. This usually means the server returned an HTML error page (e.g. 500 Server Error).`);
+      });
 
       if (response.ok) {
         const { token, user: registeredUser } = data;
@@ -84,7 +86,8 @@ export default function Register() {
         setError(data.message || 'Registration failed. Please try again.');
       }
     } catch (requestError) {
-      setError('Unable to connect to the backend server. Please try again.');
+      console.error('Registration fetch error:', requestError);
+      setError(`Backend error: ${requestError.message}. Check console for details.`);
     } finally {
       setIsLoading(false);
     }
