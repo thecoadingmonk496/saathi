@@ -271,7 +271,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
                 className={`flex items-center gap-1.5 ${isSticky ? 'text-[var(--saathi-text)] hover:text-[var(--saathi-focus)]' : 'text-white hover:text-white'} transition focus:outline-none focus:underline`}
               >
                 <UserCircleIcon className={`h-4 w-4 ${isSticky ? 'text-[var(--saathi-text-secondary)]' : 'text-white/80'}`} />
-                <span>{user?.name || t('nav.profile') || 'Farmer Profile'}</span>
+                <span>{user?.name || (user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : null) || user?.businessName || user?.phone || user?.mobile || 'My Profile'}</span>
               </Link>
               <span className={`${isSticky ? 'text-[var(--saathi-border)]' : 'text-white opacity-40'} font-light select-none`}>|</span>
               <button
@@ -577,7 +577,7 @@ export default function HeroNavigation({ isSticky = false, onOpenLanguageModal, 
                       className="flex items-center gap-2 rounded-md bg-[var(--saathi-surface-alt)] px-3 py-2 text-xs font-bold text-[var(--saathi-text)]"
                     >
                       <UserCircleIcon className="h-4 w-4 text-[var(--saathi-text-secondary)]" />
-                      <span>{user?.name || 'Profile'}</span>
+                      <span>{user?.name || (user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : null) || user?.businessName || user?.phone || user?.mobile || 'My Profile'}</span>
                     </Link>
                     <button
                       type="button"

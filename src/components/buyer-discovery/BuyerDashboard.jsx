@@ -18,7 +18,7 @@ function Avatar({ name, size = 'md' }) {
 
 function Badge({ children, variant = 'default' }) {
   const styles = {
-    live: 'bg-green-600 text-white',
+    live: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
     pending: 'bg-amber-500 text-white',
     rejected: 'bg-red-600 text-white',
     published: 'bg-green-100 text-green-800 border border-green-300',
@@ -77,6 +77,29 @@ function MiniDealSteps({ status }) {
 }
 
 /* ════════════════════════════════════════════════════════════ */
+
+const AVATAR_IMAGES = {
+  rice: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=100&q=80',
+  wheat: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=100&q=80',
+  cotton: 'https://images.unsplash.com/photo-1584824388192-3bc374a2ff4a?auto=format&fit=crop&w=100&q=80',
+  sugarcane: 'https://images.unsplash.com/photo-1628178123282-3e2840d466f2?auto=format&fit=crop&w=100&q=80',
+  maize: 'https://images.unsplash.com/photo-1551754655-cd27e38d2076?auto=format&fit=crop&w=100&q=80',
+  corn: 'https://images.unsplash.com/photo-1551754655-cd27e38d2076?auto=format&fit=crop&w=100&q=80',
+  soybean: 'https://images.unsplash.com/photo-1616892305592-8dbfb66cb669?auto=format&fit=crop&w=100&q=80',
+  potato: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=100&q=80',
+  onion: 'https://images.unsplash.com/photo-1518977956812-cd3dbadaaf31?auto=format&fit=crop&w=100&q=80',
+  tomato: 'https://images.unsplash.com/photo-1518977822534-7049a61ee0c2?auto=format&fit=crop&w=100&q=80',
+  default: 'https://images.unsplash.com/photo-1599940824399-b87987ceb72a?auto=format&fit=crop&w=100&q=80'
+};
+
+const getAvatarImage = (cropName) => {
+  const normalized = (cropName || '').toLowerCase();
+  for (const [key, url] of Object.entries(AVATAR_IMAGES)) {
+    if (normalized.includes(key)) return url;
+  }
+  return AVATAR_IMAGES.default;
+};
+
 export default function BuyerDashboard() {
   const { user } = useUser();
 
@@ -93,6 +116,7 @@ export default function BuyerDashboard() {
   const [activeTab, setActiveTab] = useState('requests');
   const [activeOffers, setActiveOffers] = useState(null);
   const [appStatus, setAppStatus] = useState(() => getCache().appStatus || 'LOADING');
+  const [showSuccessBanner, setShowSuccessBanner] = useState(() => localStorage.getItem('saathi_buyer_approved_dismissed') !== 'true');
   const [showForm, setShowForm] = useState(true);
   const [selectedDeal, setSelectedDeal] = useState(null);
   const [selectedPublishedRequest, setSelectedPublishedRequest] = useState(null);
@@ -284,10 +308,36 @@ export default function BuyerDashboard() {
               <BuyerRegister embedded={true} onSuccess={() => setAppStatus('PENDING')} />
             </div>
           </section>
+        ) : appStatus === 'REJECTED' ? (
+          <section className="bg-red-50 rounded-3xl shadow-sm p-6 sm:p-8 relative overflow-hidden text-center">
+            <h2 className="text-xl font-extrabold text-red-900">Registration Status: REJECTED</h2>
+            <p className="text-sm text-red-700 mt-2">Your buyer profile verification was rejected by the Saathi Admin. Please contact support or update your details.</p>
+          </section>
         ) : appStatus !== 'APPROVED' && appStatus !== 'LOADING' ? (
-          <section className="bg-amber-50 rounded-3xl border border-amber-200 shadow-sm p-6 sm:p-8 relative overflow-hidden text-center">
+          <section className="bg-amber-50 rounded-3xl shadow-sm p-6 sm:p-8 relative overflow-hidden text-center">
             <h2 className="text-xl font-extrabold text-amber-900">Registration Status: {appStatus.replace(/_/g, ' ')}</h2>
             <p className="text-sm text-amber-700 mt-2">Your buyer profile is currently under review by the Saathi Admin. You can publish crop requirements once approved.</p>
+          </section>
+        ) : appStatus === 'APPROVED' && showSuccessBanner ? (
+          <section className="bg-emerald-50 rounded-3xl shadow-sm p-6 relative overflow-hidden flex justify-between items-start">
+            <div>
+              <h2 className="text-lg font-extrabold text-emerald-900 flex items-center gap-2">
+                <span>✓</span> Successfully Registered & Approved
+              </h2>
+              <p className="text-sm text-emerald-800 mt-1">
+                Your buyer profile has been verified by the Saathi Admin. You can now publish crop requirements and connect with farmers.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                localStorage.setItem('saathi_buyer_approved_dismissed', 'true');
+                setShowSuccessBanner(false);
+              }}
+              className="text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 p-1.5 rounded-lg transition"
+              title="Dismiss"
+            >
+              ✕
+            </button>
           </section>
         ) : null}
 
@@ -488,17 +538,16 @@ export default function BuyerDashboard() {
                 <div key={req._id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                   {/* Status Banner */}
                   {isPending && (
-                    <div className="bg-amber-50 border-b border-amber-200 px-5 py-2.5 flex items-center justify-between text-xs text-amber-800 font-semibold">
-                      <span className="flex items-center gap-1.5">
-                        <span className="animate-spin text-amber-600">⏳</span>
-                        <span>Under Verification by Saathi Admin. Once verified, it will be published to farmers automatically.</span>
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 font-bold uppercase tracking-wider text-xs">Pending Admin Review</span>
-                    </div>
-                  )}
+                      <div className="bg-amber-50 px-5 py-3 flex items-center text-xs text-amber-800 font-semibold">
+                        <span className="flex items-center gap-1.5">
+                          <span className="animate-spin text-amber-600">⏳</span>
+                          <span>Under Verification by Saathi Admin. Once verified, it will be published to farmers automatically.</span>
+                        </span>
+                      </div>
+                    )}
 
                   {isRejected && (
-                    <div className="bg-red-50 border-b border-red-200 px-5 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-red-800 font-semibold">
+                    <div className="bg-red-50 px-5 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-red-800 font-semibold">
                       <div>
                         <span className="font-bold text-red-900">✕ Verification Rejected by Admin:</span> {req.adminRemarks || 'Did not meet verification criteria.'}
                       </div>
@@ -523,13 +572,11 @@ export default function BuyerDashboard() {
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-full bg-red-50 flex items-center justify-center text-xl">🌾</div>
+                        <img src={req.cropImage || getAvatarImage(req.crop)} alt={req.crop} className="w-12 h-12 rounded-full object-cover shadow-sm border border-gray-100 shrink-0 bg-gray-50" />
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-lg font-bold text-gray-900">{req.crop}</h3>
-                            {isPublished && <Badge variant="live">● Published & Live</Badge>}
-                            {isPending && <Badge variant="pending">● Under Review</Badge>}
-                            {isRejected && <Badge variant="rejected">● Rejected</Badge>}
+                            {isPublished && <Badge variant="live">✓ Published & Live</Badge>}
                           </div>
                           <p className="text-sm text-gray-500 mt-0.5">
                             📍 {req.location} &nbsp;·&nbsp; 💰 ₹{Number(req.offeredPrice).toLocaleString('en-IN')}/Quintal Target
@@ -537,10 +584,10 @@ export default function BuyerDashboard() {
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Required Quantity</p>
-                        <p className="text-3xl font-extrabold text-gray-900 leading-none mt-0.5">
-                          {Number(req.quantity).toLocaleString('en-IN')}
-                          <span className="text-sm font-bold text-gray-500 ml-1">Qtl</span>
+                        <p className="text-xs font-semibold text-gray-500 mb-0.5">Required</p>
+                          <p className="text-3xl font-black text-gray-900 leading-none">
+                            {Number(req.quantity).toLocaleString('en-IN')}
+                            <span className="text-base font-bold text-gray-500 ml-1">Qtl</span>
                         </p>
                       </div>
                     </div>
