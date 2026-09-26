@@ -33,7 +33,7 @@ function Badge({ children, variant = 'default' }) {
 }
 
 /* ── vertical mini-deal tracker (for Locked Deals sidebar) ── */
-function MiniDealSteps({ status }) {
+function MiniDealSteps({ deal }) {
   const steps = [
     { key: 'ACCEPTED', label: 'Accepted' },
     { key: 'QC_PENDING', label: 'QC Pending' },
@@ -41,13 +41,20 @@ function MiniDealSteps({ status }) {
     { key: 'COMPLETED', label: 'Completed' },
   ];
 
-  const statusMap = {
-    ACCEPTED: 0, PHOTO_PENDING: 0, AI_FLAGGED: 0,
-    AI_REVIEW: 1, AI_PASSED: 1, HUMAN_REVIEW: 1,
-    VERIFIED: 2,
-    COMPLETED: 3, DISPUTED: 3,
-  };
-  const currentIdx = statusMap[status] ?? -1;
+  let currentIdx = 0;
+  const status = deal?.status || 'ACCEPTED';
+  const isFeePaid = deal?.agentFeePaid || false;
+  const hasUploadedPhotos = deal?.farmerPhotos && deal.farmerPhotos.length > 0;
+
+  if (['COMPLETED', 'CANCELLED', 'DISPUTED'].includes(status)) {
+    currentIdx = 3;
+  } else if (['VERIFIED', 'ADMIN_PRE_SHIPMENT_VERIFIED', 'RECEIPT_SUBMITTED', 'BUYER_DELIVERY_UPLOADED', 'ADMIN_FINAL_APPROVED'].includes(status)) {
+    currentIdx = 2; // Verified
+  } else if (isFeePaid || hasUploadedPhotos || ['HUMAN_REVIEW', 'BUYER_PAYMENT_PENDING', 'PHOTO_PENDING', 'AGENT_PAYMENT_PENDING', 'AI_PASSED', 'ADMIN_MOISTURE_REVIEW', 'AI_FLAGGED', 'AI_REVIEW', 'FARMER_PHOTOS_UPLOADED'].includes(status)) {
+    currentIdx = 1; // QC Pending
+  } else {
+    currentIdx = 0; // Accepted
+  }
 
   return (
     <div className="space-y-0">
@@ -720,7 +727,7 @@ export default function BuyerDashboard() {
                                       </div>
                                       <span className="text-sm font-extrabold text-gray-800">{deal.quantity} <span className="text-xs font-bold text-gray-400">Qtl</span></span>
                                     </div>
-                                    <MiniDealSteps status={deal.status} />
+                                    <MiniDealSteps deal={deal} />
                                   </div>
                                 ))}
                             </div>
@@ -988,7 +995,7 @@ export default function BuyerDashboard() {
                         <span className="text-gray-500 font-medium">Agreed Price</span>
                         <span className="font-bold text-gray-900">₹{Number(deal.agreedPrice || deal.buyerRequestId?.offeredPrice || 0).toLocaleString('en-IN')}/Qtl</span>
                       </div>
-                      <MiniDealSteps status={deal.status} />
+                      <MiniDealSteps deal={deal} />
                     </div>
                   ))}
                 </div>
