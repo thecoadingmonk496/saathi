@@ -20,12 +20,6 @@ export default function SectionHeader({
   return (
     <div className="mb-12 flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
       <div className="relative">
-        <div className="mb-3 flex items-center gap-2">
-          <div className="h-1.5 w-8 rounded-full bg-[#E51B2A]"></div>
-          <span className="text-sm font-bold tracking-wider text-[#E51B2A] uppercase">
-            Saathi Portal
-          </span>
-        </div>
         <div className="flex flex-wrap items-baseline gap-3">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-[#13233A]">
             {displayTitle}
