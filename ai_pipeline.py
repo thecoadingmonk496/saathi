@@ -965,6 +965,29 @@ KNOWN_CROP_ALIASES: list[str] = [
 
 import re
 
+
+def extract_intent(query: str) -> dict:
+    prompt = f'''Extract information from this agricultural query: "{query}"
+Respond EXACTLY in this JSON format. Correct any spelling or typos in locations (e.g., 'varansi' -> 'Varanasi', 'punjab' -> 'Punjab') and map crops to canonical names ('Rice' instead of 'chawal'). If not mentioned, use null.
+{{
+  "is_price_query": true,
+  "crop": "string or null",
+  "state": "string or null",
+  "district": "string or null"
+}}
+'''
+    try:
+        res = llm.invoke([HumanMessage(content=prompt)])
+        text = getattr(res, "content", str(res)).strip()
+        if text.startswith("```json"): text = text[7:]
+        if text.startswith("```"): text = text[3:]
+        if text.endswith("```"): text = text[:-3]
+        import json
+        return json.loads(text.strip())
+    except Exception as e:
+        logger.error(f"[AI] Intent extraction failed: {e}")
+        return {"is_price_query": False, "crop": None, "state": None, "district": None}
+
 def extract_crop_from_message(message: str) -> Optional[str]:
     """Extract crop mentioned in user message (whole word match)."""
     msg_lower = (message or "").lower()
@@ -1425,14 +1448,15 @@ def run_ai_pipeline(
     if quick_response:
         return quick_response
 
-    user_location = extract_location_from_message(query)
-    user_crop = extract_crop_from_message(query)
-
+    intent = extract_intent(query)
+    
     effective_profile = (profile or {}).copy()
-    if user_location:
-        effective_profile['state'] = user_location
-    if user_crop:
-        effective_profile['crop'] = user_crop
+    if intent.get("state"):
+        effective_profile['state'] = intent.get("state")
+    if intent.get("district"):
+        effective_profile['district'] = intent.get("district")
+    if intent.get("crop"):
+        effective_profile['crop'] = intent.get("crop")
 
     # ── Farmer profile context ─────────────────────────────────────────────────
     profile_context = ""
@@ -1477,11 +1501,12 @@ This override applies to the response language even if conversation history used
     )
 
     mandi_ctx = ""
-    price_query = bool(re.search(
-        r"(?i)(mandi|price|rate|bhav|भाव|कीमत|दाम|விலை|ధర|দাম|ભાવ|ಬೆಲೆ|വില)",
-        query,
-    ))
-    detected_crop = user_crop or extract_crop_from_message(query)
+    price_query = intent.get("is_price_query", False)
+    # Fallback to regex if intent failed
+    if not price_query:
+        price_query = bool(re.search(r"(?i)(mandi|price|rate|bhav|भाव|कीमत|दाम)", query))
+        
+    detected_crop = intent.get("crop") or effective_profile.get("crop")
     if price_query:
         logger.info(
             "[MANDI] retrieval started | crop=%s | state=%s | district=%s",
