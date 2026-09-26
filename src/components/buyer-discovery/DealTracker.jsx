@@ -30,6 +30,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
   const fileInputRef = useRef(null);
   const [bankAccount, setBankAccount] = useState(deal.farmerBankAccount || '');
   const [escrowModal, setEscrowModal] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
   const deliveryFileInputRef = useRef(null);
 
   const handleBankSubmit = async () => {
@@ -783,10 +784,10 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                     </div>
                     {deal.transactionReceiptUrl && (
                       <div className="pt-2">
-                        <a href={deal.transactionReceiptUrl} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition">
+                        <button onClick={() => setShowReceipt(true)} className="w-full flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition">
                           <span>🧾</span>
                           <span>View Bank Transfer Receipt</span>
-                        </a>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -814,6 +815,27 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
               {paymentProcessing ? 'Processing...' : `Pay ₹${deal.agreedPrice}`}
             </button>
             <button onClick={()=>setEscrowModal(false)} className="w-full py-3 mt-2 text-gray-500 font-bold">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {showReceipt && deal.transactionReceiptUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-black text-emerald-700">🧾 Bank Transfer Receipt</h2>
+              <button onClick={() => setShowReceipt(false)} className="text-gray-500 hover:text-gray-900 text-xl font-bold">✕</button>
+            </div>
+            <div className="bg-gray-50 rounded-xl overflow-hidden" style={{ height: '500px' }}>
+              <iframe
+                src={deal.transactionReceiptUrl}
+                title="Bank Transfer Receipt"
+                className="w-full h-full border-0"
+              />
+            </div>
+            <button onClick={() => setShowReceipt(false)} className="mt-4 w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl transition">
+              Close
+            </button>
           </div>
         </div>
       )}
