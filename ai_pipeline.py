@@ -1049,6 +1049,12 @@ def get_mandi_prices_context(
         # Try 1: Exact match (District + State + Commodity)
         records = fetch_with_filters(filters)
         
+        # Try 1.5: District + Commodity (if State was mismatched or missing)
+        if not records and district and "commodity" in filters:
+            district_filters = {"commodity": filters["commodity"], "district": filters["district"]}
+            logger.info("[MANDI] Falling back to district-only query: %s", district_filters)
+            records = fetch_with_filters(district_filters)
+            
         # Try 2: State + Commodity (if District was specified but no results)
         if not records and district and "state" in filters:
             fallback_filters = {k: v for k, v in filters.items() if k != "district"}
