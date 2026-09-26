@@ -23,7 +23,7 @@ const STATUS_MAP = {
   COMPLETED: 6, DISPUTED: 6, UNVERIFIED: 4,
 };
 
-export default function DealTracker({ deal, userRole, onRefresh }) {
+export default function DealTracker({ deal, userRole, onRefresh, onDeliveryUploaded }) {
   const [loading, setLoading] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const { Razorpay } = useRazorpay();
@@ -54,14 +54,57 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
   const handleDeliveryUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
+    if (files.length > 10) {
+      alert('Maximum 10 delivery photos allowed.');
+      e.target.value = '';
+      return;
+    }
+    if (files.some((file) => !file.type.startsWith('image/'))) {
+      alert('Please select image files only.');
+      e.target.value = '';
+      return;
+    }
+    if (files.some((file) => file.size > 500 * 1024)) {
+      alert('One or more photos exceed 500KB. Please select smaller images.');
+      e.target.value = '';
+      return;
+    }
+
+    const input = e.target;
     setLoading(true);
-    const base64Images = await Promise.all(files.map(f => new Promise((resolve) => {
-      const reader = new FileReader(); reader.readAsDataURL(f); reader.onload = () => resolve(reader.result);
-    })));
-    const token = localStorage.getItem('token');
-    await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/buyer-delivery-photos`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ imageUrls: base64Images }) });
-    setLoading(false);
-    onRefresh();
+    try {
+      const base64Images = await Promise.all(files.map((file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+        reader.readAsDataURL(file);
+      })));
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/buyer-delivery-photos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ imageUrls: base64Images }),
+      });
+      const data = await response.json().catch(() => ({}));
+      const savedDeal = data.data || data;
+      if (!response.ok || savedDeal.status !== 'BUYER_DELIVERY_UPLOADED' || !Array.isArray(savedDeal.deliverySubmissions)) {
+        throw new Error(data.message || `Upload failed (${response.status}). Please try smaller photos.`);
+      }
+      if (onDeliveryUploaded) {
+        onDeliveryUploaded({
+          status: savedDeal.status,
+          deliverySubmissions: savedDeal.deliverySubmissions,
+        });
+      } else {
+        onRefresh();
+      }
+    } catch (error) {
+      console.error('Delivery photo upload failed:', error);
+      alert(error.message || 'Unable to upload delivery photos. Please try again.');
+    } finally {
+      setLoading(false);
+      input.value = '';
+    }
   };
 
 

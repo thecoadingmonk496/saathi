@@ -32,8 +32,8 @@ const buyerApplicationSchema = new mongoose.Schema({
     address: { type: String, required: true, trim: true },
   },
   location: {
-    type: { type: String, enum: ['Point'], default: 'Point' },
-    coordinates: { type: [Number], default: [] },
+    type: { type: String, enum: ['Point'], default: undefined },
+    coordinates: { type: [Number], default: undefined },
   },
   address: {
     villageCity: { type: String, required: true, trim: true },

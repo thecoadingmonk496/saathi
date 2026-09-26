@@ -1,9 +1,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import jsxTextLocalization from './scripts/jsx-text-localization.js';
 
 export default defineConfig({
   plugins: [
+    jsxTextLocalization(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',

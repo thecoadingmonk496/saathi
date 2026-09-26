@@ -909,7 +909,15 @@ export default function BuyerDashboard() {
               {selectedDeal ? (
                 <div>
                   <button onClick={() => setSelectedDeal(null)} className="mb-4 text-sm font-bold text-red-700 hover:underline">← Back to all deals</button>
-                  <DealTracker deal={selectedDeal} userRole="BUYER" onRefresh={() => { setSelectedDeal(null); fetchData(); }} />
+                  <DealTracker
+                    deal={selectedDeal}
+                    userRole="BUYER"
+                    onRefresh={() => { setSelectedDeal(null); fetchData(); }}
+                    onDeliveryUploaded={(updates) => {
+                      setSelectedDeal((current) => current ? { ...current, ...updates } : current);
+                      fetchData();
+                    }}
+                  />
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

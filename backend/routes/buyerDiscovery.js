@@ -738,6 +738,16 @@ router.post('/deals/:id/report', requireAuth, async (req, res) => {
 router.post('/deals/:id/buyer-delivery-photos', requireAuth, requireRole('BUYER'), async (req, res) => {
   try {
     const { imageUrls } = req.body;
+    if (!Array.isArray(imageUrls) || imageUrls.length === 0 || imageUrls.length > 10) {
+      return res.status(400).json({ success: false, message: 'Upload between 1 and 10 delivery photos.' });
+    }
+    const maxImageDataUrlLength = 700_000;
+    if (imageUrls.some((image) => typeof image !== 'string'
+      || !/^data:image\/[\w.+-]+;base64,/i.test(image)
+      || image.length > maxImageDataUrlLength)) {
+      return res.status(400).json({ success: false, message: 'Each delivery photo must be a valid image under 500KB.' });
+    }
+
     const deal = await Deal.findOne({ _id: req.params.id, buyerId: req.user._id });
     if (!deal) return res.status(404).json({ message: 'Deal not found' });
     
@@ -749,7 +759,10 @@ router.post('/deals/:id/buyer-delivery-photos', requireAuth, requireRole('BUYER'
     deal.status = 'BUYER_DELIVERY_UPLOADED';
     await deal.save();
     res.json(deal);
-  } catch (error) { res.status(500).json({ message: error.message }); }
+  } catch (error) {
+    console.error('[BuyerDeliveryPhotos] Upload error:', error.message);
+    res.status(500).json({ success: false, message: 'Unable to save delivery photos. Please try again.' });
+  }
 });
 
 module.exports = router;
