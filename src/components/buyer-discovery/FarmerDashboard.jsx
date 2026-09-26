@@ -673,14 +673,13 @@ export default function FarmerDashboard() {
                         || ['AGENT_PAYMENT_PENDING', 'HUMAN_REVIEW', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'DISPUTED'].includes(deal.status);
                       const aiPassed = latestSubmission?.aiStatus === 'PASSED'
                         || ['AGENT_PAYMENT_PENDING', 'HUMAN_REVIEW', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'DISPUTED'].includes(deal.status);
-                      const agentAssigned = deal.agentFeePaid
-                        || ['HUMAN_REVIEW', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'DISPUTED'].includes(deal.status);
+                      const bankDetailsSubmitted = Boolean(deal.escrowBankAccount?.accountNumber) || ['BUYER_PAYMENT_PENDING', 'AGENT_PAYMENT_PENDING', 'HUMAN_REVIEW', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'DISPUTED'].includes(deal.status);
                       const isVerified = deal.status === 'VERIFIED' || deal.status === 'ADMIN_PRE_SHIPMENT_VERIFIED' || deal.status === 'RECEIPT_SUBMITTED' || deal.status === 'BUYER_DELIVERY_UPLOADED' || deal.status === 'COMPLETED';
                       const dealCompleted = deal.status === 'COMPLETED';
                       const inInspection = deal.status === 'HUMAN_REVIEW' || deal.status === 'AGENT_PAYMENT_PENDING';
                       
                       // Payment/Moisture waiting states
-                      const isWaitingMoistureOrPayment = deal.status === 'ADMIN_MOISTURE_REVIEW' || deal.status === 'BUYER_PAYMENT_PENDING' || deal.status === 'AI_PASSED';
+                      const isWaitingMoistureOrPayment = deal.status === 'ADMIN_MOISTURE_REVIEW' || deal.status === 'BANK_DETAILS_PENDING' || deal.status === 'BUYER_PAYMENT_PENDING' || deal.status === 'AI_PASSED';
 
                       const needsPhotos = !photosSubmitted && (deal.status === 'ACCEPTED' || deal.status === 'PHOTO_PENDING' || deal.status === 'AI_FLAGGED');
                       
@@ -764,7 +763,7 @@ export default function FarmerDashboard() {
                                   {[
                                     ['Upload Photos', photosSubmitted],
                                     ['Moisture 11.8%', aiPassed],
-                                    ['Agent Assigned', agentAssigned],
+                                    ['Account Details', bankDetailsSubmitted],
                                     ['SAATHI Verification', isVerified],
                                     ['Completed', dealCompleted],
                                   ].map(([label, complete], index) => (

@@ -23,13 +23,14 @@ const STATUS_MAP = {
   COMPLETED: 6, DISPUTED: 6, UNVERIFIED: 4,
 };
 
-export default function DealTracker({ deal, userRole, onRefresh }) {
+export default function DealTracker({ deal, userRole, onRefresh, onDeliveryUploaded }) {
   const [loading, setLoading] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const { Razorpay } = useRazorpay();
   const fileInputRef = useRef(null);
   const [bankAccount, setBankAccount] = useState(deal.farmerBankAccount || '');
   const [escrowModal, setEscrowModal] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
   const deliveryFileInputRef = useRef(null);
 
   const handleBankSubmit = async () => {
@@ -53,14 +54,57 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
   const handleDeliveryUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
+    if (files.length > 10) {
+      alert('Maximum 10 delivery photos allowed.');
+      e.target.value = '';
+      return;
+    }
+    if (files.some((file) => !file.type.startsWith('image/'))) {
+      alert('Please select image files only.');
+      e.target.value = '';
+      return;
+    }
+    if (files.some((file) => file.size > 500 * 1024)) {
+      alert('One or more photos exceed 500KB. Please select smaller images.');
+      e.target.value = '';
+      return;
+    }
+
+    const input = e.target;
     setLoading(true);
-    const base64Images = await Promise.all(files.map(f => new Promise((resolve) => {
-      const reader = new FileReader(); reader.readAsDataURL(f); reader.onload = () => resolve(reader.result);
-    })));
-    const token = localStorage.getItem('token');
-    await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/buyer-delivery-photos`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ imageUrls: base64Images }) });
-    setLoading(false);
-    onRefresh();
+    try {
+      const base64Images = await Promise.all(files.map((file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+        reader.readAsDataURL(file);
+      })));
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE}/buyer-discovery/deals/${deal._id}/buyer-delivery-photos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ imageUrls: base64Images }),
+      });
+      const data = await response.json().catch(() => ({}));
+      const savedDeal = data.data || data;
+      if (!response.ok || savedDeal.status !== 'BUYER_DELIVERY_UPLOADED' || !Array.isArray(savedDeal.deliverySubmissions)) {
+        throw new Error(data.message || `Upload failed (${response.status}). Please try smaller photos.`);
+      }
+      if (onDeliveryUploaded) {
+        onDeliveryUploaded({
+          status: savedDeal.status,
+          deliverySubmissions: savedDeal.deliverySubmissions,
+        });
+      } else {
+        onRefresh();
+      }
+    } catch (error) {
+      console.error('Delivery photo upload failed:', error);
+      alert(error.message || 'Unable to upload delivery photos. Please try again.');
+    } finally {
+      setLoading(false);
+      input.value = '';
+    }
   };
 
 
@@ -144,8 +188,9 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
         });
         const orderData = await orderRes.json();
         
-        if (!orderData.success) {
-            alert("Error initializing payment");
+        if (!orderData.success || !orderData.order) {
+            console.error("Backend returned invalid order data:", orderData);
+            alert("Error initializing payment. Missing order details.");
             setPaymentProcessing(false);
             return;
         }
@@ -378,10 +423,28 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
 
             {/* Action Area */}
           <div>
-            <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">Action Required</h4>
+            {!(userRole === 'BUYER' && deal.status === 'ACCEPTED') && (
+              <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">Action Required</h4>
+            )}
+
+            {userRole === 'BUYER' && deal.status === 'ACCEPTED' && (
+              <div className="bg-blue-50 rounded-xl border border-blue-200 p-5 mb-6 shadow-sm">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+                    <span className="text-lg">⏳</span>
+                  </div>
+                  <div>
+                    <h5 className="font-extrabold text-blue-950 text-sm">Waiting for Farmer</h5>
+                    <p className="text-xs text-blue-800 mt-1 leading-relaxed">
+                      We're currently checking the farmer's crop and going through the initial verification. Please hang tight until the farmer's crop is verified!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Step 1: Escrow Bank Details */}
-            {userRole === 'FARMER' && deal.status === 'ACCEPTED' && (
+            {userRole === 'FARMER' && deal.status === 'BANK_DETAILS_PENDING' && (
               <div className="bg-orange-50 rounded-xl border border-orange-200 p-5 mb-6">
                 <h5 className="font-bold text-gray-900 mb-4">Enter your Bank Account Number</h5>
                 <form onSubmit={handleSubmitEscrow} className="space-y-4">
@@ -424,7 +487,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
           )}
 
             {/* Step 2: Upload Photos (only if not yet uploaded) */}
-            {!hasUploadedPhotos && (deal.status === 'PHOTO_PENDING' || deal.status === 'AI_FLAGGED') && (
+            {userRole === 'FARMER' && !hasUploadedPhotos && (deal.status === 'ACCEPTED' || deal.status === 'AI_FLAGGED') && (
               <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">
                 <h5 className="font-bold text-gray-900 mb-2">
                   {deal.status === 'AI_FLAGGED' ? '⚠️ AI Flagged: Re-Upload Photos' : '📷 Quality Screening'}
@@ -621,7 +684,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
             )}
 
             {/* Step 3: ONLY shown after ₹250 is Paid (isFeePaid === true) */}
-            {isFeePaid && deal.status !== 'AGENT_PAYMENT_PENDING' && deal.status !== 'VERIFIED' && deal.status !== 'ADMIN_PRE_SHIPMENT_VERIFIED' && deal.status !== 'COMPLETED' && deal.status !== 'UNVERIFIED' && (
+            {isFeePaid && deal.status !== 'AGENT_PAYMENT_PENDING' && deal.status !== 'VERIFIED' && deal.status !== 'ADMIN_PRE_SHIPMENT_VERIFIED' && deal.status !== 'COMPLETED' && deal.status !== 'UNVERIFIED' && deal.status !== 'BUYER_DELIVERY_UPLOADED' && deal.status !== 'ESCROW_PENDING' && deal.status !== 'RECEIPT_SUBMITTED' && (
               <div className="bg-amber-50 rounded-2xl border border-amber-200 p-5 space-y-3">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
@@ -635,12 +698,6 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                     <span className="font-semibold text-gray-500">Fixed Deal Amount</span>
                     <span className="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                       ₹{(deal.escrowDepositAmount || (deal.quantity * deal.agreedPrice)).toLocaleString('en-IN')} PAID ✓
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-gray-500">Agent Connection Fee</span>
-                    <span className="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                      ₹250 PAID ✓
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
@@ -770,10 +827,10 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                     </div>
                     {deal.transactionReceiptUrl && (
                       <div className="pt-2">
-                        <a href={deal.transactionReceiptUrl} target="_blank" rel="noreferrer" className="w-full flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition">
+                        <button onClick={() => setShowReceipt(true)} className="w-full flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition">
                           <span>🧾</span>
                           <span>View Bank Transfer Receipt</span>
-                        </a>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -801,6 +858,27 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
               {paymentProcessing ? 'Processing...' : `Pay ₹${deal.agreedPrice}`}
             </button>
             <button onClick={()=>setEscrowModal(false)} className="w-full py-3 mt-2 text-gray-500 font-bold">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {showReceipt && deal.transactionReceiptUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-black text-emerald-700">🧾 Bank Transfer Receipt</h2>
+              <button onClick={() => setShowReceipt(false)} className="text-gray-500 hover:text-gray-900 text-xl font-bold">✕</button>
+            </div>
+            <div className="bg-gray-50 rounded-xl overflow-hidden" style={{ height: '500px' }}>
+              <iframe
+                src={deal.transactionReceiptUrl}
+                title="Bank Transfer Receipt"
+                className="w-full h-full border-0"
+              />
+            </div>
+            <button onClick={() => setShowReceipt(false)} className="mt-4 w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl transition">
+              Close
+            </button>
           </div>
         </div>
       )}

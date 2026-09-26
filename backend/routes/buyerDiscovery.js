@@ -487,7 +487,7 @@ router.post('/deals/:id/escrow', requireAuth, requireRole('FARMER'), async (req,
     const deal = await Deal.findOne({ _id: req.params.id, farmerId: req.user._id });
     if (!deal) return res.status(403).json({ success: false, message: 'Unauthorized' });
 
-    if (deal.status !== 'ACCEPTED') {
+    if (deal.status !== 'BANK_DETAILS_PENDING') {
       return res.status(400).json({ success: false, message: 'Deal is not ready for escrow details.' });
     }
 
@@ -506,7 +506,7 @@ router.post('/deals/:id/escrow', requireAuth, requireRole('FARMER'), async (req,
       submittedAt: new Date()
     };
     
-    deal.status = 'PHOTO_PENDING';
+    deal.status = 'BUYER_PAYMENT_PENDING';
     await deal.save();
 
     res.json({ success: true, data: deal, message: 'Escrow bank details saved successfully.' });
@@ -521,7 +521,7 @@ router.post('/deals/:id/quality-submission', requireAuth, requireRole('FARMER'),
     const deal = await Deal.findOne({ _id: req.params.id, farmerId: req.user._id });
     if (!deal) return res.status(403).json({ success: false, message: 'Unauthorized' });
 
-    if (!['PHOTO_PENDING', 'AI_FLAGGED'].includes(deal.status)) {
+    if (!['ACCEPTED', 'AI_FLAGGED'].includes(deal.status)) {
       return res.status(400).json({ success: false, message: 'Deal is not ready for photo upload.' });
     }
 
@@ -570,7 +570,7 @@ router.post('/deals/:id/pay-buyer-escrow', requireAuth, requireRole('BUYER'), as
       return res.status(400).json({ success: false, message: 'Deal is not ready for escrow deposit.' });
     }
 
-    const amount = req.body.amount || (deal.quantity * deal.agreedPrice);
+    const amount = req.body?.amount || (deal.quantity * deal.agreedPrice);
 
     // Agent fee is paid by the Farmer only, Buyer just pays the Escrow deposit.
     deal.escrowDepositPaid = true;
@@ -738,6 +738,16 @@ router.post('/deals/:id/report', requireAuth, async (req, res) => {
 router.post('/deals/:id/buyer-delivery-photos', requireAuth, requireRole('BUYER'), async (req, res) => {
   try {
     const { imageUrls } = req.body;
+    if (!Array.isArray(imageUrls) || imageUrls.length === 0 || imageUrls.length > 10) {
+      return res.status(400).json({ success: false, message: 'Upload between 1 and 10 delivery photos.' });
+    }
+    const maxImageDataUrlLength = 700_000;
+    if (imageUrls.some((image) => typeof image !== 'string'
+      || !/^data:image\/[\w.+-]+;base64,/i.test(image)
+      || image.length > maxImageDataUrlLength)) {
+      return res.status(400).json({ success: false, message: 'Each delivery photo must be a valid image under 500KB.' });
+    }
+
     const deal = await Deal.findOne({ _id: req.params.id, buyerId: req.user._id });
     if (!deal) return res.status(404).json({ message: 'Deal not found' });
     
@@ -749,7 +759,10 @@ router.post('/deals/:id/buyer-delivery-photos', requireAuth, requireRole('BUYER'
     deal.status = 'BUYER_DELIVERY_UPLOADED';
     await deal.save();
     res.json(deal);
-  } catch (error) { res.status(500).json({ message: error.message }); }
+  } catch (error) {
+    console.error('[BuyerDeliveryPhotos] Upload error:', error.message);
+    res.status(500).json({ success: false, message: 'Unable to save delivery photos. Please try again.' });
+  }
 });
 
 module.exports = router;

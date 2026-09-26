@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
+import LocalizedAttributes from './components/LocalizedAttributes';
 import { UserProvider, useUser } from './context/UserContext';
 import { LocationProvider } from './context/LocationContext';
 
@@ -50,6 +51,7 @@ export default function App() {
     <UserProvider>
       <LocationProvider>
         <BrowserRouter>
+          <LocalizedAttributes />
           <Routes>
             {/* Auth Routes */}
             <Route path="/register" element={<Register />} />

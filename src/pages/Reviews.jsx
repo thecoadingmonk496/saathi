@@ -130,7 +130,7 @@ export default function Reviews() {
                   </span>
                 </div>
                 
-                <p className="text-slate-700 font-medium text-sm mb-6 leading-relaxed line-clamp-4">
+                <p data-no-translate className="text-slate-700 font-medium text-sm mb-6 leading-relaxed line-clamp-4">
                   "{review.reviewText}"
                 </p>
                 

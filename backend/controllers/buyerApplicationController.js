@@ -141,7 +141,7 @@ async function applyBuyer(req, res) {
     if (!isValidPincode(pincode)) return res.status(400).json({ success: false, message: 'Please enter a valid 6-digit pincode' });
 
     // --- Location (GeoJSON) ---
-    let location = { type: 'Point', coordinates: [] };
+    let location;
     if (body.location && Array.isArray(body.location.coordinates) && body.location.coordinates.length === 2) {
       const [lng, lat] = body.location.coordinates.map(Number);
       if (Number.isFinite(lng) && Number.isFinite(lat) && lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90) {
@@ -230,7 +230,7 @@ async function applyBuyer(req, res) {
         yearEstablished,
         address: businessAddress,
       },
-      location,
+      ...(location ? { location } : {}),
       address: {
         villageCity,
         tehsilBlock,
@@ -471,6 +471,14 @@ async function approveApplication(req, res) {
       return res.status(404).json({ success: false, message: 'Buyer application not found' });
     }
 
+    const coordinates = application.location?.coordinates;
+    const hasValidLocation = Array.isArray(coordinates)
+      && coordinates.length === 2
+      && coordinates.every(Number.isFinite)
+      && coordinates[0] >= -180 && coordinates[0] <= 180
+      && coordinates[1] >= -90 && coordinates[1] <= 90;
+    if (!hasValidLocation) application.location = undefined;
+
     application.verificationStatus = 'APPROVED';
     application.verified = true;
     application.reviewedAt = new Date();
@@ -500,8 +508,8 @@ async function approveApplication(req, res) {
           $set: { 
             role: newRole,
             businessName: application.business?.name || application.businessName || '',
-            businessType: application.business?.type || application.businessType || '',
-            gstNumber: application.gstNumber || ''
+            businessType: application.business?.businessType || application.businessType || '',
+            gstNumber: application.business?.gstNumber || application.gstNumber || ''
           }
         }
       );

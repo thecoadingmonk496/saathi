@@ -1729,99 +1729,7 @@ export default function Admin() {
                           </div>
                         )}
 
-                        <div className="flex items-center gap-2 justify-end flex-wrap mt-5">
-                          {deal.status === 'ADMIN_MOISTURE_REVIEW' && (
-                            <>
-                              <button
-                                onClick={() => handleVerifyMoisture(deal._id, 'APPROVED')}
-                                disabled={actionLoadingId === deal._id}
-                                className="px-4 py-2 bg-[#E51B2A] text-white font-black rounded-lg text-xs hover:bg-red-800 shadow-sm"
-                              >
-                                Approve Moisture & Photos
-                              </button>
-                              <InlineConfirmButton
-                                id={`${deal._id}-reject-moisture`}
-                                confirmingId={confirmingId}
-                                setConfirmingId={setConfirmingId}
-                                fastMode={fastMode}
-                                baseText="Reject"
-                                confirmText="Reject"
-                                baseClassName="px-4 py-2 bg-[#C62828] text-white font-black rounded-lg text-xs hover:bg-red-800 shadow-sm"
-                                disabled={actionLoadingId === deal._id}
-                                onConfirm={() => handleVerifyMoisture(deal._id, 'REJECTED')}
-                              />
-                            </>
-                          )}
 
-                          {deal.status === 'HUMAN_REVIEW' && (
-                            <>
-                              <button
-                                onClick={() => handleVerifyPreShipment(deal._id, 'APPROVED')}
-                                disabled={actionLoadingId === deal._id}
-                                className="px-4 py-2 bg-[#E51B2A] text-white font-black rounded-lg text-xs hover:bg-red-800 shadow-sm"
-                              >
-                                Approve Photos
-                              </button>
-                              <InlineConfirmButton
-                                id={`${deal._id}-reject-photos`}
-                                confirmingId={confirmingId}
-                                setConfirmingId={setConfirmingId}
-                                fastMode={fastMode}
-                                baseText="Reject"
-                                confirmText="Reject"
-                                baseClassName="px-4 py-2 bg-[#C62828] text-white font-black rounded-lg text-xs hover:bg-red-800 shadow-sm"
-                                disabled={actionLoadingId === deal._id}
-                                onConfirm={() => handleVerifyPreShipment(deal._id, 'REJECTED')}
-                              />
-                            </>
-                          )}
-
-                          {deal.status === 'BUYER_DELIVERY_UPLOADED' && (
-                            <div className="mt-4 p-4 bg-blue-50 rounded-xl space-y-3 w-full">
-                              <h6 className="text-sm font-bold text-blue-900">Finalize Deal & Release Escrow</h6>
-                              <p className="text-xs text-blue-800 mb-2">Transfer the escrow funds to the farmer's bank account, then upload the receipt below.</p>
-                              <input
-                                type="text"
-                                placeholder="Bank Transfer UTR Number"
-                                value={adminUtr}
-                                onChange={(e) => setAdminUtr(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg text-xs font-mono bg-white text-[#132B47] focus:outline-none focus:border-blue-400"
-                              />
-                              <input
-                                type="file"
-                                accept="image/*,.pdf"
-                                onChange={(e) => {
-                                  const file = e.target.files[0];
-                                  if(file) {
-                                    const r = new FileReader();
-                                    r.onload = () => setAdminReceipt(r.result);
-                                    r.readAsDataURL(file);
-                                  }
-                                }}
-                                className="w-full px-3 py-2 rounded-lg text-xs bg-white text-[#5F6B7A]"
-                              />
-                              <div className="flex gap-2 pt-2">
-                                <button
-                                  onClick={() => handleVerifyFinalDelivery(deal._id, 'APPROVED')}
-                                  disabled={actionLoadingId === deal._id || !adminUtr || !adminReceipt}
-                                  className="px-4 py-2 bg-[#E51B2A] text-white font-black rounded-lg text-xs hover:bg-red-800 disabled:opacity-50 shadow-sm"
-                                >
-                                  Approve Delivery & Upload Receipt
-                                </button>
-                                <InlineConfirmButton
-                                  id={`${deal._id}-reject-delivery`}
-                                  confirmingId={confirmingId}
-                                  setConfirmingId={setConfirmingId}
-                                  fastMode={fastMode}
-                                  baseText="Reject (Refund Buyer)"
-                                  confirmText="Reject"
-                                  baseClassName="px-4 py-2 bg-[#C62828] text-white font-black rounded-lg text-xs hover:bg-red-800 disabled:opacity-50 shadow-sm"
-                                  disabled={actionLoadingId === deal._id}
-                                  onConfirm={() => handleVerifyFinalDelivery(deal._id, 'REJECTED')}
-                                />
-                              </div>
-                            </div>
-                          )}
 
                           <div className="flex items-center gap-2 justify-end flex-wrap mt-5">
                             {deal.status === 'ADMIN_MOISTURE_REVIEW' && (
@@ -1954,7 +1862,6 @@ export default function Admin() {
                           </div>
                         </div>
                       </div>
-                    </div>
                   );
                 })}
               </div>

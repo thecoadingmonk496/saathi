@@ -387,7 +387,7 @@ router.patch('/deals/:id/verify-moisture', verifyAdminToken, async (req, res) =>
     if (req.body.status === 'REJECTED') {
       deal.status = 'AI_FLAGGED'; // Send back to farmer to re-upload photos
     } else {
-      deal.status = 'BUYER_PAYMENT_PENDING'; // Proceed to buyer payment
+      deal.status = 'BANK_DETAILS_PENDING'; // Proceed to farmer bank details
     }
 
     await deal.save();
