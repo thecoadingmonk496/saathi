@@ -968,7 +968,10 @@ import re
 
 def extract_intent(query: str) -> dict:
     prompt = f'''Extract information from this agricultural query: "{query}"
-Respond EXACTLY in this JSON format. Correct any spelling or typos in locations (e.g., 'varansi' -> 'Varanasi', 'punjab' -> 'Punjab') and map crops to canonical names ('Rice' instead of 'chawal'). If not mentioned, use null.
+Respond EXACTLY in this JSON format:
+1. Correct any spelling or typos in locations.
+2. If a city or district is mentioned (e.g., 'Lucknow'), you MUST infer and populate the correct Indian 'state' (e.g., 'Uttar Pradesh'). Do not put the city in the state field.
+3. Map crops to canonical names (e.g., 'Rice' instead of 'chawal'). If not mentioned, use null.
 {{
   "is_price_query": true,
   "crop": "string or null",
