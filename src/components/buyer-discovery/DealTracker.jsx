@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useRef } from 'react';
+import { lazy, Suspense, useState, useRef, useEffect } from 'react';
 import { useRazorpay } from "react-razorpay";
 
 const LiveKitCallModal = lazy(() => import('./LiveKitCallModal'));
@@ -25,7 +25,11 @@ const STATUS_MAP = {
   COMPLETED: 6, DISPUTED: 6, UNVERIFIED: 4,
 };
 
-export default function DealTracker({ deal, userRole, onRefresh, onDeliveryUploaded }) {
+export default function DealTracker({ deal: dealSummary, userRole, onRefresh, onDeliveryUploaded }) {
+  const [detailDeal, setDetailDeal] = useState(null);
+  const [detailError, setDetailError] = useState('');
+  const [detailAttempt, setDetailAttempt] = useState(0);
+  const deal = detailDeal?._id === dealSummary._id ? { ...dealSummary, ...detailDeal } : dealSummary;
   const [loading, setLoading] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const { Razorpay } = useRazorpay();
@@ -36,6 +40,29 @@ export default function DealTracker({ deal, userRole, onRefresh, onDeliveryUploa
   const [liveCall, setLiveCall] = useState(null);
   const [callRequestLoading, setCallRequestLoading] = useState(false);
   const deliveryFileInputRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadDealDetails = async () => {
+      setDetailError('');
+      const token = localStorage.getItem('token');
+      try {
+        const response = await fetch(`${API_BASE}/buyer-discovery/deals/${dealSummary._id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'Could not load deal details.');
+        if (!cancelled) {
+          setDetailDeal(result.data);
+          setBankAccount(result.data.farmerBankAccount || '');
+        }
+      } catch (error) {
+        if (!cancelled) setDetailError(error.message || 'Could not load deal details.');
+      }
+    };
+    loadDealDetails();
+    return () => { cancelled = true; };
+  }, [dealSummary._id, detailAttempt]);
 
   const joinFarmerCall = async (endpoint) => {
     try {
@@ -343,6 +370,25 @@ export default function DealTracker({ deal, userRole, onRefresh, onDeliveryUploa
   const latestSubmission = deal.qualitySubmissions && deal.qualitySubmissions.length > 0
     ? deal.qualitySubmissions[deal.qualitySubmissions.length - 1]
     : null;
+
+  if (detailError) {
+    return (
+      <div className="rounded-xl border border-red-200 bg-white p-6 text-center">
+        <p className="font-semibold text-red-800">{detailError}</p>
+        <button
+          type="button"
+          onClick={() => setDetailAttempt((attempt) => attempt + 1)}
+          className="mt-3 rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (detailDeal?._id !== dealSummary._id) {
+    return <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm font-semibold text-gray-600">Loading deal details...</div>;
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">

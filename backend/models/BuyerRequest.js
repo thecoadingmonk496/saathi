@@ -65,4 +65,7 @@ const buyerRequestSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+buyerRequestSchema.index({ buyerId: 1, createdAt: -1 });
+buyerRequestSchema.index({ status: 1, publishedAt: -1 });
+
 module.exports = mongoose.model('BuyerRequest', buyerRequestSchema);

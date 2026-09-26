@@ -10,6 +10,11 @@ const AdminWallet = require('../models/AdminWallet');
 const WalletTransaction = require('../models/WalletTransaction');
 const { AccessToken } = require('livekit-server-sdk');
 
+function hydrateBuyerRequest(request) {
+  const buyerId = request.buyerId;
+  return { ...BuyerRequest.hydrate(request).toObject(), buyerId };
+}
+
 function liveKitConfigured() {
   return Boolean(process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET);
 }
@@ -135,9 +140,24 @@ router.get('/requests/all-published', requireAuth, async (req, res) => {
       publishedFilter.buyerId = { $ne: req.user._id };
     }
 
-    const requests = await BuyerRequest.find(publishedFilter)
-      .populate('buyerId', 'firstName lastName village district state')
-      .sort('-publishedAt');
+    const rawRequests = await BuyerRequest.aggregate([
+      { $match: publishedFilter },
+      { $sort: { publishedAt: -1 } },
+      {
+        $lookup: {
+          from: 'users',
+          let: { buyerId: '$buyerId' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$_id', '$$buyerId'] } } },
+            { $project: { firstName: 1, lastName: 1, village: 1, district: 1, state: 1 } },
+          ],
+          as: 'buyerProfile',
+        },
+      },
+      { $set: { buyerId: { $ifNull: [{ $arrayElemAt: ['$buyerProfile', 0] }, null] } } },
+      { $project: { buyerProfile: 0 } },
+    ]);
+    const requests = rawRequests.map(hydrateBuyerRequest);
     res.json({ success: true, data: requests });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -147,16 +167,39 @@ router.get('/requests/all-published', requireAuth, async (req, res) => {
 // Get buyer's own requests (Buyer only)
 router.get('/requests/mine', requireAuth, requireRole('BUYER'), async (req, res) => {
   try {
-    const requests = await BuyerRequest.find({ buyerId: req.user._id }).sort('-createdAt');
-
-    const fulfilledQuantities = await FarmerOffer.aggregate([
-      { $match: { buyerRequestId: { $in: requests.map((request) => request._id) }, status: 'ACCEPTED' } },
-      { $group: { _id: '$buyerRequestId', quantity: { $sum: '$quantity' } } },
+    const rawRequests = await BuyerRequest.aggregate([
+      { $match: { buyerId: req.user._id } },
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: 'farmeroffers',
+          let: { requestId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$buyerRequestId', '$$requestId'] },
+                    { $eq: ['$status', 'ACCEPTED'] },
+                  ],
+                },
+              },
+            },
+            { $group: { _id: null, quantity: { $sum: '$quantity' } } },
+          ],
+          as: 'acceptedOfferTotals',
+        },
+      },
+      {
+        $set: {
+          fulfilledQuantity: { $ifNull: [{ $arrayElemAt: ['$acceptedOfferTotals.quantity', 0] }, 0] },
+        },
+      },
+      { $project: { acceptedOfferTotals: 0 } },
     ]);
-    const fulfilledByRequest = new Map(fulfilledQuantities.map((row) => [row._id.toString(), row.quantity]));
-    const requestsWithFulfilled = requests.map((request) => ({
-      ...request.toObject(),
-      fulfilledQuantity: fulfilledByRequest.get(request._id.toString()) || 0,
+    const requestsWithFulfilled = rawRequests.map((request) => ({
+      ...BuyerRequest.hydrate(request).toObject(),
+      fulfilledQuantity: request.fulfilledQuantity,
     }));
     
     res.json({ success: true, data: requestsWithFulfilled });
@@ -169,9 +212,24 @@ router.get('/requests/mine', requireAuth, requireRole('BUYER'), async (req, res)
 router.get('/requests/published', requireAuth, requireRole('FARMER'), async (req, res) => {
   try {
     // Also include details about the buyer but exclude sensitive data if needed
-    const requests = await BuyerRequest.find({ status: 'PUBLISHED' })
-      .populate('buyerId', 'firstName lastName village district state')
-      .sort('-publishedAt');
+    const rawRequests = await BuyerRequest.aggregate([
+      { $match: { status: 'PUBLISHED' } },
+      { $sort: { publishedAt: -1 } },
+      {
+        $lookup: {
+          from: 'users',
+          let: { buyerId: '$buyerId' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$_id', '$$buyerId'] } } },
+            { $project: { firstName: 1, lastName: 1, village: 1, district: 1, state: 1 } },
+          ],
+          as: 'buyerProfile',
+        },
+      },
+      { $set: { buyerId: { $ifNull: [{ $arrayElemAt: ['$buyerProfile', 0] }, null] } } },
+      { $project: { buyerProfile: 0 } },
+    ]);
+    const requests = rawRequests.map(hydrateBuyerRequest);
     res.json({ success: true, data: requests });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -369,12 +427,43 @@ router.post('/offers/:id/ignore', requireAuth, requireRole('BUYER'), async (req,
 // Get farmer's own offers
 router.get('/offers/mine', requireAuth, requireRole('FARMER'), async (req, res) => {
   try {
-    const offers = await FarmerOffer.find({ farmerId: req.user._id })
-      .populate({
-        path: 'buyerRequestId',
-        populate: { path: 'buyerId', select: 'firstName lastName village' }
-      })
-      .sort('-createdAt');
+    const rawOffers = await FarmerOffer.aggregate([
+      { $match: { farmerId: req.user._id } },
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: 'buyerrequests',
+          let: { requestId: '$buyerRequestId' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$_id', '$$requestId'] } } },
+            {
+              $lookup: {
+                from: 'users',
+                let: { buyerId: '$buyerId' },
+                pipeline: [
+                  { $match: { $expr: { $eq: ['$_id', '$$buyerId'] } } },
+                  { $project: { firstName: 1, lastName: 1, village: 1 } },
+                ],
+                as: 'buyerProfile',
+              },
+            },
+            { $set: { buyerId: { $ifNull: [{ $arrayElemAt: ['$buyerProfile', 0] }, null] } } },
+            { $project: { buyerProfile: 0 } },
+          ],
+          as: 'buyerRequestId',
+        },
+      },
+      { $unwind: { path: '$buyerRequestId', preserveNullAndEmptyArrays: true } },
+    ]);
+    const offers = rawOffers.map((offer) => {
+      const offerObj = FarmerOffer.hydrate(offer).toObject();
+      if (offer.buyerRequestId && typeof offer.buyerRequestId === 'object') {
+        offerObj.buyerRequestId = hydrateBuyerRequest(offer.buyerRequestId);
+      } else {
+        offerObj.buyerRequestId = null;
+      }
+      return offerObj;
+    });
     res.json({ success: true, data: offers });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -406,15 +495,80 @@ router.get('/deals', requireAuth, async (req, res) => {
     const isBuyer = buyerRoles.includes(req.user.role);
     const query = isBuyer ? { buyerId: req.user._id } : { farmerId: req.user._id };
 
-    let deals = await Deal.find(query)
-      .populate('buyerId', 'firstName lastName phone email village block district state')
-      .populate('farmerId', 'firstName lastName phone email village block district state')
-      .populate('buyerRequestId', 'crop quantity unit offeredPrice location description')
-      .sort('-createdAt');
+    const rawDeals = await Deal.aggregate([
+      { $match: query },
+      {
+        $set: {
+          qualitySubmissions: {
+            $map: {
+              input: { $ifNull: ['$qualitySubmissions', []] },
+              as: 'submission',
+              in: {
+                $mergeObjects: [
+                  '$$submission',
+                  { imageCount: { $size: { $ifNull: ['$$submission.imageUrls', []] } } },
+                ],
+              },
+            },
+          },
+        },
+      },
+      { $unset: ['qualitySubmissions.imageUrls', 'deliverySubmissions', 'transactionReceiptUrl'] },
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: 'users',
+          let: { buyerId: '$buyerId' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$_id', '$$buyerId'] } } },
+            { $project: { firstName: 1, lastName: 1, phone: 1, email: 1, village: 1, block: 1, district: 1, state: 1 } },
+          ],
+          as: 'buyerProfile',
+        },
+      },
+      { $set: { buyerId: { $ifNull: [{ $arrayElemAt: ['$buyerProfile', 0] }, null] } } },
+      { $project: { buyerProfile: 0 } },
+      {
+        $lookup: {
+          from: 'users',
+          let: { farmerId: '$farmerId' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$_id', '$$farmerId'] } } },
+            { $project: { firstName: 1, lastName: 1, phone: 1, email: 1, village: 1, block: 1, district: 1, state: 1 } },
+          ],
+          as: 'farmerProfile',
+        },
+      },
+      { $set: { farmerId: { $ifNull: [{ $arrayElemAt: ['$farmerProfile', 0] }, null] } } },
+      { $project: { farmerProfile: 0 } },
+      {
+        $lookup: {
+          from: 'buyerrequests',
+          let: { requestId: '$buyerRequestId' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$_id', '$$requestId'] } } },
+            { $project: { crop: 1, quantity: 1, unit: 1, offeredPrice: 1, location: 1, description: 1 } },
+          ],
+          as: 'buyerRequestId',
+        },
+      },
+      { $unwind: { path: '$buyerRequestId', preserveNullAndEmptyArrays: true } },
+    ]);
+    let deals = rawDeals.map((deal) => {
+      const dealObj = Deal.hydrate(deal).toObject();
+      dealObj.buyerId = deal.buyerId;
+      dealObj.farmerId = deal.farmerId;
+      dealObj.buyerRequestId = deal.buyerRequestId;
+      dealObj.qualitySubmissions = (dealObj.qualitySubmissions || []).map((submission, index) => ({
+        ...submission,
+        imageCount: deal.qualitySubmissions?.[index]?.imageCount || 0,
+      }));
+      return dealObj;
+    });
       
     // Enforce Privacy: Remove contact details unless ACCEPTED, VERIFIED or beyond
     deals = deals.map(deal => {
-      const dealObj = deal.toObject();
+      const dealObj = deal;
       if (!['ACCEPTED', 'VERIFIED', 'ADMIN_PRE_SHIPMENT_VERIFIED', 'BUYER_DELIVERY_UPLOADED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'DISPUTED'].includes(deal.status)) {
         // Strip sensitive info
         if (dealObj.buyerId) {

@@ -190,4 +190,7 @@ const dealSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+dealSchema.index({ buyerId: 1, createdAt: -1 });
+dealSchema.index({ farmerId: 1, createdAt: -1 });
+
 module.exports = mongoose.model('Deal', dealSchema);

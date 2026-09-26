@@ -45,4 +45,7 @@ const farmerOfferSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+farmerOfferSchema.index({ buyerRequestId: 1, status: 1 });
+farmerOfferSchema.index({ farmerId: 1, createdAt: -1 });
+
 module.exports = mongoose.model('FarmerOffer', farmerOfferSchema);

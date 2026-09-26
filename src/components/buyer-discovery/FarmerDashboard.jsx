@@ -669,7 +669,7 @@ export default function FarmerDashboard() {
 
                       return sortedDeals.map(deal => {
                       const latestSubmission = deal.qualitySubmissions?.[deal.qualitySubmissions.length - 1];
-                      const photosSubmitted = Boolean(latestSubmission?.imageUrls?.length)
+                      const photosSubmitted = Boolean(latestSubmission?.imageCount || latestSubmission?.imageUrls?.length)
                         || ['AGENT_PAYMENT_PENDING', 'HUMAN_REVIEW', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'DISPUTED'].includes(deal.status);
                       const aiPassed = latestSubmission?.aiStatus === 'PASSED'
                         || ['AGENT_PAYMENT_PENDING', 'HUMAN_REVIEW', 'VERIFIED', 'RECEIPT_SUBMITTED', 'COMPLETED', 'DISPUTED'].includes(deal.status);
