@@ -1062,12 +1062,10 @@ def get_mandi_prices_context(
             records = fetch_with_filters(nationwide_filters)
 
         if not records:
-            debug_filters = {k: getattr(v, 'pattern', str(v)) for k, v in filters.items()}
             logger.info("[MANDI] No records matched filters=%s", filters)
-            return f"MANDI_DATA: Live price is currently unavailable for the requested area. Debug info to tell the user: I searched for {debug_filters}"
+            return "MANDI_DATA: Live price is currently unavailable for the requested area or crop."
 
-        debug_filters = {k: getattr(v, "pattern", str(v)) for k, v in filters.items()}
-        lines = [f"MANDI_DATA (IMPORTANT: Tell the user exactly what filters I used: {debug_filters}):"]
+        lines = ["MANDI_DATA: The following prices come directly from the live mandi database:"]
         for record in records:
             location = ", ".join(
                 value for value in (record.get("market"), record.get("district"), record.get("state")) if value
