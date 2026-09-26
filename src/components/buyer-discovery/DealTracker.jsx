@@ -640,7 +640,7 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
             )}
 
             {/* Step 3: ONLY shown after ₹250 is Paid (isFeePaid === true) */}
-            {isFeePaid && deal.status !== 'AGENT_PAYMENT_PENDING' && deal.status !== 'VERIFIED' && deal.status !== 'ADMIN_PRE_SHIPMENT_VERIFIED' && deal.status !== 'COMPLETED' && deal.status !== 'UNVERIFIED' && (
+            {isFeePaid && deal.status !== 'AGENT_PAYMENT_PENDING' && deal.status !== 'VERIFIED' && deal.status !== 'ADMIN_PRE_SHIPMENT_VERIFIED' && deal.status !== 'COMPLETED' && deal.status !== 'UNVERIFIED' && deal.status !== 'BUYER_DELIVERY_UPLOADED' && deal.status !== 'ESCROW_PENDING' && deal.status !== 'RECEIPT_SUBMITTED' && (
               <div className="bg-amber-50 rounded-2xl border border-amber-200 p-5 space-y-3">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
@@ -654,12 +654,6 @@ export default function DealTracker({ deal, userRole, onRefresh }) {
                     <span className="font-semibold text-gray-500">Fixed Deal Amount</span>
                     <span className="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                       ₹{(deal.escrowDepositAmount || (deal.quantity * deal.agreedPrice)).toLocaleString('en-IN')} PAID ✓
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-gray-500">Agent Connection Fee</span>
-                    <span className="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                      ₹250 PAID ✓
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
