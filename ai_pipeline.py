@@ -1462,6 +1462,42 @@ def run_ai_pipeline(
 
     intent = extract_intent(query)
     
+    # ── Deterministic enrichment: use INDIA_DISTRICT_MAP to guarantee correct state/district ──
+    # The LLM extraction is non-deterministic and sometimes returns wrong state
+    # (e.g., "UP" instead of "Uttar Pradesh") or misses the state entirely.
+    # The hard-coded map is the safety net.
+    llm_district = (intent.get("district") or "").strip().lower()
+    llm_state = (intent.get("state") or "").strip()
+    
+    # If LLM gave us a district, look it up in the deterministic map
+    if llm_district and llm_district in INDIA_DISTRICT_MAP:
+        map_state, map_district = INDIA_DISTRICT_MAP[llm_district]
+        intent["state"] = map_state
+        intent["district"] = map_district
+        logger.info(f"[INTENT] INDIA_DISTRICT_MAP enriched: district={map_district}, state={map_state}")
+    elif llm_district:
+        # LLM gave a district not in the map — try regex-based extraction as fallback
+        regex_loc = extract_location_from_message(query)
+        if regex_loc:
+            intent["state"] = regex_loc.get("state") or intent.get("state")
+            intent["district"] = regex_loc.get("district") or intent.get("district")
+            logger.info(f"[INTENT] Regex fallback enriched: {regex_loc}")
+    
+    # If LLM missed district entirely, try regex-based extraction
+    if not intent.get("district"):
+        regex_loc = extract_location_from_message(query)
+        if regex_loc:
+            intent["state"] = regex_loc.get("state") or intent.get("state")
+            intent["district"] = regex_loc.get("district") or intent.get("district")
+            logger.info(f"[INTENT] Regex backfill: {regex_loc}")
+    
+    # If LLM missed crop, try regex-based crop extraction
+    if not intent.get("crop"):
+        regex_crop = extract_crop_from_message(query)
+        if regex_crop:
+            intent["crop"] = regex_crop
+            logger.info(f"[INTENT] Regex crop backfill: {regex_crop}")
+    
     effective_profile = (profile or {}).copy()
     if intent.get("state"):
         effective_profile['state'] = intent.get("state")
